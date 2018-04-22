@@ -60,6 +60,9 @@ template bgp bgp_template {
 }
 
 # ------------- Node-to-node mesh -------------
+{{$node_cid_key := printf "/host/%s/cluster_id" (getenv "NODENAME")}}{{if exists $node_cid_key}}
+# This is a route reflector node.
+{{else}}
 {{if (json (getv "/global/node_mesh")).enabled}}
 {{range $host := lsdir "/host"}}
 {{$onode_as_key := printf "/host/%s/as_num" .}}
@@ -73,7 +76,20 @@ template bgp bgp_template {
 {{else}}
 # Node-to-node mesh disabled
 {{end}}
+{{end}}
 
+# ------------- RR mesh -------------
+{{$node_cid_key := printf "/host/%s/cluster_id" (getenv "NODENAME")}}{{if exists $node_cid_key}}{{$cluster_id := getv $node_cid_key}}
+{{if ne "" ($cluster_id)}}
+{{range $host := lsdir "/host"}}
+{{$onode_cid_key := printf "/host/%s/cluster_id" .}}{{if exists $onode_cid_key}}{{$onode_cid := getv $onode_cid_key}}
+{{$onode_as_key := printf "/host/%s/as_num" .}}
+{{$onode_ip_key := printf "/host/%s/ip_addr_v4" .}}{{if exists $onode_ip_key}}{{$onode_ip := getv $onode_ip_key}}
+{{$nums := split $onode_ip "."}}{{$id := join $nums "_"}}
+{{if eq $onode_ip ($node_ip) }}# Skipping ourselves ({{$node_ip}})
+{{else if eq $onode_cid $cluster_id}}protocol bgp RR_{{$id}} from bgp_template {
+  neighbor {{$onode_ip}} as {{if exists $onode_as_key}}{{getv $onode_as_key}}{{else}}{{getv "/global/as_num"}}{{end}};
+}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}
 
 # ------------- Global peers -------------
 {{if ls "/global/peer_v4"}}
@@ -82,6 +98,11 @@ template bgp bgp_template {
 # For peer {{.Key}}
 protocol bgp Global_{{$id}} from bgp_template {
   neighbor {{$data.ip}} as {{$data.as_num}};
+{{$node_cid_key := printf "/host/%s/cluster_id" (getenv "NODENAME")}}{{if exists $node_cid_key}}{{$cluster_id := getv $node_cid_key}}
+{{if ne "" ($cluster_id)}}
+  rr client
+  rr cluster id {{$cluster_id}}
+{{end}}{{end}}
 }
 {{end}}
 {{else}}# No global peers configured.{{end}}
@@ -95,6 +116,11 @@ protocol bgp Global_{{$id}} from bgp_template {
 # For peer {{.Key}}
 protocol bgp Node_{{$id}} from bgp_template {
   neighbor {{$data.ip}} as {{$data.as_num}};
+{{$node_cid_key := printf "/host/%s/cluster_id" (getenv "NODENAME")}}{{if exists $node_cid_key}}{{$cluster_id := getv $node_cid_key}}
+{{if ne "" ($cluster_id)}}
+  rr client
+  rr cluster id {{$cluster_id}}
+{{end}}{{end}}
 }
 {{end}}
 {{else}}# No node-specific peers configured.{{end}}
