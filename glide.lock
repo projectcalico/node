@@ -1,5 +1,5 @@
-hash: 46aee92c52d7bd2845a16f634c0f2a9710de0fcd1f9820a9539d78696c269d17
-updated: 2018-07-12T15:07:08.712458877-07:00
+hash: 98cb65e2a69fbd58eeb51b357bbfb36bba69555c62f0fc5127b2a11bc1b90bd7
+updated: 2018-07-13T10:40:42.266734919-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -20,8 +20,7 @@ imports:
 - name: github.com/BurntSushi/toml
   version: a368813c5e648fee92e5f6c30e3944ff9d5e8895
 - name: github.com/coreos/etcd
-  version: e8287287893bd4080040e4fe68dae8a20476b095
-  repo: https://github.com/projectcalico/etcd.git
+  version: c23606781f63d09917a1e7abfcefeb337a9608ea
   subpackages:
   - auth/authpb
   - client
@@ -45,8 +44,6 @@ imports:
   - spew
 - name: github.com/dgrijalva/jwt-go
   version: 01aeca54ebda6e0fbfafd0a524d234159c05ec20
-- name: github.com/dustin/go-humanize
-  version: bb3d318650d48840a39aa21a027c6630e198e626
 - name: github.com/ghodss/yaml
   version: 0ca9ea5df5451ffdf184b4428c902747c2c11cd7
 - name: github.com/go-ini/ini
@@ -102,8 +99,8 @@ imports:
 - name: github.com/kardianos/osext
   version: ae77be60afb1dcacde03767a8c37337fad28ac14
 - name: github.com/kelseyhightower/confd
-  version: 1eb2608e4dea19483ff0bdb260b63c09bd15bf98
-  repo: https://github.com/projectcalico/confd.git
+  version: 1163edf9e09715878bf786e211c60474a438012a
+  repo: git@github.com:caseydavenport/confd.git
   subpackages:
   - pkg/backends
   - pkg/backends/calico
@@ -211,7 +208,8 @@ imports:
 - name: github.com/projectcalico/go-yaml-wrapper
   version: 598e54215bee41a19677faa4f0c32acd2a87eb56
 - name: github.com/projectcalico/libcalico-go
-  version: 10c63d26035e5cf5124a2a148e4e15365b83c2e1
+  version: f8211add03729d35f67bfb770aec16d167957c77
+  repo: git@github.com:caseydavenport/libcalico-go.git
   subpackages:
   - lib/apiconfig
   - lib/apis/v1
@@ -269,11 +267,11 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
+  version: 6f3806018612930941127f2a7c6c453ba2c527d2
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: 7600349dcfe1abd18d72d3a1770870d9800a7801
+  version: e3fb1a1acd7605367a2b378bc2e2f893c05174b7
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
@@ -297,9 +295,9 @@ imports:
   subpackages:
   - nl
 - name: github.com/vishvananda/netns
-  version: 54f0e4339ce73702a0607f49922aaa1e749b418d
+  version: be1fbeda19366dea804f00efff2dd73a1642fdcc
 - name: golang.org/x/crypto
-  version: a49355c7e3f8fe157a85be2f77e6e269a0f89602
+  version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net

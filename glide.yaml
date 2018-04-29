@@ -1,8 +1,8 @@
 package: github.com/projectcalico/node
 import:
 - package: github.com/kelseyhightower/confd
-  repo: https://github.com/projectcalico/confd.git
-  version: master
+  version: routereflector
+  repo: git@github.com:caseydavenport/confd.git
   subpackages:
   - pkg/config
   - pkg/run
@@ -11,7 +11,8 @@ import:
   subpackages:
   - daemon
 - package: github.com/projectcalico/libcalico-go
-  version: 10c63d26035e5cf5124a2a148e4e15365b83c2e1
+  version: routereflector
+  repo: git@github.com:caseydavenport/libcalico-go.git
   subpackages:
   - lib/apiconfig
   - lib/apis/v3
