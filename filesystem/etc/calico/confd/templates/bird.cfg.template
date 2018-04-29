@@ -125,3 +125,37 @@ protocol bgp Node_{{$id}} from bgp_template {
 {{end}}
 {{else}}# No node-specific peers configured.{{end}}
 {{end}}{{/* End of IPv4 enable check */}}
+
+# ------------ Selector peers -------------------
+{{if ls "/global/peer_sel"}}
+{{range gets "/global/peer_sel/*"}}{{$data := json .Value}}
+{{if selectsme $data.node_selector}}
+# For peer {{$data.name}}
+# {{$data}}
+{{range matchingnodes $data.peer_selector}}
+# {{.}}
+{{$onode_as_key := printf "/host/%s/as_num" .}}
+{{$onode_ip_key := printf "/host/%s/ip_addr_v4" .}}{{if exists $onode_ip_key}}{{$onode_ip := getv $onode_ip_key}}
+{{$nums := split $onode_ip "."}}{{$id := join $nums "_"}}
+{{if eq $onode_ip ($node_ip) }}# Skipping ourselves ({{$node_ip}})
+{{else}}protocol bgp Node_{{$id}} from bgp_template {
+  neighbor {{$onode_ip}} as {{if exists $onode_as_key}}{{getv $onode_as_key}}{{else}}{{getv "/global/as_num"}}{{end}};
+{{$node_cid_key := printf "/host/%s/cluster_id" (getenv "NODENAME")}}{{if exists $node_cid_key}}{{$cluster_id := getv $node_cid_key}}
+{{if ne "" ($cluster_id)}}
+{{$onode_cid_key := printf "/host/%s/cluster_id" .}}{{if exists $onode_cid_key}}{{$onode_cid := getv $onode_cid_key}}
+{{if eq "" ($onode_cid)}}
+  rr client;
+  rr cluster id {{$cluster_id}};
+{{end}}
+{{else}}
+  rr client;
+  rr cluster id {{$cluster_id}};
+{{end}}
+{{end}}{{end}}
+}
+{{end}}
+{{end}}
+{{end}}
+{{end}}
+{{end}}
+{{end}}
