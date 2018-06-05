@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	cryptorand "crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -29,6 +30,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/projectcalico/cni-plugin/types"
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
@@ -930,7 +932,15 @@ func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c 
 	// Ensure the ClusterInformation is populated.
 	// Get the ClusterType from ENV var. This is set from the manifest.
 	clusterType := os.Getenv("CLUSTER_TYPE")
-	c.EnsureInitialized(ctx, VERSION, clusterType)
+	var cniConfig types.NetConf
+	cniConfigFile, err := os.Open("/etc/cni/net.d/10-calico.conflist")
+	if err != nil {
+		return fmt.Errorf("failed to get cni conf: %v", err)
+	}
+	defer cniConfigFile.Close()
+	d := json.NewDecoder(cniConfigFile)
+	d.Decode(&cniConfig)
+	c.EnsureInitialized(ctx, VERSION, clusterType, cniConfig.CNIVersion)
 
 	// By default we set the global reporting interval to 0 - this is
 	// different from the defaults defined in Felix.
