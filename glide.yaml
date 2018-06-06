@@ -3,7 +3,8 @@ import:
 - package: github.com/sirupsen/logrus
   version: v1.0.4
 - package: github.com/projectcalico/libcalico-go
-  version: d6aff54dc3527357f016c0cd5c5364f21a15e9b4
+  repo: https://github.com/dmmcquay/libcalico-go
+  version: 6685fc9f71ae6e0bb42c2ea6a958abeb036f2cfc
   subpackages:
   - lib/api
   - lib/client
@@ -19,3 +20,5 @@ import:
   version: f98634e408857669d61064b283c4cde240622865
 - package: golang.org/x/net
   version: 66aacef3dd8a676686c7ae3716979581e8b03c47
+- package: github.com/projectcalico/cni-plugin
+  version: a9d8b5d2d84e996d6a52bd7af54e82505b4b0cdb
