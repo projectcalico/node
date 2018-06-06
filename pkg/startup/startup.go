@@ -14,6 +14,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/json"
@@ -926,21 +927,39 @@ func ensureFilesystemAsExpected() {
 
 }
 
+func getCNIVersion() string {
+	// Check if can access config file
+	if _, err := os.Stat("/etc/cni/net.d/10-calico.conflist"); os.IsNotExist(err) {
+		cniConfigFile, err := os.Open("/etc/cni/net.d/10-calico.conflist")
+		defer cniConfigFile.Close()
+		if err != nil {
+			log.WithError(err).Warnf("failed to get cni conf from file")
+		} else {
+			var cniConfig types.NetConf
+			d := json.NewDecoder(cniConfigFile)
+			d.Decode(&cniConfig)
+			return cniConfig.CNIVersion
+		}
+	}
+	// Check if its an env var
+	if cniEnv := os.Getenv("CNI_NETWORK_CONFIG"); cniEnv != "" {
+		var cniConfig types.NetConf
+		d := json.NewDecoder(bytes.NewBufferString(cniEnv))
+		d.Decode(&cniConfig)
+		return cniConfig.CNIVersion
+	} else {
+		log.Warnf("failed to get cni conf from env")
+	}
+	return "unknown"
+}
+
 // ensureDefaultConfig ensures all of the required default settings are
 // configured.
 func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c client.Interface, node *api.Node) error {
 	// Ensure the ClusterInformation is populated.
 	// Get the ClusterType from ENV var. This is set from the manifest.
 	clusterType := os.Getenv("CLUSTER_TYPE")
-	var cniConfig types.NetConf
-	cniConfigFile, err := os.Open("/etc/cni/net.d/10-calico.conflist")
-	if err != nil {
-		return fmt.Errorf("failed to get cni conf: %v", err)
-	}
-	defer cniConfigFile.Close()
-	d := json.NewDecoder(cniConfigFile)
-	d.Decode(&cniConfig)
-	c.EnsureInitialized(ctx, VERSION, clusterType, cniConfig.CNIVersion)
+	c.EnsureInitialized(ctx, VERSION, clusterType, getCNIVersion())
 
 	// By default we set the global reporting interval to 0 - this is
 	// different from the defaults defined in Felix.
