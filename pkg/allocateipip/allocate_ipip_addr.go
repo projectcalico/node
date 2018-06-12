@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math/rand"
 	"os"
 	"time"
 
@@ -159,9 +160,20 @@ func assignHostTunnelAddr(ctx context.Context, c client.Interface, nodename stri
 		IPv4Pools: ipipCidrs,
 	}
 
-	ipv4Addrs, _, err := c.IPAM().AutoAssign(ctx, args)
-	if err != nil {
-		log.WithError(err).Fatal("Unable to autoassign an address for IPIP")
+	var ipv4Addrs []net.IP
+
+	// Retry loop around AutoAssign to recover from a distributed race in case
+	// all nodes in a large cluster respond to a change in /pools simultaneously.
+	for a := 3; a > 0; a-- {
+		var err error
+		ipv4Addrs, _, err = c.IPAM().AutoAssign(ctx, args)
+
+		if err != nil {
+			log.WithError(err).Error("Unable to autoassign an address for IPIP:")
+			time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+		} else {
+			break
+		}
 	}
 
 	if len(ipv4Addrs) == 0 {
