@@ -1,0 +1,2 @@
+#!/bin/sh
+exec time -f 'rc=%x elapsed=%e user=%U system=%S maxrss=%M avgrss=%t ins=%I outs=%O minflt=%R majflt=%F swaps=%W avgmem=%K avgdata=%D argv="%C"' "$@"
