@@ -1,3 +1,5 @@
+SHELL = ./rusage sh
+
 # Shortcut targets
 default: build
 
