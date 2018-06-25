@@ -139,7 +139,7 @@ $(BUILT_BINARIES): vendor
 		-e GOOS=linux \
 		-e LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		-v $(CURDIR)/.go-pkg-cache:/go-cache/:rw \
-    	-e GOCACHE=/go-cache \
+	-e GOCACHE=/go-cache \
 		-v $(CURDIR):/go/src/$(PACKAGE_NAME) \
 	  	$(CALICO_BUILD) sh -c '\
 			cd /go/src/$(PACKAGE_NAME) && \
@@ -377,7 +377,7 @@ run-etcd-ssl: certs/.certificates.created add-ssl-hostname
 IPT_ALLOW_ETCD:=-A INPUT -i docker0 -p tcp --dport 2379 -m comment --comment "calico-st-allow-etcd" -j ACCEPT
 
 # Create the calico/test image
-test_image: calico_test.created 
+test_image: calico_test.created
 calico_test.created: $(TEST_CONTAINER_FILES)
 	cd calico_test && docker build -f Dockerfile$(ARCHTAG).calico_test -t $(TEST_CONTAINER_NAME) .
 	touch calico_test.created
@@ -404,7 +404,7 @@ st-checks:
 	iptables-save | grep -q 'calico-st-allow-etcd' || iptables $(IPT_ALLOW_ETCD)
 
 .PHONY: st
-## Run the system tests 
+## Run the system tests
 st: dist/calicoctl busybox.tar routereflector.tar calico-node.tar workload.tar run-etcd calico_test.created dist/calico-cni-plugin dist/calico-ipam-plugin
 	# Check versions of Calico binaries that ST execution will use.
 	docker run --rm -v $(CURDIR)/dist:/go/bin:rw $(CALICO_BUILD) /bin/sh -c "\
@@ -481,8 +481,8 @@ add-ssl-hostname:
 ###############################################################################
 .PHONY: ci
 ci: static-checks fv $(NODE_CONTAINER_NAME) st
-	# Run a small subset of the tests for testing SSL support.
-	ST_TO_RUN=tests/st/policy $(MAKE) st-ssl
+	# Run a single test for testing SSL support.
+	ST_TO_RUN=tests.st.policy.test_profile:MultiHostMainline.test_rules_selector $(MAKE) st-ssl
 
 # This depends on clean to ensure that dependent images get untagged and repulled
 # THIS JOB DELETES LOTS OF THINGS - DO NOT RUN IT ON YOUR LOCAL DEV MACHINE.
@@ -495,7 +495,7 @@ semaphore:
 ###############################################################################
 # Release
 ###############################################################################
-release: clean release-prereqs 
+release: clean release-prereqs
 	git tag $(VERSION)
 
 	# Build the calico/node images.
@@ -548,7 +548,7 @@ ifndef VERSION
 endif
 
 ###############################################################################
-# Utilities 
+# Utilities
 ###############################################################################
 .PHONY: help
 ## Display this help text
