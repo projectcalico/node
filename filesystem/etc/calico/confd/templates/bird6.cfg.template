@@ -55,7 +55,6 @@ template bgp bgp_template {
   export filter calico_pools;  # Only want to export routes for workloads.
   next hop self;     # Disable next hop processing and always advertise our
                      # local address as nexthop
-  source address {{$node_ip6}};  # The local address we use for the TCP connection
   add paths on;
   graceful restart;  # See comment in kernel section about graceful restart.
 }
