@@ -1,3 +1,6 @@
 #!/bin/sh
 exec 2>&1
+if [ -f /etc/calico/confd/config/env_vars ]; then
+  source /etc/calico/confd/config/env_vars
+fi
 exec calico-node -confd
