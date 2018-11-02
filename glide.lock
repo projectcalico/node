@@ -1,5 +1,5 @@
-hash: 871bba7df468f9a205106decf8d620b6ff4b9e79d3585389075c6439720c4cca
-updated: 2018-10-31T17:38:05.452973382Z
+hash: 30c6f60e63869e254ed8c8516ae48f569bdbcbee9a4c54b23484c99c6b6fe567
+updated: 2018-11-02T14:15:33.772052-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -18,7 +18,7 @@ imports:
   subpackages:
   - quantile
 - name: github.com/BurntSushi/toml
-  version: a368813c5e648fee92e5f6c30e3944ff9d5e8895
+  version: 3012a1dbe2e4bd1391d42b32f0577cb7bbc7f005
 - name: github.com/coreos/etcd
   version: 33245c6b5b49130ca99280408fadfab01aac0e48
   subpackages:
@@ -35,7 +35,7 @@ imports:
   - pkg/types
   - version
 - name: github.com/coreos/go-semver
-  version: e214231b295a8ea9479f11b70b35d5acf3556d9b
+  version: 8ab6407b697782a06568d4b7f1db25550ec2e4c6
   subpackages:
   - semver
 - name: github.com/davecgh/go-spew
@@ -228,7 +228,7 @@ imports:
 - name: github.com/projectcalico/go-yaml-wrapper
   version: 598e54215bee41a19677faa4f0c32acd2a87eb56
 - name: github.com/projectcalico/libcalico-go
-  version: 6106092cbcbfd8fa6dc2742a4101d7f6d42b01e6
+  version: f571cb71cd7fa1b773beee7413157b361452e247
   subpackages:
   - lib/apiconfig
   - lib/apis/v1
@@ -319,9 +319,9 @@ imports:
   subpackages:
   - nl
 - name: github.com/vishvananda/netns
-  version: 13995c7128ccc8e51e9a6bd2b551020a27180abd
+  version: 54f0e4339ce73702a0607f49922aaa1e749b418d
 - name: golang.org/x/crypto
-  version: a49355c7e3f8fe157a85be2f77e6e269a0f89602
+  version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
