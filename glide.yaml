@@ -11,7 +11,7 @@ import:
   subpackages:
   - daemon
 - package: github.com/projectcalico/libcalico-go
-  version: release-v3.2
+  version: 00179b9410d8f5191e2bc9e3df04d40ff90efa6d
   subpackages:
   - lib/apiconfig
   - lib/apis/v3
