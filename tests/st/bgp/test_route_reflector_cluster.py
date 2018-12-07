@@ -19,7 +19,7 @@ from tests.st.utils.docker_host import DockerHost, CLUSTER_STORE_DOCKER_OPTIONS
 from tests.st.utils.route_reflector import RouteReflectorCluster
 
 from .peer import create_bgp_peer
-from tests.st.utils.utils import update_bgp_config
+from tests.st.utils.utils import update_bgp_config, retry_until_success
 
 class TestRouteReflectorCluster(TestBase):
 
@@ -52,6 +52,13 @@ class TestRouteReflectorCluster(TestBase):
             for host in [host1, host2]:
                 for rr in rrc.get_redundancy_group():
                     create_bgp_peer(host, "node", rr.ip, 64513, metadata={'name': host.name + rr.name.lower()})
+
+            # Wait for peering to establish.
+            rg = rrc.get_redundancy_group()
+            retry_until_success(rg[0].assert_is_ready, retries=30, felix=False)
+            retry_until_success(rg[1].assert_is_ready, retries=30, felix=False)
+            retry_until_success(host1.assert_is_ready, retries=30, felix=False)
+            retry_until_success(host2.assert_is_ready, retries=30, felix=False)
 
             # Assert network connectivity
             self.assert_true(workload_host1.check_can_ping(workload_host2.ip, retries=10))
@@ -113,6 +120,17 @@ class TestRouteReflectorCluster(TestBase):
                     create_bgp_peer(host, "node", rr.ip, 64513, metadata={'name': host.name + rr.name.lower()})
 
             # Allow network to converge (which it now will).
+            rg = rrc.get_redundancy_group()
+            rg2 = rrc.get_redundancy_group()
+            retry_until_success(rg[0].assert_is_ready, retries=30, felix=False)
+            retry_until_success(rg[1].assert_is_ready, retries=30, felix=False)
+            retry_until_success(rg2[0].assert_is_ready, retries=30, felix=False)
+            retry_until_success(rg2[1].assert_is_ready, retries=30, felix=False)
+            retry_until_success(host1.assert_is_ready, retries=30, felix=False)
+            retry_until_success(host2.assert_is_ready, retries=30, felix=False)
+            retry_until_success(host3.assert_is_ready, retries=30, felix=False)
+
+            # Assert on network reachability.
             self.assert_true(workload_host1.check_can_ping(workload_host2.ip, retries=20))
             self.assert_true(workload_host1.check_can_ping(workload_host3.ip, retries=20))
             self.assert_true(workload_host2.check_can_ping(workload_host3.ip, retries=20))
