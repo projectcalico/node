@@ -159,9 +159,14 @@ func assignHostTunnelAddr(ctx context.Context, c client.Interface, nodename stri
 		IPv4Pools: ipipCidrs,
 	}
 
-	ipv4Addrs, _, err := c.IPAM().AutoAssign(ctx, args)
+	ipv4AddrsNet, _, err := c.IPAM().AutoAssign(ctx, args)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to autoassign an address for IPIP")
+	}
+	ipv4Addrs := make([]net.IP, 0, 0)
+	for _, ipNets := range ipv4AddrsNet {
+		IP, _, _ := net.ParseCIDR(ipNets.String())
+		ipv4Addrs = append(ipv4Addrs, *IP)
 	}
 
 	if len(ipv4Addrs) == 0 {
