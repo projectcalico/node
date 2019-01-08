@@ -56,7 +56,7 @@ func Run() {
 	ctx := context.Background()
 	// Query the IPIP enabled pools and either configure the tunnel
 	// address, or remove it.
-	if cidrs := getIPIPEnabledPoolCIDRs(ctx, c); len(cidrs) > 0 {
+	if cidrs := getIPIPEnabledPoolCIDRs(ctx, c, nodename); len(cidrs) > 0 {
 		ensureHostTunnelAddress(ctx, c, nodename, cidrs)
 	} else {
 		removeHostTunnelAddr(ctx, c, nodename)
@@ -220,7 +220,14 @@ func isIpInPool(ipAddrStr string, ipipCidrs []net.IPNet) bool {
 }
 
 // getIPIPEnabledPools returns all IPIP enabled pools.
-func getIPIPEnabledPoolCIDRs(ctx context.Context, c client.Interface) []net.IPNet {
+func getIPIPEnabledPoolCIDRs(ctx context.Context, c client.Interface, nodename string) []net.IPNet {
+	// Get node resource for given nodename.
+	node, err := c.Nodes().Get(ctx, nodename, options.GetOptions{})
+	if err != nil {
+		log.Panic("failed to fetch node resource", err)
+	}
+
+	// Get list of ip pools
 	ipPoolList, err := c.IPPools().List(ctx, options.ListOptions{})
 	if err != nil {
 		log.WithError(err).Fatal("Unable to query IP pool configuration")
@@ -231,6 +238,15 @@ func getIPIPEnabledPoolCIDRs(ctx context.Context, c client.Interface) []net.IPNe
 		_, poolCidr, err := net.ParseCIDR(ipPool.Spec.CIDR)
 		if err != nil {
 			log.WithError(err).Fatalf("Failed to parse CIDR '%s' for IPPool '%s'", ipPool.Spec.CIDR, ipPool.Name)
+		}
+
+		// Check if IP pool selects the node
+		if selects, err := ipPool.SelectsNode(*node); err != nil {
+			log.WithError(err).Errorf("Failed to parse nodeSelector '%s' for IPPool '%s', skipping", ipPool.Spec.NodeSelector, ipPool.Name)
+			continue
+		} else if !selects {
+			log.Debugf("IPPool '%s' does not select Node '%s'", ipPool.Name, node.Name)
+			continue
 		}
 
 		// Check if IPIP is enabled in the IP pool, the IP pool is not disabled, and it is IPv4 pool since we don't support IPIP with IPv6.

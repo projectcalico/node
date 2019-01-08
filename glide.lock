@@ -1,5 +1,5 @@
-hash: 7f24d051e423b7acacfcf9dc492197317454a73e8dda5db561de3470fa80eab6
-updated: 2019-01-03T07:41:07.639682292Z
+hash: f8d4ce2005b85e6273a1100a68cb8a75e8c72df9182795b127cb48b21428171c
+updated: 2019-01-08T14:17:19.699108-08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -35,7 +35,7 @@ imports:
   - pkg/types
   - version
 - name: github.com/coreos/go-semver
-  version: e214231b295a8ea9479f11b70b35d5acf3556d9b
+  version: 8ab6407b697782a06568d4b7f1db25550ec2e4c6
   subpackages:
   - semver
 - name: github.com/davecgh/go-spew
@@ -47,7 +47,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: 9c8236e659b76e87bf02044d06fde8683008ff3e
+  version: 6ed8d5f64cd79a498d1f3fab5880cc376ce41bbe
 - name: github.com/gogo/protobuf
   version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
@@ -89,7 +89,7 @@ imports:
   subpackages:
   - diskcache
 - name: github.com/hashicorp/go-version
-  version: b5a281d3160aa11950a6182bd9a9dc2cb1e02d50
+  version: d40cf49b3a77bba84a7afdbd7f1dc295d114efb1
 - name: github.com/hashicorp/golang-lru
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
@@ -228,7 +228,7 @@ imports:
 - name: github.com/projectcalico/go-yaml-wrapper
   version: 598e54215bee41a19677faa4f0c32acd2a87eb56
 - name: github.com/projectcalico/libcalico-go
-  version: 4600040fed729a899891872f48869af3e2f05b0e
+  version: 546924c64399f9890d67864d24075c06f0eaffa3
   subpackages:
   - lib/apiconfig
   - lib/apis/v1
@@ -319,9 +319,9 @@ imports:
   subpackages:
   - nl
 - name: github.com/vishvananda/netns
-  version: 54f0e4339ce73702a0607f49922aaa1e749b418d
+  version: 13995c7128ccc8e51e9a6bd2b551020a27180abd
 - name: golang.org/x/crypto
-  version: 94eea52f7b742c7cbe0b03b22f0c4c8631ece122
+  version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
