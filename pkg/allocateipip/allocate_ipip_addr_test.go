@@ -78,7 +78,7 @@ var _ = Describe("determineIPIPEnabledPoolCIDRs", func() {
 	// Install a hook that adds file and line number information.
 	log.AddHook(&logutils.ContextHook{})
 
-	It("should match ip-pool-2 but not ip-pool-1", func() {
+	It("should match ip-pool-1 but not ip-pool-2", func() {
 		// Mock out the node and ip pools
 		n := api.Node{ObjectMeta: metav1.ObjectMeta{Name: "bee-node", Labels: map[string]string{"foo": "bar"}}}
 		pl := api.IPPoolList{
@@ -88,7 +88,7 @@ var _ = Describe("determineIPIPEnabledPoolCIDRs", func() {
 					Spec: api.IPPoolSpec{
 						Disabled:     false,
 						CIDR:         "172.0.0.0/9",
-						NodeSelector: `foo != "bar"`,
+						NodeSelector: `foo == "bar"`,
 						IPIPMode:     api.IPIPModeAlways,
 					},
 				}, api.IPPool{
@@ -96,17 +96,17 @@ var _ = Describe("determineIPIPEnabledPoolCIDRs", func() {
 					Spec: api.IPPoolSpec{
 						Disabled:     false,
 						CIDR:         "172.128.0.0/9",
-						NodeSelector: `foo == "bar"`,
+						NodeSelector: `foo != "bar"`,
 						IPIPMode:     api.IPIPModeAlways,
 					},
 				}}}
 
 		// Execute and test assertions.
 		cidrs := determineIPIPEnabledPoolCIDRs(n, pl)
-		_, cidr1, _ := net.ParseCIDR("172.128.0.1/9")
+		_, cidr1, _ := net.ParseCIDR("172.0.0.1/9")
 		_, cidr2, _ := net.ParseCIDR("172.128.0.1/9")
-		Expect(cidrs).To(ContainElement(cidr1))
-		Expect(cidrs).ToNot(ContainElement(cidr2))
+		Expect(cidrs).To(ContainElement(*cidr1))
+		Expect(cidrs).ToNot(ContainElement(*cidr2))
 	})
 })
 
