@@ -143,6 +143,13 @@ EOF
           matchStr += "\n\tnexthop via %s  dev eth0 weight 1" % ip
         retry_until_success(lambda: self.assertIn(matchStr, self.get_routes()))
 
+    def test_rr(self):
+        run("kubectl exec -i -n kube-system calicoctl -- /calicoctl get nodes -o yaml")
+        run("kubectl exec -i -n kube-system calicoctl -- /calicoctl get bgppeers -o yaml")
+        run("kubectl exec -i -n kube-system calicoctl -- /calicoctl get bgpconfigs -o yaml")
+        run("kubectl exec -i -n kube-system calicoctl -- /calicoctl get node kube-node-2 -o json")
+        assert False
+
     def test_mainline(self):
         """
         Runs the mainline tests for service ip advertisement
