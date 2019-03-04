@@ -1,5 +1,5 @@
-hash: 51bb5a56e85d70ff03e322babc46ff68407ec9d9003ede1763a4a773d4784f9a
-updated: 2019-03-04T07:38:55.519185838Z
+hash: 0749896e015509211510aa8282ac6987d6d1eba227dd2b24bc21024587e393f1
+updated: 2019-03-04T13:32:38.670231234Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -14,7 +14,7 @@ imports:
   - autorest/azure
   - autorest/date
 - name: github.com/beorn7/perks
-  version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
+  version: 3a771d992973f24aa725d07868b467d1ddfceafb
   subpackages:
   - quantile
 - name: github.com/BurntSushi/toml
@@ -236,7 +236,7 @@ imports:
 - name: github.com/projectcalico/go-yaml-wrapper
   version: 598e54215bee41a19677faa4f0c32acd2a87eb56
 - name: github.com/projectcalico/libcalico-go
-  version: bed3c60f60d5a00d793ac8f6c08f16251877799f
+  version: d8124fdd8e8335f9ead755b5dd01ee10e7c1672d
   subpackages:
   - lib/apiconfig
   - lib/apis/v1
@@ -327,7 +327,7 @@ imports:
   subpackages:
   - nl
 - name: github.com/vishvananda/netns
-  version: 54f0e4339ce73702a0607f49922aaa1e749b418d
+  version: 8ba1072b58e0c2a240eb5f6120165c7776c3e7b8
 - name: golang.org/x/crypto
   version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
