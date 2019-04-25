@@ -7,3 +7,4 @@ simplejson==3.13.2
 deepdiff==3.3.0
 kubernetes
 pytest
+bs4
