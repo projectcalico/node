@@ -166,7 +166,7 @@ class MultiHostIpam(TestBase):
                                             network=self.network)
             workload_ips.append(workload.ip)
 
-        print workload_ips
+        print("test_ipam_show workload IPs: %s" % workload_ips)
 
         for ip in ipv4_subnet:
             response = self.hosts[0].calicoctl("ipam show --ip=%s" % ip)
