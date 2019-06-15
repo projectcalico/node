@@ -3,6 +3,7 @@ package allocateip
 import (
 	"context"
 	"fmt"
+	gnet "net"
 	"os"
 	"reflect"
 	"time"
@@ -102,17 +103,36 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 		addr = node.Spec.BGP.IPv4IPIPTunnelAddr
 	}
 
+	// Work out if we need to assign a tunnel address.
+	var assign, release bool
 	if addr == "" {
 		// The tunnel has no IP address assigned, assign one.
-		logCtx.Debug("tunnel is not assigned - assign IP")
-		assignHostTunnelAddr(ctx, c, nodename, cidrs, vxlan)
-	} else if isIpInPool(addr, cidrs) {
-		// The tunnel address is still valid, so leave as it.
-		logCtx.WithField("IP", addr).Info("tunnel address is still valid")
-	} else {
+		release = false
+		assign = true
+	} else if !isIpInPool(addr, cidrs) {
 		// The address that is currently assigned is no longer part
 		// of an encapsulatin-enabled pool, so release the IP, and reassign.
-		logCtx.WithField("IP", addr).Info("Reassigning tunnel address")
+		release = true
+		assign = true
+	} else {
+		// The tunnel address is still part of an an encapsulatin-enabled pool.
+		ipAddr := gnet.ParseIP(addr)
+		if err != nil {
+			logCtx.WithError(err).Fatalf("Failed to parse the CIDR '%s'", addr)
+		}
+		if _, attrErr := c.IPAM().GetAssignmentAttributes(ctx, net.IP{ipAddr}); attrErr == nil {
+			// The tunnel address is still valid, so leave as it.
+			release = false
+			assign = false
+		} else {
+			// The tunnel address is not assigned, reassign it.
+			release = false
+			assign = true
+		}
+	}
+
+	if release {
+		logCtx.WithField("IP", addr).Info("Release old tunnel address")
 		ipAddr := net.ParseIP(addr)
 		if err != nil {
 			logCtx.WithError(err).Fatalf("Failed to parse the CIDR '%s'", addr)
@@ -123,8 +143,10 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 		if err != nil {
 			logCtx.WithField("IP", ipAddr.String()).WithError(err).Fatal("Error releasing address")
 		}
+	}
 
-		// Assign a new tunnel address.
+	if assign {
+		logCtx.WithField("IP", addr).Info("Assign new tunnel address")
 		assignHostTunnelAddr(ctx, c, nodename, cidrs, vxlan)
 	}
 }
