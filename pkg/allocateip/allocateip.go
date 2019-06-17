@@ -21,6 +21,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	vxlanIPAMAttrString = "vxlanTunnelAddress"
+	ipipIPAMAttrString  = "ipipTunnelAddress"
+)
+
 // This file contains the main processing and common logic for assigning tunnel addresses,
 // used by calico/node to set the host's tunnel address if IPIP or VXLAN is enabled.
 // It will assign an address address if there are any available, and remove any tunnel address
@@ -95,23 +100,28 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 		logCtx.WithError(err).Fatalf("Unable to retrieve tunnel address. Error getting node '%s'", nodename)
 	}
 
-	// Get the address
+	// Get the address and ipam attribute string
 	var addr string
+	var attrString string
 	if vxlan {
 		addr = node.Spec.IPv4VXLANTunnelAddr
+		attrString = vxlanIPAMAttrString
 	} else if node.Spec.BGP != nil {
 		addr = node.Spec.BGP.IPv4IPIPTunnelAddr
+		attrString = ipipIPAMAttrString
 	}
 
 	// Work out if we need to assign a tunnel address.
 	var assign, release bool
 	if addr == "" {
 		// The tunnel has no IP address assigned, assign one.
+		logCtx.WithField("Node", nodename).Info("Assign a new tunnel address")
 		release = false
 		assign = true
 	} else if !isIpInPool(addr, cidrs) {
 		// The address that is currently assigned is no longer part
 		// of an encapsulatin-enabled pool, so release the IP, and reassign.
+		logCtx.WithField("currentAddr", addr).Info("Current address is not in ippool, reassign")
 		release = true
 		assign = true
 	} else {
@@ -120,12 +130,17 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 		if err != nil {
 			logCtx.WithError(err).Fatalf("Failed to parse the CIDR '%s'", addr)
 		}
-		if _, attrErr := c.IPAM().GetAssignmentAttributes(ctx, net.IP{ipAddr}); attrErr == nil {
+
+		// Check if we got correct assignment attributes
+		attr, attrErr := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: ipAddr})
+		if attrErr == nil && attr[ipam.AttributeType] == attrString {
 			// The tunnel address is still valid, so leave as it.
+			logCtx.WithField("currentAddr", addr).Info("Current address is valid, do nothing")
 			release = false
 			assign = false
 		} else {
 			// The tunnel address is not assigned, reassign it.
+			logCtx.WithField("currentAddr", addr).Info("Current address is not valid, reassign")
 			release = false
 			assign = true
 		}
@@ -159,10 +174,10 @@ func assignHostTunnelAddr(ctx context.Context, c client.Interface, nodename stri
 	attrs := map[string]string{ipam.AttributeNode: nodename}
 	var handle string
 	if vxlan {
-		attrs[ipam.AttributeType] = "vxlanTunnelAddress"
+		attrs[ipam.AttributeType] = vxlanIPAMAttrString
 		handle = fmt.Sprintf("vxlan-tunnel-addr-%s", nodename)
 	} else {
-		attrs[ipam.AttributeType] = "ipipTunnelAddress"
+		attrs[ipam.AttributeType] = ipipIPAMAttrString
 		handle = fmt.Sprintf("ipip-tunnel-addr-%s", nodename)
 	}
 	logCtx := getLogger(vxlan)
