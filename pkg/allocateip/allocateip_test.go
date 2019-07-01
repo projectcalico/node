@@ -24,16 +24,16 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	log "github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	"github.com/projectcalico/libcalico-go/lib/backend"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
+	"github.com/projectcalico/libcalico-go/lib/ipam"
 	"github.com/projectcalico/libcalico-go/lib/logutils"
 	"github.com/projectcalico/libcalico-go/lib/net"
 	"github.com/projectcalico/libcalico-go/lib/options"
-	"github.com/projectcalico/libcalico-go/lib/ipam"
+	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func allocateIPDescribe(description string, tunnelType []string, body func(tunnelType string)) bool {
@@ -117,7 +117,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 		handle := "myhandle"
 		wepIp := gnet.IP{172, 16, 0, 0}
 		err = c.IPAM().AssignIP(ctx, ipam.AssignIPArgs{
-			IP:       net.IP{wepIp},
+			IP:       net.IP{IP: wepIp},
 			Hostname: "test.node",
 			HandleID: &handle,
 		})
