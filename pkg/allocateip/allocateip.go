@@ -21,11 +21,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	vxlanIPAMAttrString = "vxlanTunnelAddress"
-	ipipIPAMAttrString  = "ipipTunnelAddress"
-)
-
 // This file contains the main processing and common logic for assigning tunnel addresses,
 // used by calico/node to set the host's tunnel address if IPIP or VXLAN is enabled.
 // It will assign an address address if there are any available, and remove any tunnel address
@@ -105,10 +100,10 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 	var attrString string
 	if vxlan {
 		addr = node.Spec.IPv4VXLANTunnelAddr
-		attrString = vxlanIPAMAttrString
+		attrString = ipam.AttributeTypeVXLAN
 	} else if node.Spec.BGP != nil {
 		addr = node.Spec.BGP.IPv4IPIPTunnelAddr
-		attrString = ipipIPAMAttrString
+		attrString = ipam.AttributeTypeIPIP
 	}
 
 	// Work out if we need to assign a tunnel address.
@@ -174,10 +169,10 @@ func assignHostTunnelAddr(ctx context.Context, c client.Interface, nodename stri
 	attrs := map[string]string{ipam.AttributeNode: nodename}
 	var handle string
 	if vxlan {
-		attrs[ipam.AttributeType] = vxlanIPAMAttrString
+		attrs[ipam.AttributeType] = ipam.AttributeTypeVXLAN
 		handle = fmt.Sprintf("vxlan-tunnel-addr-%s", nodename)
 	} else {
-		attrs[ipam.AttributeType] = ipipIPAMAttrString
+		attrs[ipam.AttributeType] = ipam.AttributeTypeIPIP
 		handle = fmt.Sprintf("ipip-tunnel-addr-%s", nodename)
 	}
 	logCtx := getLogger(vxlan)

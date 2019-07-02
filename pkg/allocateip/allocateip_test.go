@@ -79,9 +79,9 @@ func checkTunnelAddressForNode(tunnelType string, n *api.Node, addr string) {
 
 func checkIPAMAttr(tunnelType string, attr map[string]string) {
 	if tunnelType == "ipip" {
-		Expect(attr[ipam.AttributeType]).To(Equal(ipipIPAMAttrString))
+		Expect(attr[ipam.AttributeType]).To(Equal(ipam.AttributeTypeIPIP))
 	} else if tunnelType == "vxlan" {
-		Expect(attr[ipam.AttributeType]).To(Equal(vxlanIPAMAttrString))
+		Expect(attr[ipam.AttributeType]).To(Equal(ipam.AttributeTypeVXLAN))
 	} else {
 		panic(errors.New(fmt.Sprintf("Unknown tunnelType, %s", tunnelType)))
 	}
