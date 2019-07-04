@@ -22,8 +22,8 @@ from functools import partial
 from subprocess import CalledProcessError, check_output, PIPE
 
 from log_analyzer import LogAnalyzer, FELIX_LOG_FORMAT, TIMESTAMP_FORMAT
-from network import DockerNetwork, DummyNetwork, global_setting, \
-        NETWORKING_CNI, NETWORKING_LIBNETWORK
+from network import DummyNetwork, global_setting, \
+        NETWORKING_CNI
 from tests.st.utils.constants import DEFAULT_IPV4_POOL_CIDR
 from tests.st.utils.exceptions import CommandExecError
 from utils import get_ip, log_and_run, retry_until_success, ETCD_SCHEME, \
@@ -68,10 +68,10 @@ class DockerHost(object):
     to False, the HOSTNAME environment is not explicitly set.
     :param networking: What plugin to use to set up the networking for
     workloads on this host.  Possible values are None (the default), meaning to
-    use the global setting for the test run; "cni", meaning to use the Calico
-    CNI plugin; and "libnetwork", meaning to use the Docker libnetwork plugin.
-    The global setting for the test run is taken from the environment variable
-    ST_NETWORKING, and is "cni" if that variable is not set.
+    use the global setting for the test run and "cni", meaning to use the Calico
+    CNI plugin. The global setting for the test run is taken from the
+    environment variable ST_NETWORKING, and is "cni" if that variable is not
+    set.
     """
 
     # A static list of Docker networks that are created by the tests.  This
@@ -112,7 +112,7 @@ class DockerHost(object):
             self.networking = global_setting()
         else:
             self.networking = networking
-        assert self.networking in [NETWORKING_CNI, NETWORKING_LIBNETWORK]
+        assert self.networking == NETWORKING_CNI
 
         # This variable is used to assert on destruction that this object was
         # cleaned up.  If not used as a context manager, users of this object
@@ -606,11 +606,6 @@ class DockerHost(object):
         """
 
         nw = DummyNetwork(name)
-
-        if self.networking == NETWORKING_LIBNETWORK:
-            nw = DockerNetwork(self, name, driver=driver,
-                               ipam_driver=ipam_driver,
-                               subnet=subnet)
 
         # Store the network so that we can attempt to remove it when this host
         # or another host exits.
