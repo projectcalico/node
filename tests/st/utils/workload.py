@@ -20,7 +20,6 @@ from netaddr import IPAddress
 from exceptions import CommandExecError
 from utils import retry_until_success, debug_failures, get_ip
 from utils import ETCD_SCHEME, ETCD_CA, ETCD_CERT, ETCD_KEY, ETCD_HOSTNAME_SSL
-from network import NETWORKING_CNI
 
 
 NET_NONE = "none"

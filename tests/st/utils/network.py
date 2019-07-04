@@ -16,20 +16,6 @@ import os
 
 logger = logging.getLogger(__name__)
 
-global_networking = None
-NETWORKING_CNI = "cni"
-
-
-def global_setting():
-    global global_networking
-    if global_networking is None:
-        global_networking = os.getenv("ST_NETWORKING")
-        if global_networking:
-            assert global_networking == NETWORKING_CNI
-        else:
-            global_networking = NETWORKING_CNI
-    return global_networking
-
 
 class DummyNetwork(object):
     def __init__(self, name):

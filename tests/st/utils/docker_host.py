@@ -22,8 +22,7 @@ from functools import partial
 from subprocess import CalledProcessError, check_output, PIPE
 
 from log_analyzer import LogAnalyzer, FELIX_LOG_FORMAT, TIMESTAMP_FORMAT
-from network import DummyNetwork, global_setting, \
-        NETWORKING_CNI
+from network import DummyNetwork
 from tests.st.utils.constants import DEFAULT_IPV4_POOL_CIDR
 from tests.st.utils.exceptions import CommandExecError
 from utils import get_ip, log_and_run, retry_until_success, ETCD_SCHEME, \
@@ -66,12 +65,6 @@ class DockerHost(object):
     choose an alternate hostname for the host which it will pass to all
     calicoctl components as the HOSTNAME environment variable.  If set
     to False, the HOSTNAME environment is not explicitly set.
-    :param networking: What plugin to use to set up the networking for
-    workloads on this host.  Possible values are None (the default), meaning to
-    use the global setting for the test run and "cni", meaning to use the Calico
-    CNI plugin. The global setting for the test run is taken from the
-    environment variable ST_NETWORKING, and is "cni" if that variable is not
-    set.
     """
 
     # A static list of Docker networks that are created by the tests.  This
@@ -84,8 +77,7 @@ class DockerHost(object):
                                        "docker load -q -i /code/busybox.tar"],
                  calico_node_autodetect_ip=False,
                  simulate_gce_routing=False,
-                 override_hostname=False,
-                 networking=None):
+                 override_hostname=False):
         self.name = name
         self.dind = dind
         self.workloads = set()
@@ -107,12 +99,6 @@ class DockerHost(object):
         """
         Create an arbitrary hostname if we want to override.
         """
-
-        if networking is None:
-            self.networking = global_setting()
-        else:
-            self.networking = networking
-        assert self.networking == NETWORKING_CNI
 
         # This variable is used to assert on destruction that this object was
         # cleaned up.  If not used as a context manager, users of this object
@@ -445,8 +431,7 @@ class DockerHost(object):
         """
         for workload in self.workloads:
             try:
-                if self.networking == NETWORKING_CNI:
-                    workload.run_cni("DEL")
+                workload.run_cni("DEL")
                 self.execute("docker rm -f %s" % workload.name)
             except CalledProcessError:
                 # Make best effort attempt to clean containers. Don't fail the
