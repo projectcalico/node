@@ -290,7 +290,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 
 	It("should panic on datastore errors", func() {
 		// Create a shimClient
-		pa := newIPPoolErrorAccessor(cerrors.ErrorDatastoreError{errors.New("mock datastore error"), nil})
+		pa := newIPPoolErrorAccessor(cerrors.ErrorDatastoreError{Err: errors.New("mock datastore error"), Identifier: nil})
 		cc := newShimClientWithPoolAccessor(c, be, pa)
 
 		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
