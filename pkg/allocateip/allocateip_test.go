@@ -27,6 +27,7 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	"github.com/projectcalico/libcalico-go/lib/backend"
+	bapi "github.com/projectcalico/libcalico-go/lib/backend/api"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
 	cerrors "github.com/projectcalico/libcalico-go/lib/errors"
 	"github.com/projectcalico/libcalico-go/lib/ipam"
@@ -116,6 +117,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 	wepAttr := map[string]string{}
 
 	var c client.Interface
+	var be bapi.Client
 	BeforeEach(func() {
 		// Clear out datastore
 		be, err := backend.NewClient(*cfg)
@@ -285,6 +287,28 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 		Expect(err).NotTo(HaveOccurred())
 		Expect(attr).To(Equal(wepAttr))
 	})
+
+	It("should panic on datastore errors", func() {
+		// Create a shimClient
+		pa := newIPPoolErrorAccessor(cerrors.ErrorDatastoreError{errors.New("mock datastore error"), nil})
+		cc := newShimClientWithPoolAccessor(c, be, pa)
+
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = "test.node"
+		setTunnelAddressForNode(tunnelType, node, "172.16.0.1")
+
+		_, err := cc.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, ip4net, _ := net.ParseCIDR("172.16.0.0/31")
+
+		defer func() {
+			if err := recover(); err == nil {
+				Fail("Panic didn't occur!")
+			}
+		}()
+		ensureHostTunnelAddress(ctx, cc, node.Name, []net.IPNet{*ip4net}, isVxlan)
+	})
 })
 
 var _ = allocateIPDescribe("removeHostTunnelAddress", []string{"ipip", "vxlan"}, func(tunnelType string) {
@@ -413,3 +437,104 @@ var _ = Describe("determineEnabledPoolCIDRs", func() {
 		})
 	})
 })
+
+// Mock ippool accessor for ipam to return any error provided.
+type ipPoolErrorAccessor struct {
+	err error
+}
+
+func newIPPoolErrorAccessor(err error) *ipPoolErrorAccessor {
+	return &ipPoolErrorAccessor{err}
+}
+
+func (i *ipPoolErrorAccessor) GetEnabledPools(ipVersion int) ([]api.IPPool, error) {
+	return nil, i.err
+}
+
+func (i *ipPoolErrorAccessor) GetAllPools() ([]api.IPPool, error) {
+	return nil, i.err
+}
+
+// shimClient inherits a client interface with new ipam client.
+type shimClient struct {
+	client client.Interface // real client
+	ic     ipam.Interface   // new ipam client
+}
+
+func newShimClientWithPoolAccessor(c client.Interface, be bapi.Client, pool ipam.PoolAccessorInterface) shimClient {
+	return shimClient{client: c, ic: ipam.NewIPAMClient(be, pool)}
+}
+
+// Nodes returns an interface for managing node resources.
+func (c shimClient) Nodes() client.NodeInterface {
+	return c.client.Nodes()
+}
+
+// NetworkPolicies returns an interface for managing policy resources.
+func (c shimClient) NetworkPolicies() client.NetworkPolicyInterface {
+	return c.client.NetworkPolicies()
+}
+
+// GlobalNetworkPolicies returns an interface for managing policy resources.
+func (c shimClient) GlobalNetworkPolicies() client.GlobalNetworkPolicyInterface {
+	return c.client.GlobalNetworkPolicies()
+}
+
+// IPPools returns an interface for managing IP pool resources.
+func (c shimClient) IPPools() client.IPPoolInterface {
+	return c.client.IPPools()
+}
+
+// Profiles returns an interface for managing profile resources.
+func (c shimClient) Profiles() client.ProfileInterface {
+	return c.client.Profiles()
+}
+
+// GlobalNetworkSets returns an interface for managing host endpoint resources.
+func (c shimClient) GlobalNetworkSets() client.GlobalNetworkSetInterface {
+	return c.client.GlobalNetworkSets()
+}
+
+// NetworkSets returns an interface for managing host endpoint resources.
+func (c shimClient) NetworkSets() client.NetworkSetInterface {
+	return c.client.NetworkSets()
+}
+
+// HostEndpoints returns an interface for managing host endpoint resources.
+func (c shimClient) HostEndpoints() client.HostEndpointInterface {
+	return c.client.HostEndpoints()
+}
+
+// WorkloadEndpoints returns an interface for managing workload endpoint resources.
+func (c shimClient) WorkloadEndpoints() client.WorkloadEndpointInterface {
+	return c.client.WorkloadEndpoints()
+}
+
+// BGPPeers returns an interface for managing BGP peer resources.
+func (c shimClient) BGPPeers() client.BGPPeerInterface {
+	return c.client.BGPPeers()
+}
+
+// IPAM returns an interface for managing IP address assignment and releasing.
+func (c shimClient) IPAM() ipam.Interface {
+	return c.ic
+}
+
+// BGPConfigurations returns an interface for managing the BGP configuration resources.
+func (c shimClient) BGPConfigurations() client.BGPConfigurationInterface {
+	return c.client.BGPConfigurations()
+}
+
+// FelixConfigurations returns an interface for managing the Felix configuration resources.
+func (c shimClient) FelixConfigurations() client.FelixConfigurationInterface {
+	return c.client.FelixConfigurations()
+}
+
+// ClusterInformation returns an interface for managing the cluster information resource.
+func (c shimClient) ClusterInformation() client.ClusterInformationInterface {
+	return c.client.ClusterInformation()
+}
+
+func (c shimClient) EnsureInitialized(ctx context.Context, calicoVersion, clusterType string) error {
+	return nil
+}

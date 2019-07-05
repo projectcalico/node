@@ -142,8 +142,8 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 			// The tunnel address is not assigned, reassign it.
 			logCtx.WithField("currentAddr", addr).Info("Current address is not assigned, do not release and reassign")
 		} else {
-			// Failed to get assignment attributes, datastore issue possible, panic
-			logCtx.WithError(err).Fatalf("Failed to get assignment attributes for CIDR '%s'", addr)
+			// Failed to get assignment attributes, datastore connection issues possible, panic
+			logCtx.WithError(err).Panicf("Failed to get assignment attributes for CIDR '%s'", addr)
 		}
 	}
 
