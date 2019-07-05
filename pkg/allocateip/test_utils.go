@@ -33,10 +33,10 @@ func makeNode(ipv4 string, ipv6 string) *api.Node {
 	return n
 }
 
-func makeIPv4Pool(ipv4cidr string, blockSize int) *api.IPPool {
+func makeIPv4Pool(name string, ipv4cidr string, blockSize int) *api.IPPool {
 	return &api.IPPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "dont-care",
+			Name: name,
 		},
 		Spec: api.IPPoolSpec{
 			CIDR:        ipv4cidr,

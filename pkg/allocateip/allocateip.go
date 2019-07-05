@@ -107,12 +107,12 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 	}
 
 	// Work out if we need to assign a tunnel address.
-	var assign, release bool
+	// In most cases we should not release current address and should assign new one.
+	release := false
+	assign := true
 	if addr == "" {
 		// The tunnel has no IP address assigned, assign one.
 		logCtx.WithField("Node", nodename).Info("Assign a new tunnel address")
-		release = false
-		assign = true
 	} else {
 		// Go ahead checking status of current address.
 		ipAddr := gnet.ParseIP(addr)
@@ -126,25 +126,21 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 			if attr[ipam.AttributeType] == attrString && attr[ipam.AttributeNode] == nodename {
 				// The tunnel address is still assigned to this node, but is it in the correct pool this time?
 				if !isIpInPool(addr, cidrs) {
+					// Wrong pool, release this address.
 					logCtx.WithField("currentAddr", addr).Info("Current address is valid with wrong pool, release it and reassign")
 					release = true
-					assign = true
 				} else {
+					// Correct pool, keep this address.
 					logCtx.WithField("currentAddr", addr).Info("Current address is still valid, do nothing")
-					release = false
 					assign = false
 				}
 			} else {
 				// The tunnel address has been allocated to something else, reassign it.
 				logCtx.WithField("currentAddr", addr).Info("Current address is occupied, do not release and reassign")
-				release = false
-				assign = true
 			}
 		} else if _, ok := err.(cerrors.ErrorResourceDoesNotExist); ok {
 			// The tunnel address is not assigned, reassign it.
 			logCtx.WithField("currentAddr", addr).Info("Current address is not assigned, do not release and reassign")
-			release = false
-			assign = true
 		} else {
 			// Failed to get assignment attributes, datastore issue possible, panic
 			logCtx.WithError(err).Fatalf("Failed to get assignment attributes for CIDR '%s'", addr)
