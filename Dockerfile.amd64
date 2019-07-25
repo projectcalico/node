@@ -38,16 +38,16 @@ RUN apt-get update && apt-get install -y \
     netbase \ 
     # Also needed (provides utilities for browsing procfs like ps) 
     procps \    
-    ca-certificates
-
-# Install iptables from buster to get version 1.8.2
-# Similarly for iproute2, we want a more recent version for BPF support.
-RUN echo 'APT::Default-Release "stable";' > /etc/apt/apt.conf.d/99defaultrelease
-RUN echo 'deb     http://ftp.de.debian.org/debian/    buster main contrib non-free' > /etc/apt/sources.list.d/buster.list
-RUN apt-get update && apt-get install -y -t buster \
     ipset \
     iptables \
-    iproute2
+    iproute2 \
+    ca-certificates
+
+# Use jessie to install some packages.
+# Pin to a version without CVE-2019-12904
+RUN echo 'APT::Default-Release "stable";' > /etc/apt/apt.conf.d/99defaultrelease
+RUN echo 'deb     http://ftp.de.debian.org/debian/    jessie main contrib non-free' > /etc/apt/sources.list.d/jessie.list
+RUN apt-get update && apt-get install -y -t jessie libgcrypt20=1.6.3-2+deb8u4 --allow-remove-essential --allow-downgrades
 
 # Set the iptables and ip6tables binaries to link to the legacy backend
 # version of the commands, by default they link to the nft backend.
