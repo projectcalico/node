@@ -38,13 +38,7 @@ RUN apt-get update && apt-get install -y \
     netbase \ 
     # Also needed (provides utilities for browsing procfs like ps) 
     procps \    
-    ca-certificates
-
-# Install iptables from buster to get version 1.8.2
-# Similarly for iproute2, we want a more recent version for BPF support.
-RUN echo 'APT::Default-Release "stable";' > /etc/apt/apt.conf.d/99defaultrelease
-RUN echo 'deb     http://ftp.de.debian.org/debian/    buster main contrib non-free' > /etc/apt/sources.list.d/buster.list
-RUN apt-get update && apt-get install -y -t buster \
+    ca-certificates \
     ipset \
     iptables \
     iproute2
