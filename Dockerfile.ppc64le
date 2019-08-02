@@ -35,7 +35,7 @@ ENV DOCKER_API_VERSION 1.21
 COPY --from=qemu /usr/bin/qemu-${ARCH}-static /usr/bin/
 
 # Install remaining runtime deps required for felix from the global repository
-RUN apk add --no-cache ip6tables ipset iputils iproute2 conntrack-tools runit file ca-certificates
+RUN apk add --no-cache ip6tables ipset iputils iproute2 conntrack-tools runit file ca-certificates curl
 
 # Copy our bird binaries in
 COPY --from=bird /bird* /bin/
@@ -44,7 +44,11 @@ COPY --from=bird /bird* /bin/
 COPY filesystem/ /
 
 # Add in confd config and templates
-COPY vendor/github.com/kelseyhightower/confd/etc/calico/ /etc/calico/
+RUN mkdir -p /etc/calico/confd/conf.d /etc/calico/confd/config /etc/calico/confd/templates
+
+RUN for i in bird.toml bird6.toml bird6_aggr.toml bird6_ipam.toml bird_aggr.toml bird_ipam.toml tunl-ip.toml; do curl -L https://raw.githubusercontent.com/projectcalico/confd/4e1d8b2f7914b646963971ec56edfa6190e05e25/etc/calico/confd/conf.d/$i -o /etc/calico/confd/conf.d/$i; done
+
+RUN for i in bird.cfg.template bird6.cfg.template bird6_aggr.cfg.template bird6_ipam.cfg.template bird_aggr.cfg.template bird_ipam.cfg.template tunl-ip.template; do curl -L https://raw.githubusercontent.com/projectcalico/confd/4e1d8b2f7914b646963971ec56edfa6190e05e25/etc/calico/confd/templates/$i -o /etc/calico/confd/templates/$i; done
 
 # Copy in the calico-node binary
 COPY dist/bin/calico-node-${ARCH} /bin/calico-node
