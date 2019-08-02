@@ -44,12 +44,12 @@ endif
 # assuming that there is a local checkout of felix, confd, and libcalico in the same directory as the node repo.
 LOCAL_BUILD_MOUNTS ?=
 ifeq ($(LOCAL_BUILD),true)
-LOCAL_BUILD_MOUNTS = -v $(CURDIR)/../libcalico-go:/go/src/$(PACKAGE_NAME)/vendor/github.com/projectcalico/libcalico-go:ro \
-	-v $(CURDIR)/.empty:/go/src/$(PACKAGE_NAME)/vendor/github.com/projectcalico/libcalico-go/vendor:ro \
-	-v $(CURDIR)/../confd:/go/src/$(PACKAGE_NAME)/vendor/github.com/kelseyhightower/confd:ro \
-	-v $(CURDIR)/.empty:/go/src/$(PACKAGE_NAME)/vendor/github.com/kelseyhightower/confd/vendor:ro \
-	-v $(CURDIR)/../felix:/go/src/$(PACKAGE_NAME)/vendor/github.com/projectcalico/felix:ro \
-	-v $(CURDIR)/.empty:/go/src/$(PACKAGE_NAME)/vendor/github.com/projectcalico/felix/vendor:ro
+LOCAL_BUILD_MOUNTS = -v $(CURDIR)/../libcalico-go:/$(PACKAGE_NAME)/vendor/github.com/projectcalico/libcalico-go:ro \
+	-v $(CURDIR)/.empty:/$(PACKAGE_NAME)/vendor/github.com/projectcalico/libcalico-go/vendor:ro \
+	-v $(CURDIR)/../confd:/$(PACKAGE_NAME)/vendor/github.com/kelseyhightower/confd:ro \
+	-v $(CURDIR)/.empty:/$(PACKAGE_NAME)/vendor/github.com/kelseyhightower/confd/vendor:ro \
+	-v $(CURDIR)/../felix:/$(PACKAGE_NAME)/vendor/github.com/projectcalico/felix:ro \
+	-v $(CURDIR)/.empty:/$(PACKAGE_NAME)/vendor/github.com/projectcalico/felix/vendor:ro
 endif
 
 # we want to be able to run the same recipe on multiple targets keyed on the image name
@@ -96,7 +96,7 @@ EXCLUDE_MANIFEST_REGISTRIES ?= quay.io/
 PUSH_MANIFEST_IMAGES=$(PUSH_IMAGES:$(EXCLUDE_MANIFEST_REGISTRIES)%=)
 PUSH_NONMANIFEST_IMAGES=$(filter-out $(PUSH_MANIFEST_IMAGES),$(PUSH_IMAGES))
 
-GO_BUILD_VER?=v0.22
+GO_BUILD_VER?=v0.23
 CALICO_BUILD?=calico/go-build:$(GO_BUILD_VER)
 
 # location of docker credentials to push manifests
@@ -156,6 +156,21 @@ LIBCALICOGO_PATH?=none
 
 SRC_FILES=$(shell find ./pkg -name '*.go')
 
+EXTRA_DOCKER_ARGS	:= -e GO111MODULE=on
+BUILD_FLAGS		:= -mod=vendor
+GINKGO_ARGS		:= -mod=vendor
+
+DOCKER_RUN := mkdir -p .go-pkg-cache && \
+                   docker run --rm \
+                              --net=host \
+                              $(EXTRA_DOCKER_ARGS) \
+                              -e LOCAL_USER_ID=$(LOCAL_USER_ID) \
+                              -e GOCACHE=/go-cache \
+                              -v $(CURDIR):/$(PACKAGE_NAME):rw \
+                              -v $(CURDIR)/.go-pkg-cache:/go-cache:rw \
+                              -w /$(PACKAGE_NAME) \
+                              -e GOARCH=$(ARCH)
+
 # If local build is set, then always build the binary since we might not
 # detect when another local repository has been modified.
 ifeq ($(LOCAL_BUILD),true)
@@ -164,6 +179,7 @@ endif
 
 ## Clean enough that a new release build will be clean
 clean:
+	-chmod -R +w .go-pkg-cache
 	find . -name '*.created' -exec rm -f {} +
 	find . -name '*.pyc' -exec rm -f {} +
 	rm -rf certs *.tar vendor $(NODE_CONTAINER_BIN_DIR)
@@ -177,70 +193,61 @@ clean:
 # Building the binary
 ###############################################################################
 build:  $(NODE_CONTAINER_BINARY)
-# Use this to populate the vendor directory after checking out the repository.
-# To update upstream dependencies, delete the glide.lock file first.
-vendor: glide.lock
-	# Ensure that the glide cache directory exists.
-	mkdir -p $(HOME)/.glide
 
-	# To build without Docker just run "glide install -strip-vendor"
+vendor: go.mod go.sum
+	# To build without Docker just run "go mod cache"
 	if [ "$(LIBCALICOGO_PATH)" != "none" ]; then \
-          EXTRA_DOCKER_BIND="-v $(LIBCALICOGO_PATH):/go/src/github.com/projectcalico/libcalico-go:ro"; \
+          EXTRA_DOCKER_ARGS+="-v $(LIBCALICOGO_PATH):/github.com/projectcalico/libcalico-go:ro"; \
 	fi; \
-
-	docker run --rm \
-		-v $(CURDIR):/go/src/$(PACKAGE_NAME):rw $$EXTRA_DOCKER_BIND \
-		-v $(HOME)/.glide:/home/user/.glide:rw \
-		-e LOCAL_USER_ID=$(LOCAL_USER_ID) \
-		-w /go/src/$(PACKAGE_NAME) \
-		$(CALICO_BUILD) glide install -strip-vendor
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod vendor
 
 ## Default the repos and versions but allow them to be overridden
 LIBCALICO_BRANCH?=$(shell git rev-parse --abbrev-ref HEAD)
 LIBCALICO_REPO?=github.com/projectcalico/libcalico-go
 LIBCALICO_VERSION?=$(shell git ls-remote git@github.com:projectcalico/libcalico-go $(LIBCALICO_BRANCH) 2>/dev/null | cut -f 1)
+LIBCALICO_OLD?=$(shell grep libcalico-go go.mod | cut -d' ' -f2)
 FELIX_BRANCH?=$(shell git rev-parse --abbrev-ref HEAD)
 FELIX_REPO?=github.com/projectcalico/felix
 FELIX_VERSION?=$(shell git ls-remote git@github.com:projectcalico/felix $(FELIX_BRANCH) 2>/dev/null | cut -f 1)
+FELIX_OLD?=$(shell grep felix go.mod | cut -d' ' -f2)
 CONFD_BRANCH?=$(shell git rev-parse --abbrev-ref HEAD)
 CONFD_REPO?=github.com/projectcalico/confd
 CONFD_VERSION?=$(shell git ls-remote git@github.com:projectcalico/confd $(CONFD_BRANCH) 2>/dev/null | cut -f 1)
+CONFD_OLD?=$(shell grep confd go.mod | cut -d' ' -f2)
 
-### Update pins in glide.yaml
 update-felix-confd-libcalico:
-	docker run --rm \
-        -v $(CURDIR):/go/src/$(PACKAGE_NAME):rw $$EXTRA_DOCKER_BIND \
-        -v $(HOME)/.glide:/home/user/.glide:rw \
-        -w /go/src/$(PACKAGE_NAME) \
-        -e LOCAL_USER_ID=$(LOCAL_USER_ID) \
-        $(CALICO_BUILD) sh -c '\
-          echo "Updating libcalico to $(LIBCALICO_VERSION) from $(LIBCALICO_REPO)"; \
-          echo "Updating felix to $(FELIX_VERSION) from $(FELIX_REPO)"; \
-          echo "Updating confd to $(CONFD_VERSION) from $(CONFD_REPO)"; \
-          export OLD_LIBCALICO_VER=$$(grep --after 50 libcalico glide.yaml |grep --max-count=1 --only-matching --perl-regexp "version:\s*\K[\.0-9a-z]+") ;\
-          export OLD_FELIX_VER=$$(grep --after 50 felix glide.yaml |grep --max-count=1 --only-matching --perl-regexp "version:\s*\K[\.0-9a-z]+") ;\
-          export OLD_CONFD_VER=$$(grep --after 50 confd glide.yaml |grep --max-count=1 --only-matching --perl-regexp "version:\s*\K[\.0-9a-z]+") ;\
-          echo "Old libcalico version: $$OLD_LIBCALICO_VER";\
-          echo "Old felix version: $$OLD_FELIX_VER";\
-          echo "Old confd version: $$OLD_CONFD_VER";\
-          if [ $(LIBCALICO_VERSION) != $$OLD_LIBCALICO_VER ] || [ $(FELIX_VERSION) != $$OLD_FELIX_VER ] || [ $(CONFD_VERSION) != $$OLD_CONFD_VER ]; then \
-            sed -i "s/$$OLD_LIBCALICO_VER/$(LIBCALICO_VERSION)/" glide.yaml && \
-            sed -i "s/$$OLD_FELIX_VER/$(FELIX_VERSION)/" glide.yaml && \
-            sed -i "s/$$OLD_CONFD_VER/$(CONFD_VERSION)/" glide.yaml && \
-            glide up --strip-vendor || glide up --strip-vendor; \
-          fi'
+ifneq ($(strip $(LIBCALICO_VERSION)),)
+ifneq ($(strip $(LIBCALICO_OLD)),)
+	@echo "Updating libcalico from $(LIBCALICO_OLD) to $(LIBCALICO_VERSION) using $(LIBCALICO_REPO)"
+	$(DOCKER_RUN) $(CALICO_BUILD) sed -i "/libcalico-go/d" go.mod go.sum && go get $(LIBCALICO_REPO)@$(LIBCALICO_VERSION)
+endif
+endif
+ifneq ($(strip $(FELIX_VERSION)),)
+ifneq ($(strip $(FELIX_OLD)),)
+	@echo "Updating felix from $(FELIX_OLD) to $(FELIX_VERSION) using $(FELIX_REPO)"
+	$(DOCKER_RUN) $(CALICO_BUILD) sed -i "/felix/d" go.mod go.sum && go get $(FELIX_REPO)@$(FELIX_VERSION)
+endif
+endif
+ifneq ($(strip $(CONFD_VERSION)),)
+ifneq ($(strip $(CONFD_OLD)),)
+	@echo "Updating confd from $(CONFD_OLD) to $(CONFD_VERSION) using $(CONFD_REPO)"
+	$(DOCKER_RUN) $(CALICO_BUILD) sed -i "/confd/d" go.mod go.sum && go get $(CONFD_REPO)@$(CONFD_VERSION)
+endif
+endif
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod vendor
 
 $(NODE_CONTAINER_BINARY): vendor $(SRC_FILES)
 	docker run --rm \
+		$(EXTRA_DOCKER_ARGS) \
 		-e GOARCH=$(ARCH) \
 		-e GOOS=linux \
 		-e LOCAL_USER_ID=$(LOCAL_USER_ID) \
 		-v $(CURDIR)/.go-pkg-cache:/go-cache/:rw \
 		-e GOCACHE=/go-cache \
-		-v $(CURDIR):/go/src/$(PACKAGE_NAME) \
+		-v $(CURDIR):/$(PACKAGE_NAME) \
 		$(LOCAL_BUILD_MOUNTS) \
-		-w /go/src/$(PACKAGE_NAME) \
-		$(CALICO_BUILD) go build -v -o $@ $(LDFLAGS) ./cmd/calico-node/main.go
+		-w /$(PACKAGE_NAME) \
+		$(CALICO_BUILD) go build -v -o $@ $(BUILD_FLAGS) $(LDFLAGS) ./cmd/calico-node/main.go
 
 ###############################################################################
 # Building the image
@@ -327,8 +334,8 @@ sub-tag-images-%:
 static-checks: vendor
 	docker run --rm \
 		-e LOCAL_USER_ID=$(LOCAL_USER_ID) \
-		-v $(CURDIR):/go/src/$(PACKAGE_NAME) \
-		-w /go/src/$(PACKAGE_NAME) \
+		-v $(CURDIR):/$(PACKAGE_NAME) \
+		-w /$(PACKAGE_NAME) \
 		$(CALICO_BUILD) gometalinter --deadline=300s --disable-all --enable=vet --enable=errcheck --enable=goimports --vendor pkg/...
 
 .PHONY: fix
@@ -338,10 +345,10 @@ fix:
 
 foss-checks: vendor
 	@echo Running $@...
-	@docker run --rm -v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
+	@docker run --rm -v $(CURDIR):/$(PACKAGE_NAME):rw \
 	  -e LOCAL_USER_ID=$(LOCAL_USER_ID) \
 	  -e FOSSA_API_KEY=$(FOSSA_API_KEY) \
-	  -w /go/src/$(PACKAGE_NAME) \
+	  -w /$(PACKAGE_NAME) \
 	  $(CALICO_BUILD) /usr/local/bin/fossa
 
 ###############################################################################
@@ -350,12 +357,12 @@ foss-checks: vendor
 ## Run the ginkgo FVs
 fv: vendor run-k8s-apiserver
 	docker run --rm \
-	-v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
+	-v $(CURDIR):/$(PACKAGE_NAME):rw \
 	$(LOCAL_BUILD_MOUNTS) \
 	-e LOCAL_USER_ID=$(LOCAL_USER_ID) \
 	-e ETCD_ENDPOINTS=http://$(LOCAL_IP_ENV):2379 \
 	--net=host \
-	-w /go/src/$(PACKAGE_NAME) \
+	-w /$(PACKAGE_NAME) \
 	$(CALICO_BUILD) ginkgo -cover -r -skipPackage vendor pkg/startup pkg/allocateip $(GINKGO_ARGS)
 
 # etcd is used by the STs
