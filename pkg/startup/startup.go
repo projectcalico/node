@@ -960,43 +960,41 @@ func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c 
 	// This is important for container deployments, where it is common
 	// for containers to speak to services running on the host (e.g. k8s
 	// pods speaking to k8s api-server, and mesos tasks registering with agent
-	// on startup).  Note: KDD does not yet support per-node felix config.
-	if cfg.Spec.DatastoreType != apiconfig.Kubernetes {
-		felixNodeCfg, err := c.FelixConfigurations().Get(ctx, fmt.Sprintf("%s%s", felixNodeConfigNamePrefix, node.Name), options.GetOptions{})
-		if err != nil {
-			// Create the default config if it doesn't already exist.
-			if _, ok := err.(cerrors.ErrorResourceDoesNotExist); ok {
-				newFelixNodeCfg := api.NewFelixConfiguration()
-				newFelixNodeCfg.Name = fmt.Sprintf("%s%s", felixNodeConfigNamePrefix, node.Name)
-				newFelixNodeCfg.Spec.DefaultEndpointToHostAction = "Return"
-				_, err = c.FelixConfigurations().Create(ctx, newFelixNodeCfg, options.SetOptions{})
-				if err != nil {
-					if exists, ok := err.(cerrors.ErrorResourceAlreadyExists); ok {
-						log.Infof("Ignoring resource exists error when setting value %s", exists.Identifier)
-					} else {
-						log.WithError(err).WithField("FelixConfig", newFelixNodeCfg).Errorf("Error creating Felix node config")
-						return err
-					}
+	// on startup).
+	felixNodeCfg, err := c.FelixConfigurations().Get(ctx, fmt.Sprintf("%s%s", felixNodeConfigNamePrefix, node.Name), options.GetOptions{})
+	if err != nil {
+		// Create the default config if it doesn't already exist.
+		if _, ok := err.(cerrors.ErrorResourceDoesNotExist); ok {
+			newFelixNodeCfg := api.NewFelixConfiguration()
+			newFelixNodeCfg.Name = fmt.Sprintf("%s%s", felixNodeConfigNamePrefix, node.Name)
+			newFelixNodeCfg.Spec.DefaultEndpointToHostAction = "Return"
+			_, err = c.FelixConfigurations().Create(ctx, newFelixNodeCfg, options.SetOptions{})
+			if err != nil {
+				if exists, ok := err.(cerrors.ErrorResourceAlreadyExists); ok {
+					log.Infof("Ignoring resource exists error when setting value %s", exists.Identifier)
+				} else {
+					log.WithError(err).WithField("FelixConfig", newFelixNodeCfg).Errorf("Error creating Felix node config")
+					return err
 				}
-			} else {
-				log.WithError(err).WithField("FelixConfig", felixNodeConfigNamePrefix).Errorf("Error getting Felix node config")
-				return err
 			}
 		} else {
-			if felixNodeCfg.Spec.DefaultEndpointToHostAction == "" {
-				felixNodeCfg.Spec.DefaultEndpointToHostAction = "Return"
-				_, err = c.FelixConfigurations().Update(ctx, felixNodeCfg, options.SetOptions{})
-				if err != nil {
-					if conflict, ok := err.(cerrors.ErrorResourceUpdateConflict); ok {
-						log.Infof("Ignoring conflict when setting value %s", conflict.Identifier)
-					} else {
-						log.WithError(err).WithField("FelixConfig", felixNodeCfg).Errorf("Error updating Felix node config")
-						return err
-					}
+			log.WithError(err).WithField("FelixConfig", felixNodeConfigNamePrefix).Errorf("Error getting Felix node config")
+			return err
+		}
+	} else {
+		if felixNodeCfg.Spec.DefaultEndpointToHostAction == "" {
+			felixNodeCfg.Spec.DefaultEndpointToHostAction = "Return"
+			_, err = c.FelixConfigurations().Update(ctx, felixNodeCfg, options.SetOptions{})
+			if err != nil {
+				if conflict, ok := err.(cerrors.ErrorResourceUpdateConflict); ok {
+					log.Infof("Ignoring conflict when setting value %s", conflict.Identifier)
+				} else {
+					log.WithError(err).WithField("FelixConfig", felixNodeCfg).Errorf("Error updating Felix node config")
+					return err
 				}
-			} else {
-				log.WithField("DefaultEndpointToHostAction", felixNodeCfg.Spec.DefaultEndpointToHostAction).Debug("Host Felix value already assigned")
 			}
+		} else {
+			log.WithField("DefaultEndpointToHostAction", felixNodeCfg.Spec.DefaultEndpointToHostAction).Debug("Host Felix value already assigned")
 		}
 	}
 
