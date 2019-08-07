@@ -188,6 +188,7 @@ clean:
 	find . -name '*.pyc' -exec rm -f {} +
 	rm -rf certs *.tar vendor $(NODE_CONTAINER_BIN_DIR)
 	rm -rf dist
+	rm -rf filesystem/etc/calico/confd/conf.d filesystem/etc/calico/confd/config filesystem/etc/calico/confd/templates
 	# Delete images that we built in this repo
 	docker rmi $(BUILD_IMAGE):latest-$(ARCH) || true
 	docker rmi $(TEST_CONTAINER_NAME) || true
@@ -239,6 +240,15 @@ endif
 endif
 	$(DOCKER_RUN) $(CALICO_BUILD) go mod vendor
 
+remote-deps:
+	mkdir -p filesystem/etc/calico/confd/conf.d filesystem/etc/calico/confd/config filesystem/etc/calico/confd/templates
+	$(DOCKER_RUN) $(CALICO_BUILD) sh -c ' \
+	go list -m all; \
+	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/conf.d filesystem/etc/calico/confd/conf.d; \
+	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/config filesystem/etc/calico/confd/config; \
+	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/templates filesystem/etc/calico/confd/templates; \
+	chmod -R +w filesystem/etc/calico/confd/'
+
 $(NODE_CONTAINER_BINARY): local_build vendor $(SRC_FILES)
 	docker run --rm \
 		$(EXTRA_DOCKER_ARGS) \
@@ -262,7 +272,7 @@ sub-image-%:
 	$(MAKE) image ARCH=$*
 
 $(BUILD_IMAGE): $(NODE_CONTAINER_CREATED)
-$(NODE_CONTAINER_CREATED): register ./Dockerfile.$(ARCH) $(NODE_CONTAINER_FILES) $(NODE_CONTAINER_BINARY)
+$(NODE_CONTAINER_CREATED): register ./Dockerfile.$(ARCH) $(NODE_CONTAINER_FILES) $(NODE_CONTAINER_BINARY) remote-deps
 ifeq ($(LOCAL_BUILD),true)
 	# If doing a local build, copy in local confd templates in case there are changes.
 	cp -r ../confd/etc/calico/confd/templates vendor/github.com/kelseyhightower/confd/etc/calico/confd
@@ -349,6 +359,7 @@ foss-checks: vendor
 	@docker run --rm -v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
 	  -e LOCAL_USER_ID=$(LOCAL_USER_ID) \
 	  -e FOSSA_API_KEY=$(FOSSA_API_KEY) \
+	  -e GO111MODULE=on \
 	  -w /go/src/$(PACKAGE_NAME) \
 	  $(CALICO_BUILD) /usr/local/bin/fossa
 
@@ -407,7 +418,7 @@ run-k8s-apiserver: stop-k8s-apiserver run-etcd
 	# Create CustomResourceDefinition (CRD) for Calico resources
 	# from the manifest crds.yaml
 	while ! docker exec st-apiserver kubectl \
-		apply -f https://raw.githubusercontent.com/projectcalico/libcalico-go/241d8b0486a3c732e938cfe6a7937e65e1bad319/test/crds.yaml; \
+		apply -f $(go list -m -f "{{.Dir}}" github.com/projectcalico/libcalico-go)/test/crds.yaml
 		do echo "Trying to create CRDs"; \
 		sleep 1; \
 		done
