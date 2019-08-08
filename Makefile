@@ -393,13 +393,14 @@ run-etcd:
 run-k8s-apiserver: remote-deps stop-k8s-apiserver run-etcd
 	docker run \
 		--net=host --name st-apiserver \
-		-v  $(CRD_PATH):/manifests \
+		-v $(CRD_PATH):/manifests \
+		-v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
 		--detach \
 		${HYPERKUBE_IMAGE} \
 		/hyperkube apiserver \
 			--bind-address=0.0.0.0 \
 			--insecure-bind-address=0.0.0.0 \
-				--etcd-servers=http://127.0.0.1:2379 \
+			--etcd-servers=http://127.0.0.1:2379 \
 			--admission-control=NamespaceLifecycle,LimitRanger,DefaultStorageClass,ResourceQuota \
 			--authorization-mode=RBAC \
 			--service-cluster-ip-range=10.101.0.0/16 \
@@ -420,7 +421,7 @@ run-k8s-apiserver: remote-deps stop-k8s-apiserver run-etcd
 	# Create CustomResourceDefinition (CRD) for Calico resources
 	# from the manifest crds.yaml
 	while ! docker exec st-apiserver kubectl \
-		apply -f crds.yaml; \
+		apply -f /go/src/$(PACKAGE_NAME)/crds.yaml; \
 		do echo "Trying to create CRDs"; \
 		sleep 1; \
 		done
