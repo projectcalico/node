@@ -189,6 +189,7 @@ clean:
 	rm -rf certs *.tar vendor $(NODE_CONTAINER_BIN_DIR)
 	rm -rf dist
 	rm -rf filesystem/etc/calico/confd/conf.d filesystem/etc/calico/confd/config filesystem/etc/calico/confd/templates
+	rm -f crds.yaml
 	# Delete images that we built in this repo
 	docker rmi $(BUILD_IMAGE):latest-$(ARCH) || true
 	docker rmi $(TEST_CONTAINER_NAME) || true
@@ -247,7 +248,8 @@ remote-deps:
 	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/conf.d filesystem/etc/calico/confd/conf.d; \
 	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/config filesystem/etc/calico/confd/config; \
 	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/templates filesystem/etc/calico/confd/templates; \
-	chmod -R +w filesystem/etc/calico/confd/'
+	cp `go list -m -f "{{.Dir}}" github.com/projectcalico/libcalico-go`/test/crds.yaml crds.yaml; \
+	chmod -R +w filesystem/etc/calico/confd/ crds.yaml'
 
 $(NODE_CONTAINER_BINARY): local_build vendor $(SRC_FILES)
 	docker run --rm \
@@ -388,7 +390,7 @@ run-etcd:
 	--listen-client-urls "http://0.0.0.0:2379"
 
 # Kubernetes apiserver used for tests
-run-k8s-apiserver: stop-k8s-apiserver run-etcd
+run-k8s-apiserver: remote-deps stop-k8s-apiserver run-etcd
 	docker run \
 		--net=host --name st-apiserver \
 		-v  $(CRD_PATH):/manifests \
@@ -418,7 +420,7 @@ run-k8s-apiserver: stop-k8s-apiserver run-etcd
 	# Create CustomResourceDefinition (CRD) for Calico resources
 	# from the manifest crds.yaml
 	while ! docker exec st-apiserver kubectl \
-		apply -f https://raw.githubusercontent.com/projectcalico/libcalico-go/master/test/crds.yaml; \
+		apply -f crds.yaml; \
 		do echo "Trying to create CRDs"; \
 		sleep 1; \
 		done
