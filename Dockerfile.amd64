@@ -38,8 +38,7 @@ RUN apt-get update && apt-get install -y \
     netbase \
     # Also needed (provides utilities for browsing procfs like ps)
     procps \
-    ca-certificates \
-    curl
+    ca-certificates
 
 # Install iptables from buster to get version 1.8.2
 # Similarly for iproute2, we want a more recent version for BPF support.

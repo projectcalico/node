@@ -242,7 +242,7 @@ endif
 	$(DOCKER_RUN) $(CALICO_BUILD) go mod vendor
 
 remote-deps:
-	mkdir -p filesystem/etc/calico/confd/conf.d filesystem/etc/calico/confd/config filesystem/etc/calico/confd/templates
+	mkdir -p filesystem/etc/calico/confd/conf.d
 	$(DOCKER_RUN) $(CALICO_BUILD) sh -c ' \
 	go mod download; \
 	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/conf.d filesystem/etc/calico/confd/conf.d; \
