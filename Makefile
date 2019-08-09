@@ -47,9 +47,13 @@ ifdef LOCAL_BUILD
 EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw
 local_build:
 	go mod edit -replace=github.com/projectcalico/libcalico-go=../libcalico-go
+	go mod edit -replace=github.com/projectcalico/confd=../confd
+	go mod edit -replace=github.com/projectcalico/felix=../felix
 else
 local_build:
 	-go mod edit -dropreplace=github.com/projectcalico/libcalico-go
+	-go mod edit -dropreplace=github.com/projectcalico/confd=../confd
+	-go mod edit -dropreplace=github.com/projectcalico/felix=../felix
 endif
 
 # we want to be able to run the same recipe on multiple targets keyed on the image name
@@ -242,7 +246,7 @@ endif
 	$(DOCKER_RUN) $(CALICO_BUILD) go mod vendor
 
 remote-deps:
-	mkdir -p filesystem/etc/calico/confd/conf.d
+	mkdir -p filesystem/etc/calico/confd
 	$(DOCKER_RUN) $(CALICO_BUILD) sh -c ' \
 	go mod download; \
 	cp -r `go list -m -f "{{.Dir}}" github.com/kelseyhightower/confd`/etc/calico/confd/conf.d filesystem/etc/calico/confd/conf.d; \
