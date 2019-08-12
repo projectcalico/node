@@ -44,7 +44,9 @@ endif
 PHONY:local_build
 
 ifdef LOCAL_BUILD
-EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw
+EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw \
+	-v $(CURDIR)/../confd:/go/src/github.com/projectcalico/confd:rw \
+	-v $(CURDIR)/../felix:/go/src/github.com/projectcalico/felix:rw
 local_build:
 	go mod edit -replace=github.com/projectcalico/libcalico-go=../libcalico-go
 	go mod edit -replace=github.com/projectcalico/confd=../confd
@@ -52,8 +54,8 @@ local_build:
 else
 local_build:
 	-go mod edit -dropreplace=github.com/projectcalico/libcalico-go
-	-go mod edit -dropreplace=github.com/projectcalico/confd=../confd
-	-go mod edit -dropreplace=github.com/projectcalico/felix=../felix
+	-go mod edit -dropreplace=github.com/projectcalico/confd
+	-go mod edit -dropreplace=github.com/projectcalico/felix
 endif
 
 # we want to be able to run the same recipe on multiple targets keyed on the image name
@@ -139,7 +141,7 @@ NODE_CONTAINER_BIN_DIR=./dist/bin/
 NODE_CONTAINER_BINARY = $(NODE_CONTAINER_BIN_DIR)/calico-node-$(ARCH)
 
 # Variables used by the tests
-CRD_PATH=$(CURDIR)/vendor/github.com/projectcalico/libcalico-go/test/
+CRD_PATH=$(shell go list -m -f "{{.Version}}" github.com/projectcalico/libcalico-go)/test
 LOCAL_IP_ENV?=$(shell ip route get 8.8.8.8 | head -1 | awk '{print $$7}')
 ST_TO_RUN?=tests/st/
 K8ST_TO_RUN?=tests/
@@ -151,9 +153,21 @@ MAKE_SURE_BIN_EXIST := $(shell mkdir -p dist .go-pkg-cache $(NODE_CONTAINER_BIN_
 NODE_CONTAINER_FILES=$(shell find ./filesystem -type f)
 LOCAL_USER_ID?=$(shell id -u $$USER)
 
-LDFLAGS=-ldflags "-X github.com/projectcalico/node/pkg/startup.VERSION=$(CALICO_GIT_VER) \
-                  -X github.com/projectcalico/node/vendor/github.com/projectcalico/felix/buildinfo.GitVersion=$(CALICO_GIT_VER) \
-                  -X github.com/projectcalico/node/vendor/github.com/projectcalico/felix/buildinfo.GitRevision=$(shell git rev-parse HEAD || echo '<unknown>')"
+# Calculate a timestamp for any build artefacts.
+DATE:=$(shell date -u +'%FT%T%z')
+
+# Figure out version information.  To support builds from release tarballs, we default to
+# <unknown> if this isn't a git checkout.
+GIT_COMMIT:=$(shell git rev-parse HEAD || echo '<unknown>')
+GIT_DESCRIPTION:=$(shell git describe --tags --dirty --always || echo '<unknown>')
+ifeq ($(LOCAL_BUILD),true)
+        GIT_DESCRIPTION = $(shell git describe --tags --dirty --always || echo '<unknown>')-dev-build
+endif
+
+LDFLAGS=-ldflags "\
+        -X $(PACKAGE_NAME)/buildinfo.GitVersion=$(GIT_DESCRIPTION) \
+        -X $(PACKAGE_NAME)/buildinfo.BuildDate=$(DATE) \
+        -X $(PACKAGE_NAME)/buildinfo.GitRevision=$(GIT_COMMIT)"
 
 PACKAGE_NAME?=github.com/projectcalico/node
 LIBCALICOGO_PATH?=none
@@ -161,8 +175,6 @@ LIBCALICOGO_PATH?=none
 SRC_FILES=$(shell find ./pkg -name '*.go')
 
 EXTRA_DOCKER_ARGS	+= -e GO111MODULE=on
-BUILD_FLAGS		+= -mod=vendor
-GINKGO_ARGS		+= -mod=vendor
 
 ifdef GOPATH
 	EXTRA_DOCKER_ARGS += -v $(GOPATH)/pkg/mod:/go/pkg/mod:rw
@@ -190,7 +202,7 @@ endif
 clean:
 	find . -name '*.created' -exec rm -f {} +
 	find . -name '*.pyc' -exec rm -f {} +
-	rm -rf certs *.tar vendor $(NODE_CONTAINER_BIN_DIR)
+	rm -rf certs *.tar $(NODE_CONTAINER_BIN_DIR)
 	rm -rf dist
 	rm -rf filesystem/etc/calico/confd/conf.d filesystem/etc/calico/confd/config filesystem/etc/calico/confd/templates
 	rm -f crds.yaml
@@ -202,13 +214,6 @@ clean:
 # Building the binary
 ###############################################################################
 build:  $(NODE_CONTAINER_BINARY)
-
-vendor: go.mod go.sum
-	# To build without Docker just run "go mod cache"
-	if [ "$(LIBCALICOGO_PATH)" != "none" ]; then \
-          EXTRA_DOCKER_ARGS+="-v $(LIBCALICOGO_PATH):/go/src/github.com/projectcalico/libcalico-go:ro"; \
-	fi; \
-	$(DOCKER_RUN) $(CALICO_BUILD) go mod vendor
 
 ## Default the repos and versions but allow them to be overridden
 LIBCALICO_BRANCH?=$(shell git rev-parse --abbrev-ref HEAD)
@@ -243,7 +248,6 @@ ifneq ($(strip $(CONFD_OLDVER)),)
 	go mod edit -droprequire github.com/projectcalico/felix && go get $(CONFD_REPO)@$(CONFD_VERSION)
 endif
 endif
-	$(DOCKER_RUN) $(CALICO_BUILD) go mod vendor
 
 remote-deps:
 	mkdir -p filesystem/etc/calico/confd
@@ -255,7 +259,7 @@ remote-deps:
 	cp `go list -m -f "{{.Dir}}" github.com/projectcalico/libcalico-go`/test/crds.yaml crds.yaml; \
 	chmod -R +w filesystem/etc/calico/confd/ crds.yaml'
 
-$(NODE_CONTAINER_BINARY): local_build vendor $(SRC_FILES)
+$(NODE_CONTAINER_BINARY): local_build $(SRC_FILES)
 	docker run --rm \
 		$(EXTRA_DOCKER_ARGS) \
 		-e GOARCH=$(ARCH) \
@@ -281,7 +285,8 @@ $(BUILD_IMAGE): $(NODE_CONTAINER_CREATED)
 $(NODE_CONTAINER_CREATED): register ./Dockerfile.$(ARCH) $(NODE_CONTAINER_FILES) $(NODE_CONTAINER_BINARY) remote-deps
 ifeq ($(LOCAL_BUILD),true)
 	# If doing a local build, copy in local confd templates in case there are changes.
-	cp -r ../confd/etc/calico/confd/templates vendor/github.com/kelseyhightower/confd/etc/calico/confd
+	rm -rf filesystem/etc/calico/confd/templates
+	cp -r ../confd/etc/calico/confd/templates filesystem/etc/calico/confd/templates
 endif
 	# Check versions of the binaries that we're going to use to build the image.
 	# Since the binaries are built for Linux, run them in a container to allow the
@@ -352,7 +357,7 @@ sub-tag-images-%:
 # TODO: re-enable these linters !
 LINT_ARGS := --disable gosimple,govet,structcheck,errcheck,goimports,unused,ineffassign,staticcheck
 
-static-checks: vendor
+static-checks:
 	$(DOCKER_RUN) $(CALICO_BUILD) golangci-lint run --deadline 5m $(LINT_ARGS)
 
 .PHONY: fix
@@ -360,7 +365,7 @@ static-checks: vendor
 fix:
 	goimports -w $(SRC_FILES)
 
-foss-checks: vendor
+foss-checks:
 	@echo Running $@...
 	@docker run --rm -v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
 	  -e LOCAL_USER_ID=$(LOCAL_USER_ID) \
@@ -373,7 +378,7 @@ foss-checks: vendor
 # FV Tests
 ###############################################################################
 ## Run the ginkgo FVs
-fv: vendor run-k8s-apiserver
+fv: run-k8s-apiserver
 	docker run --rm \
 	-v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
 	-e LOCAL_USER_ID=$(LOCAL_USER_ID) \

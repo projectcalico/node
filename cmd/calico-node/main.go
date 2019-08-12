@@ -21,6 +21,7 @@ import (
 
 	confdConfig "github.com/kelseyhightower/confd/pkg/config"
 	confd "github.com/kelseyhightower/confd/pkg/run"
+	"github.com/projectcalico/felix/buildinfo"
 	felix "github.com/projectcalico/felix/daemon"
 
 	"github.com/projectcalico/node/pkg/allocateip"
@@ -96,7 +97,7 @@ func main() {
 		fmt.Println(startup.VERSION)
 		os.Exit(0)
 	} else if *runFelix {
-		felix.Run("/etc/calico/felix.cfg")
+		felix.Run("/etc/calico/felix.cfg", buildinfo.GitVersion, buildinfo.GitRevision, buildinfo.BuildDate)
 	} else if *runStartup {
 		startup.Run()
 	} else if *runConfd {
