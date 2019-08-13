@@ -164,10 +164,10 @@ ifeq ($(LOCAL_BUILD),true)
 endif
 
 LDFLAGS=-ldflags "\
-	-X $(PACKAGE_NAME)/pkg/startup.VERSION=$(CALICO_GIT_VER) \
-        -X $(PACKAGE_NAME)/buildinfo/buildinfo.GitVersion=$(GIT_DESCRIPTION) \
-        -X $(PACKAGE_NAME)/buildinfo/buildinfo.BuildDate=$(DATE) \
-        -X $(PACKAGE_NAME)/buildinfo/buildinfo.GitRevision=$(GIT_COMMIT)"
+	-X $(PACKAGE_NAME)/startup.VERSION=$(CALICO_GIT_VER) \
+        -X $(PACKAGE_NAME)/buildinfo.GitVersion=$(GIT_DESCRIPTION) \
+        -X $(PACKAGE_NAME)/buildinfo.BuildDate=$(DATE) \
+        -X $(PACKAGE_NAME)/buildinfo.GitRevision=$(GIT_COMMIT)"
 
 PACKAGE_NAME?=github.com/projectcalico/node
 LIBCALICOGO_PATH?=none
