@@ -164,6 +164,7 @@ ifeq ($(LOCAL_BUILD),true)
 endif
 
 LDFLAGS=-ldflags "\
+	-X $(PACKAGE_NAME)/startup.VERSION=$(CALICO_GIT_VER) \
         -X $(PACKAGE_NAME)/buildinfo.GitVersion=$(GIT_DESCRIPTION) \
         -X $(PACKAGE_NAME)/buildinfo.BuildDate=$(DATE) \
         -X $(PACKAGE_NAME)/buildinfo.GitRevision=$(GIT_COMMIT)"

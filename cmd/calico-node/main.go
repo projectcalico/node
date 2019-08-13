@@ -21,9 +21,9 @@ import (
 
 	confdConfig "github.com/kelseyhightower/confd/pkg/config"
 	confd "github.com/kelseyhightower/confd/pkg/run"
-	"github.com/projectcalico/felix/buildinfo"
 	felix "github.com/projectcalico/felix/daemon"
 
+	"github.com/projectcalico/node/buildinfo"
 	"github.com/projectcalico/node/pkg/allocateip"
 	"github.com/projectcalico/node/pkg/health"
 	"github.com/projectcalico/node/pkg/startup"
