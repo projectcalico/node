@@ -406,7 +406,8 @@ run-k8s-apiserver: remote-deps stop-k8s-apiserver run-etcd
 		-v $(CRD_PATH):/manifests \
 		-v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
 		--detach \
-		${HYPERKUBE_IMAGE} \
+		${HYPERKUBE_IMAGE} sh -c '\
+		go mod download; \
 		/hyperkube apiserver \
 			--bind-address=0.0.0.0 \
 			--insecure-bind-address=0.0.0.0 \
@@ -415,7 +416,7 @@ run-k8s-apiserver: remote-deps stop-k8s-apiserver run-etcd
 			--authorization-mode=RBAC \
 			--service-cluster-ip-range=10.101.0.0/16 \
 			--v=10 \
-			--logtostderr=true
+			--logtostderr=true'
 
 	# Wait until we can configure a cluster role binding which allows anonymous auth.
 	while ! docker exec st-apiserver kubectl create \
