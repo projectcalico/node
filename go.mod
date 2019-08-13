@@ -3,6 +3,7 @@ module github.com/projectcalico/node
 go 1.12
 
 require (
+	github.com/coreos/etcd v3.3.13+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000
 	github.com/kelseyhightower/memkv v0.1.1 // indirect
@@ -16,6 +17,7 @@ require (
 	github.com/projectcalico/typha v0.0.0-20190805040817-7b2dfec30558
 	github.com/sirupsen/logrus v1.4.0
 	github.com/tinylib/msgp v1.1.0 // indirect
+	github.com/ugorji/go v1.1.1 // indirect
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	k8s.io/api v0.0.0-20180628040859-072894a440bd
 	k8s.io/apimachinery v0.0.0-20180621070125-103fd098999d
@@ -25,3 +27,5 @@ require (
 replace github.com/sirupsen/logrus => github.com/projectcalico/logrus v0.0.0-20180627202928-fc9bbf2f57995271c5cd6911ede7a2ebc5ea7c6f
 
 replace github.com/kelseyhightower/confd => github.com/projectcalico/confd v0.0.0-20190726194724-4e1d8b2f7914
+
+replace github.com/ugorji/go v1.1.1 => github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8
