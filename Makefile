@@ -141,7 +141,7 @@ NODE_CONTAINER_BIN_DIR=./dist/bin/
 NODE_CONTAINER_BINARY = $(NODE_CONTAINER_BIN_DIR)/calico-node-$(ARCH)
 
 # Variables used by the tests
-CRD_PATH=$(shell go list -m -f "{{.Version}}" github.com/projectcalico/libcalico-go)/test
+CRD_PATH=$(shell go list -m -f "{{.Dir}}" github.com/projectcalico/libcalico-go)/test
 LOCAL_IP_ENV?=$(shell ip route get 8.8.8.8 | head -1 | awk '{print $$7}')
 ST_TO_RUN?=tests/st/
 K8ST_TO_RUN?=tests/
