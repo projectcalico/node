@@ -430,7 +430,7 @@ run-k8s-apiserver: remote-deps stop-k8s-apiserver run-etcd
 	# Create CustomResourceDefinition (CRD) for Calico resources
 	# from the manifest crds.yaml
 	while ! docker exec st-apiserver kubectl \
-		apply -f /go/src/$(PACKAGE_NAME)/crds.yaml; \
+		apply -f /manifests/crds.yaml; \
 		do echo "Trying to create CRDs"; \
 		sleep 1; \
 		done
