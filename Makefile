@@ -176,8 +176,16 @@ SRC_FILES=$(shell find ./pkg -name '*.go')
 
 EXTRA_DOCKER_ARGS	+= -e GO111MODULE=on
 
-ifdef GOPATH
-	EXTRA_DOCKER_ARGS += -v $(GOPATH)/pkg/mod:/go/pkg/mod:rw
+# Volume-mount gopath into the build container if it's explicitly set for persistent caching.
+ifneq ($(GOPATH),)
+# CircleCI's gopath is readonly and readonly gopaths are incompatible with go modules so don't
+# volume mount the cache in that environment
+ifndef CIRCLECI
+	# If the environment is using multiple comma-separated directories for gopath, use the first one, as that
+	# is the default one used by go modules.
+	LOCAL_GOPATH = $(shell echo $(GOPATH) | cut -d':' -f1)
+	EXTRA_DOCKER_ARGS += -v $(LOCAL_GOPATH)/pkg/mod:/go/pkg/mod:rw
+endif
 endif
 
 DOCKER_RUN := mkdir -p .go-pkg-cache && \
@@ -230,24 +238,30 @@ CONFD_VERSION?=$(shell git ls-remote git@github.com:projectcalico/confd $(CONFD_
 CONFD_OLDVER?=$(shell go list -m -f "{{.Version}}" github.com/projectcalico/confd)
 
 update-felix-confd-libcalico:
-ifneq ($(strip $(LIBCALICO_VERSION)),)
-ifneq ($(strip $(LIBCALICO_OLDVER)),)
-	echo "Updating libcalico version $(LIBCALICO_OLDVER) to $(LIBCALICO_VERSION) from $(LIBCALICO_REPO)"
-	go mod edit -droprequire github.com/projectcalico/libcalico-go && go get $(LIBCALICO_REPO)@$(LIBCALICO_VERSION)
-endif
-endif
-ifneq ($(strip $(FELIX_VERSION)),)
-ifneq ($(strip $(FELIX_OLDVER)),)
-	echo "Updating felix version $(FELIX_OLDVER) to $(FELIX_VERSION) from $(FELIX_REPO)"
-	go mod edit -droprequire github.com/projectcalico/felix && go get $(FELIX_REPO)@$(FELIX_VERSION)
-endif
-endif
-ifneq ($(strip $(CONFD_VERSION)),)
-ifneq ($(strip $(CONFD_OLDVER)),)
-	echo "Updating confd version $(CONFD_OLDVER) to $(CONFD_VERSION) from $(CONFD_REPO)"
-	go mod edit -droprequire github.com/projectcalico/felix && go get $(CONFD_REPO)@$(CONFD_VERSION)
-endif
-endif
+	$(DOCKER_RUN) -i $(CALICO_BUILD) sh -c '\
+	if [[ ! -z "$(LIBCALICO_VERSION)" ]] && [[ "$(LIBCALICO_VERSION)" != "$(LIBCALICO_OLDVER)" ]]; then \
+		echo "Updating libcalico version $(LIBCALICO_OLDVER) to $(LIBCALICO_VERSION) from $(LIBCALICO_REPO)"; \
+		go mod edit -droprequire github.com/projectcalico/libcalico-go && go get $(LIBCALICO_REPO)@$(LIBCALICO_VERSION); \
+	fi; \
+	if [[ ! -z "$(FELIX_VERSION)" ]] && [[ "$(FELIX_VERSION)" != "$(FELIX_OLDVER)" ]]; then \
+		echo "Updating felix version $(FELIX_OLDVER) to $(FELIX_VERSION) from $(FELIX_REPO)"
+		go mod edit -droprequire github.com/projectcalico/felix && go get $(FELIX_REPO)@$(FELIX_VERSION)
+	fi; \
+	if [[ ! -z "$(CONFD_VERSION)" ]] && [[ "$(CONFD_VERSION)" != "$(CONFD_OLDVER)" ]]; then \
+		echo "Updating confd version $(CONFD_OLDVER) to $(CONFD_VERSION) from $(CONFD_REPO)"
+		go mod edit -droprequire github.com/projectcalico/felix && go get $(CONFD_REPO)@$(CONFD_VERSION)
+	fi'
+
+git-status:
+	git status --porcelain
+
+git-commit:
+	git diff-index --quiet HEAD || git commit -m "Semaphore Automatic Update" --author "Semaphore Automatic Update <marvin@tigera.io>" go.mod go.sum
+
+git-push:
+	git push
+
+commit-pin-updates: update-felix-confd-libcalico git-status ci git-commit git-push
 
 remote-deps:
 	mkdir -p filesystem/etc/calico/confd
