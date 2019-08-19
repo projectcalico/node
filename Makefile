@@ -39,25 +39,6 @@ ifeq ($(ARCH),x86_64)
     override ARCH=amd64
 endif
 
-# Build mounts for running in "local build" mode. This allows an easy build using local development code,
-# assuming that there is a local checkout of libcalico in the same directory as this repo.
-PHONY:local_build
-
-ifdef LOCAL_BUILD
-EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw \
-	-v $(CURDIR)/../confd:/go/src/github.com/projectcalico/confd:rw \
-	-v $(CURDIR)/../felix:/go/src/github.com/projectcalico/felix:rw
-local_build:
-	go mod edit -replace=github.com/projectcalico/libcalico-go=../libcalico-go
-	go mod edit -replace=github.com/projectcalico/confd=../confd
-	go mod edit -replace=github.com/projectcalico/felix=../felix
-else
-local_build:
-	-go mod edit -dropreplace=github.com/projectcalico/libcalico-go
-	-go mod edit -dropreplace=github.com/projectcalico/confd
-	-go mod edit -dropreplace=github.com/projectcalico/felix
-endif
-
 # we want to be able to run the same recipe on multiple targets keyed on the image name
 # to do that, we would use the entire image name, e.g. calico/node:abcdefg, as the stem, or '%', in the target
 # however, make does **not** allow the usage of invalid filename characters - like / and : - in a stem, and thus errors out
@@ -199,6 +180,25 @@ DOCKER_RUN := mkdir -p .go-pkg-cache && \
                 -v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
                 -v $(CURDIR)/.go-pkg-cache:/go-cache:rw \
                 -w /go/src/$(PACKAGE_NAME)
+
+# Build mounts for running in "local build" mode. This allows an easy build using local development code,
+# assuming that there is a local checkout of libcalico in the same directory as this repo.
+PHONY:local_build
+
+ifdef LOCAL_BUILD
+EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw \
+	-v $(CURDIR)/../confd:/go/src/github.com/projectcalico/confd:rw \
+	-v $(CURDIR)/../felix:/go/src/github.com/projectcalico/felix:rw
+local_build:
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/libcalico-go=../libcalico-go
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/confd=../confd
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/felix=../felix
+else
+local_build:
+	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/libcalico-go
+	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/confd
+	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/felix
+endif
 
 # If local build is set, then always build the binary since we might not
 # detect when another local repository has been modified.
