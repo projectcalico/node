@@ -855,7 +855,7 @@ var _ = Describe("FV tests against K8s API server.", func() {
 		for i := 0; i < numNodes; i++ {
 			n := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("raceNode%02d", i+1),
+					Name: fmt.Sprintf("racenode%02d", i+1),
 				},
 			}
 			_, err = cs.CoreV1().Nodes().Create(n)
