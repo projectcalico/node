@@ -100,6 +100,7 @@ const (
 )
 
 var _ = Describe("FV tests against a real etcd", func() {
+	RegisterFailHandler(Fail)
 	ctx := context.Background()
 	changedEnvVars := []string{"CALICO_IPV4POOL_CIDR", "CALICO_IPV6POOL_CIDR", "NO_DEFAULT_POOLS", "CALICO_IPV4POOL_IPIP", "CALICO_IPV6POOL_NAT_OUTGOING", "CALICO_IPV4POOL_NAT_OUTGOING", "IP", "CLUSTER_TYPE", "CALICO_K8S_NODE_REF", "CALICO_UNKNOWN_NODE_REF"}
 
