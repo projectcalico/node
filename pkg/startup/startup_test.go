@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/projectcalico/libcalico-go/lib/set"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -133,6 +133,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				os.Setenv(env.key, env.value)
 			}
 			poolList, err := c.IPPools().List(ctx, options.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
 			Expect(poolList.Items).To(BeEmpty())
 
 			// Run the UUT.
@@ -550,7 +551,8 @@ var _ = Describe("FV tests against a real etcd", func() {
 			clusterInfo.Name = "default"
 			clusterInfo.Spec.ClusterType = "prePopulated"
 
-			c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			_, err = c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node)
@@ -608,7 +610,8 @@ var _ = Describe("FV tests against a real etcd", func() {
 			clusterInfo.Name = "default"
 			clusterInfo.Spec.ClusterType = "prePopulated"
 
-			c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			_, err = c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node)
@@ -668,7 +671,8 @@ var _ = Describe("FV tests against a real etcd", func() {
 			clusterInfo := api.NewClusterInformation()
 			clusterInfo.Name = "default"
 
-			c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			_, err = c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			Expect(err).NotTo(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node)
@@ -715,7 +719,8 @@ var _ = Describe("FV tests against a real etcd", func() {
 			clusterInfo.Name = "default"
 			clusterInfo.Spec.ClusterType = "type1,type2"
 
-			c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			_, err = c.ClusterInformation().Create(ctx, clusterInfo, options.SetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "type1,type1")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node)
@@ -846,15 +851,14 @@ var _ = Describe("FV tests against K8s API server.", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create some Nodes using K8s client, Calico client does not support Node creation for KDD.
-		kNodes := []*v1.Node{}
 		for i := 0; i < numNodes; i++ {
 			n := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("raceNode%02d", i+1),
 				},
 			}
-			kNodes = append(kNodes, n)
-			cs.CoreV1().Nodes().Create(n)
+			_, err = cs.CoreV1().Nodes().Create(n)
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		// Pull above Nodes using Calico client.
@@ -884,7 +888,8 @@ var _ = Describe("FV tests against K8s API server.", func() {
 
 		// Clean up our Nodes.
 		for _, node := range nodes.Items {
-			cs.CoreV1().Nodes().Delete(node.Name, &metav1.DeleteOptions{})
+			err = cs.CoreV1().Nodes().Delete(node.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 	})
 })
