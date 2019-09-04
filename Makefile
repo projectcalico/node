@@ -245,7 +245,8 @@ update-felix-confd:
 	if [[ ! -z "$(CONFD_VERSION)" ]] && [[ "$(CONFD_VERSION)" != "$(CONFD_OLDVER)" ]]; then \
 		echo "Updating confd version $(CONFD_OLDVER) to $(CONFD_VERSION) from $(CONFD_REPO)"; \
 		go mod edit -replace $(CONFD_REPLACE)=$(CONFD_REPO)@$(CONFD_VERSION); \
-	fi'
+	fi; \
+	go mod download'
 
 git-status:
 	git status --porcelain
@@ -370,11 +371,8 @@ sub-tag-images-%:
 ###############################################################################
 .PHONY: static-checks
 ## Perform static checks on the code.
-# TODO: re-enable these linters !
-LINT_ARGS := --disable gosimple,govet,structcheck,errcheck,goimports,unused,ineffassign,staticcheck
-
 static-checks:
-	$(DOCKER_RUN) $(CALICO_BUILD) golangci-lint run --deadline 5m $(LINT_ARGS)
+	$(DOCKER_RUN) $(CALICO_BUILD) golangci-lint run --deadline 5m
 
 .PHONY: fix
 ## Fix static checks
