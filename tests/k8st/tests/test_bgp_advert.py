@@ -165,6 +165,7 @@ class TestBGPAdvert(TestBase):
         self.update_ds_env("calico-node", "kube-system", {
             "CALICO_ADVERTISE_CLUSTER_IPS": "10.96.0.0/12",
             "BGP_LOGSEVERITYSCREEN": "debug",
+            "FELIX_XDPENABLED": "false",
         })
 
         # Establish BGPPeer from cluster nodes to node-extra
@@ -193,6 +194,7 @@ EOF
         self.update_ds_env("calico-node", "kube-system", {
             "CALICO_ADVERTISE_CLUSTER_IPS": "10.96.0.0/12",
             "BGP_LOGSEVERITYSCREEN": "debug",
+            "FELIX_XDPENABLED": "false",
         })
 
         # Establish BGPPeer from cluster nodes to node-extra using calicoctl
