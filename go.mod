@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/coreos/etcd v3.3.13+incompatible // indirect
-	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000
+	github.com/kelseyhightower/confd v1.4.2
 	github.com/kelseyhightower/memkv v0.1.1 // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
