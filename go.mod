@@ -9,7 +9,7 @@ require (
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/projectcalico/felix v0.0.0-20190830001837-7753943d5841
-	github.com/projectcalico/libcalico-go v0.0.0-20190822155120-15c0fc659f30
+	github.com/projectcalico/libcalico-go v0.0.0-20190909140950-4b49d27719f2
 	github.com/projectcalico/typha v0.0.0-20190829203445-96045911fce7
 	github.com/sirupsen/logrus v1.4.0
 	github.com/ugorji/go/codec v1.1.7
