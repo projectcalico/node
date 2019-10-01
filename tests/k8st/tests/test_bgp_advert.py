@@ -160,11 +160,16 @@ class TestBGPAdvert(TestBase):
 
         start_external_node_with_bgp("kube-node-extra", bird_conf)
 
-        # set CALICO_ADVERTISE_CLUSTER_IPS=10.96.0.0/12
-        self.update_ds_env("calico-node",
-                           "kube-system",
-                           "CALICO_ADVERTISE_CLUSTER_IPS",
-                           "10.96.0.0/12")
+        calicoctl("""apply -f - << EOF
+apiVersion: projectcalico.org/v3
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  serviceClusterIPs:
+  - cidr: 10.96.0.0/12
+EOF
+""")
 
         # Enable debug logging
         self.update_ds_env("calico-node",
@@ -193,11 +198,16 @@ EOF
 
         start_external_node_with_bgp("kube-node-extra", bird_conf_rr)
 
-        # set CALICO_ADVERTISE_CLUSTER_IPS=10.96.0.0/12
-        self.update_ds_env("calico-node",
-                           "kube-system",
-                           "CALICO_ADVERTISE_CLUSTER_IPS",
-                           "10.96.0.0/12")
+        calicoctl("""apply -f - << EOF
+apiVersion: projectcalico.org/v3
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  serviceClusterIPs:
+  - cidr: 10.96.0.0/12
+EOF
+""")
 
         # Enable debug logging
         self.update_ds_env("calico-node",
