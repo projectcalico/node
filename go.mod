@@ -21,4 +21,4 @@ require (
 
 replace github.com/sirupsen/logrus => github.com/projectcalico/logrus v0.0.0-20180627202928-fc9bbf2f57995271c5cd6911ede7a2ebc5ea7c6f
 
-replace github.com/kelseyhightower/confd => github.com/projectcalico/confd v0.0.0-20190930204323-d41026f65c69
+replace github.com/kelseyhightower/confd => github.com/neiljerram/confd v1.0.0-beta1.0.20191001093821-47c412f64dcb
