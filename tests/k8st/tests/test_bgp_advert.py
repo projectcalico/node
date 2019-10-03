@@ -195,6 +195,8 @@ metadata:
 spec:
   serviceClusterIPs:
   - cidr: 10.96.0.0/12
+  serviceExternalIPs:
+  - cidr: 139.130.4.0/24
 EOF
 """)
 
@@ -314,6 +316,8 @@ metadata:
     app: nginx
     run: nginx-rr
 spec:
+  externalIPs:
+  - 139.130.4.5
   ports:
   - port: 80
     targetPort: 80
@@ -362,8 +366,10 @@ EOF
 """)
         svc_json = kubectl("get svc nginx-rr -n bgp-test -o json")
         svc_dict = json.loads(svc_json)
-        svcRoute = svc_dict['spec']['clusterIP']
-        retry_until_success(lambda: self.assertIn(svcRoute, self.get_routes()))
+        cluster_ip = svc_dict['spec']['clusterIP']
+        external_ip = svc_dict['spec']['externalIPs'][0]
+        retry_until_success(lambda: self.assertIn(cluster_ip, self.get_routes()))
+        retry_until_success(lambda: self.assertIn(external_ip, self.get_routes()))
 
     def test_cluster_ip_advertisement(self):
         """
