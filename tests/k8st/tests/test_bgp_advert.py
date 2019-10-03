@@ -463,6 +463,102 @@ EOF
             # Assert that clusterIP is no longer an advertised route.
             retry_until_success(lambda: self.assertNotIn(local_svc_ip, self.get_routes()))
 
+    def test_external_ip_advertisement(self):
+        """
+        Runs the tests for service external IP advertisement
+        """
+        with DiagsCollector():
+
+            # Whitelist two IP ranges for the external IPs we'll test with:
+            # - 139.130.4.5 (a Telstra IP)
+            # - 108.177.112.94 (a Google IP)
+            calicoctl("""apply -f - << EOF
+apiVersion: projectcalico.org/v3
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  serviceExternalIPs:
+  - cidr: 108.177.0.0/16
+  - cidr: 139.130.4.0/24
+EOF
+""")
+
+            # Assert that a route to the service IP range is present.
+            retry_until_success(lambda: self.assertIn("10.192.0.0/24", self.get_routes()))
+
+            # Create both a Local and a Cluster type NodePort service with a single replica.
+            local_svc = "nginx-local"
+            cluster_svc = "nginx-cluster"
+            self.deploy("nginx:1.7.9", local_svc, self.ns, 80)
+            self.deploy("nginx:1.7.9", cluster_svc, self.ns, 80, traffic_policy="Cluster")
+            self.wait_until_exists(local_svc, "svc", self.ns)
+            self.wait_until_exists(cluster_svc, "svc", self.ns)
+
+            # Get clusterIPs.
+            local_svc_ip = self.get_svc_cluster_ip(local_svc, self.ns)
+            cluster_svc_ip = self.get_svc_cluster_ip(cluster_svc, self.ns)
+
+            # Wait for the deployments to roll out.
+            self.wait_for_deployment(local_svc, self.ns)
+            self.wait_for_deployment(cluster_svc, self.ns)
+
+            # Assert that clusterIPs are not advertised.
+            retry_until_success(lambda: self.assertNotIn(local_svc_ip, self.get_routes()))
+            retry_until_success(lambda: self.assertNotIn(cluster_svc_ip, self.get_routes()))
+
+            # Create a network policy that only accepts traffic from the external node.
+            kubectl("""apply -f - << EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tcp-80-ex
+  namespace: bgp-test
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock: { cidr: 10.192.0.5/32 }
+    ports:
+    - protocol: TCP
+      port: 80
+EOF
+""")
+
+            # Get host IPs for the nginx pods.
+            local_svc_host_ip = self.get_svc_host_ip(local_svc, self.ns)
+            clusterSvcHostIp = self.get_svc_host_ip(cluster_svc, self.ns)
+
+            # Select a publicly known IP from each external IP CIDR.
+            local_svc_external_ip = "139.130.4.5"
+            cluster_svc_external_ip = "108.177.112.94"
+
+            # Add external IPs to the two services.
+            self.add_svc_external_ips(local_svc, self.ns, [local_svc_external_ip])
+            self.add_svc_external_ips(cluster_svc, self.ns, [cluster_svc_external_ip])
+
+            # Verify that external IPs for local service is advertised but not the cluster service.
+            local_svc_externalips_route = "%s via %s" % (local_svc_external_ip, local_svc_host_ip)
+            cluster_svc_externalips_route = "%s via %s" % (cluster_svc_external_ip, clusterSvcHostIp)
+            retry_until_success(lambda: self.assertIn(local_svc_externalips_route, self.get_routes()))
+            retry_until_success(lambda: self.assertNotIn(cluster_svc_externalips_route, self.get_routes()))
+
+            # Scale the local_svc to 4 replicas.
+            self.scale_deployment(local_svc, self.ns, 4)
+            self.wait_for_deployment(local_svc, self.ns)
+
+            # Verify that we have ECMP routes for the external IP of the local service.
+            retry_until_success(lambda: self.assert_ecmp_routes(local_svc_external_ip))
+
+            # Delete both services, assert only cluster CIDR route is advertised.
+            self.delete_and_confirm(local_svc, "svc", self.ns)
+            self.delete_and_confirm(cluster_svc, "svc", self.ns)
+
+            # Assert that external IP is no longer an advertised route.
+            retry_until_success(lambda: self.assertNotIn(local_svc_externalips_route, self.get_routes()))
+
     def test_many_services(self):
         """
         Creates a lot of services quickly
