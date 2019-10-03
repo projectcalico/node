@@ -196,7 +196,7 @@ spec:
   serviceClusterIPs:
   - cidr: 10.96.0.0/12
   serviceExternalIPs:
-  - cidr: 139.130.4.0/24
+  - cidr: 175.200.0.0/16
 EOF
 """)
 
@@ -317,7 +317,7 @@ metadata:
     run: nginx-rr
 spec:
   externalIPs:
-  - 139.130.4.5
+  - 175.200.1.1
   ports:
   - port: 80
     targetPort: 80
