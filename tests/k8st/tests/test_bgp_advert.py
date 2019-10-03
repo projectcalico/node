@@ -275,8 +275,6 @@ EOF
         self.tearDown()
         self.setUpRR()
 
-        localSvcExternalIP = "8.8.8.8"
-
         # Create ExternalTrafficPolicy Local service with one endpoint on node-1
         kubectl("""apply -f - << EOF
 apiVersion: apps/v1
@@ -324,10 +322,8 @@ spec:
     run: nginx-rr
   type: NodePort
   externalTrafficPolicy: Local
-  externalIPs:
-  - %s
 EOF
-""" % localSvcExternalIP)
+""")
 
         calicoctl("get nodes -o yaml")
         calicoctl("get bgppeers -o yaml")
@@ -344,8 +340,7 @@ EOF
 """ % json.dumps(node_dict))
 
         # Disable node-to-node mesh and configure bgp peering
-        # between node-1 and RR and also between external node and RR.
-        # Enable clusterIP and externalIPs advertisement.
+        # between node-1 and RR and also between external node and RR
         calicoctl("""apply -f - << EOF
 apiVersion: projectcalico.org/v3
 kind: BGPConfiguration
@@ -353,13 +348,8 @@ metadata: {name: default}
 spec:
   nodeToNodeMeshEnabled: false
   asNumber: 64512
-  serviceClusterIPs:
-  - cidr: 10.96.0.0/12
-  serviceExternalIPs:
-  - cidr: %s/32
 EOF
-""" % localSvcExternalIP)
-
+""")
         calicoctl("""apply -f - << EOF
 apiVersion: projectcalico.org/v3
 kind: BGPPeer
@@ -370,15 +360,10 @@ spec:
   asNumber: 64512
 EOF
 """)
-        # Verify clusterIP is advertised.
         svc_json = kubectl("get svc nginx-rr -n bgp-test -o json")
         svc_dict = json.loads(svc_json)
-        clusterIP = svc_dict['spec']['clusterIP']
-        retry_until_success(lambda: self.assertIn(clusterIP, self.get_routes()))
-
-        # Verify externalIP is advertised.
-        local_svc_externalips_route = "%s via 10.192.0.3" % localSvcExternalIP
-        retry_until_success(lambda: self.assertIn(local_svc_externalips_route, self.get_routes()))
+        svcRoute = svc_dict['spec']['clusterIP']
+        retry_until_success(lambda: self.assertIn(svcRoute, self.get_routes()))
 
     def test_cluster_ip_advertisement(self):
         """
