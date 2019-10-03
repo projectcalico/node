@@ -393,7 +393,7 @@ spec:
 EOF
 """)
 
-        # Assert that a route to the service IP range is present.
+            # Assert that a route to the service IP range is present.
             retry_until_success(lambda: self.assertIn("10.96.0.0/12", self.get_routes()))
 
             # Create both a Local and a Cluster type NodePort service with a single replica.
