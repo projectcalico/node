@@ -187,19 +187,6 @@ EOF
 
         start_external_node_with_bgp("kube-node-extra", bird_conf_rr)
 
-        calicoctl("""apply -f - << EOF
-apiVersion: projectcalico.org/v3
-kind: BGPConfiguration
-metadata:
-  name: default
-spec:
-  serviceClusterIPs:
-  - cidr: 10.96.0.0/12
-  serviceExternalIPs:
-  - cidr: 175.200.0.0/16
-EOF
-""")
-
         # Enable debug logging
         self.update_ds_env("calico-node",
                            "kube-system",
@@ -343,17 +330,23 @@ EOF
 EOF
 """ % json.dumps(node_dict))
 
-        # Disable node-to-node mesh and configure bgp peering
-        # between node-1 and RR and also between external node and RR
+        # Disable node-to-node mesh and add cluster and external IPs CIDRs to advertise.
+        # Configure bgp peering between node-1 and RR and also between external node and RR.
         calicoctl("""apply -f - << EOF
 apiVersion: projectcalico.org/v3
 kind: BGPConfiguration
-metadata: {name: default}
+metadata:
+  name: default
 spec:
   nodeToNodeMeshEnabled: false
   asNumber: 64512
+  serviceClusterIPs:
+  - cidr: 10.96.0.0/12
+  serviceExternalIPs:
+  - cidr: 175.200.0.0/16
 EOF
 """)
+
         calicoctl("""apply -f - << EOF
 apiVersion: projectcalico.org/v3
 kind: BGPPeer
