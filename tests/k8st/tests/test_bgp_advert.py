@@ -462,7 +462,7 @@ EOF
             for i in range(attempts):
               retry_until_success(curl, function_args=[local_svc_ip])
 
-            # Delete both services, assert only cluster CIDR route is advertised.
+            # Delete both services.
             self.delete_and_confirm(local_svc, "svc", self.ns)
             self.delete_and_confirm(cluster_svc, "svc", self.ns)
 
@@ -533,7 +533,7 @@ EOF
 
             # Get host IPs for the nginx pods.
             local_svc_host_ip = self.get_svc_host_ip(local_svc, self.ns)
-            clusterSvcHostIp = self.get_svc_host_ip(cluster_svc, self.ns)
+            cluster_svc_host_ip = self.get_svc_host_ip(cluster_svc, self.ns)
 
             # Select an IP from each external IP CIDR.
             local_svc_external_ip = "175.200.1.1"
@@ -545,7 +545,7 @@ EOF
 
             # Verify that external IPs for local service is advertised but not the cluster service.
             local_svc_externalips_route = "%s via %s" % (local_svc_external_ip, local_svc_host_ip)
-            cluster_svc_externalips_route = "%s via %s" % (cluster_svc_external_ip, clusterSvcHostIp)
+            cluster_svc_externalips_route = "%s via %s" % (cluster_svc_external_ip, cluster_svc_host_ip)
             retry_until_success(lambda: self.assertIn(local_svc_externalips_route, self.get_routes()))
             retry_until_success(lambda: self.assertNotIn(cluster_svc_externalips_route, self.get_routes()))
 
