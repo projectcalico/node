@@ -475,9 +475,7 @@ EOF
         """
         with DiagsCollector():
 
-            # Whitelist two IP ranges for the external IPs we'll test with:
-            # - 139.130.4.5 (a Telstra IP)
-            # - 108.177.112.94 (a Google IP)
+            # Whitelist two IP ranges for the external IPs we'll test with
             calicoctl("""apply -f - << EOF
 apiVersion: projectcalico.org/v3
 kind: BGPConfiguration
@@ -485,8 +483,8 @@ metadata:
   name: default
 spec:
   serviceExternalIPs:
-  - cidr: 108.177.0.0/16
-  - cidr: 139.130.4.0/24
+  - cidr: 175.200.0.0/16
+  - cidr: 200.255.0.0/24
 EOF
 """)
 
@@ -537,9 +535,9 @@ EOF
             local_svc_host_ip = self.get_svc_host_ip(local_svc, self.ns)
             clusterSvcHostIp = self.get_svc_host_ip(cluster_svc, self.ns)
 
-            # Select a publicly known IP from each external IP CIDR.
-            local_svc_external_ip = "139.130.4.5"
-            cluster_svc_external_ip = "108.177.112.94"
+            # Select an IP from each external IP CIDR.
+            local_svc_external_ip = "175.200.1.1"
+            cluster_svc_external_ip = "200.255.255.1"
 
             # Add external IPs to the two services.
             self.add_svc_external_ips(local_svc, self.ns, [local_svc_external_ip])
