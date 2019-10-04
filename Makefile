@@ -233,7 +233,6 @@ define update_pin
 
 	$(DOCKER_RUN) -i $(CALICO_BUILD) sh -c '\
 		if [[ ! -z "$(new_ver)" ]]; then \
-			echo "Updating $(1) to version $(new_ver) from $(2):$(3)"; \
 			go get $(1)@$(new_ver); \
 			go mod download; \
 		fi'
@@ -247,7 +246,6 @@ define update_replace_pin
 
 	$(DOCKER_RUN) -i $(CALICO_BUILD) sh -c '\
 		if [[ ! -z "$(new_ver)" ]]; then \
-			echo "Updating $(1) to version $(new_ver) from $(2):$(3)"; \
 			go mod edit -replace $(1)=$(2)@$(new_ver); \
 			go mod download; \
 		fi'
