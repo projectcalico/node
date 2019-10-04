@@ -36,7 +36,7 @@ ifeq ($(ARCH),aarch64)
 	override ARCH=arm64
 endif
 ifeq ($(ARCH),x86_64)
-    override ARCH=amd64
+	override ARCH=amd64
 endif
 
 # we want to be able to run the same recipe on multiple targets keyed on the image name
@@ -168,6 +168,29 @@ endif
 
 EXTRA_DOCKER_ARGS	+= -e GO111MODULE=on -v $(GOMOD_CACHE):/go/pkg/mod:rw
 
+# Build mounts for running in "local build" mode. This allows an easy build using local development code,
+# assuming that there is a local checkout of libcalico in the same directory as this repo.
+PHONY:local_build
+
+ifdef LOCAL_BUILD
+EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw \
+	-v $(CURDIR)/../felix:/go/src/github.com/projectcalico/felix:rw \
+	-v $(CURDIR)/../typha:/go/src/github.com/projectcalico/typha:rw \
+	-v $(CURDIR)/../confd:/go/src/github.com/projectcalico/confd:rw
+local_build:
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/libcalico-go=../libcalico-go
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/felix=../felix
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/typha=../typha
+	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/kelseyhightower/confd=../confd
+else
+local_build:
+	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/libcalico-go
+	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/confd
+	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/felix
+	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/typha
+	$(call update_replace_pin,github.com/kelseyhightower/confd,github.com/projectcalico/confd,master)
+endif
+
 DOCKER_RUN := mkdir -p .go-pkg-cache $(GOMOD_CACHE) && \
 	docker run --rm \
 		--net=host \
@@ -179,25 +202,6 @@ DOCKER_RUN := mkdir -p .go-pkg-cache $(GOMOD_CACHE) && \
 		-v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
 		-v $(CURDIR)/.go-pkg-cache:/go-cache:rw \
 		-w /go/src/$(PACKAGE_NAME)
-
-# Build mounts for running in "local build" mode. This allows an easy build using local development code,
-# assuming that there is a local checkout of libcalico in the same directory as this repo.
-PHONY:local_build
-
-ifdef LOCAL_BUILD
-EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw \
-	-v $(CURDIR)/../confd:/go/src/github.com/projectcalico/confd:rw \
-	-v $(CURDIR)/../felix:/go/src/github.com/projectcalico/felix:rw
-local_build:
-	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/libcalico-go=../libcalico-go
-	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/confd=../confd
-	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/felix=../felix
-else
-local_build:
-	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/libcalico-go
-	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/confd
-	-$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -dropreplace=github.com/projectcalico/felix
-endif
 
 # If local build is set, then always build the binary since we might not
 # detect when another local repository has been modified.
