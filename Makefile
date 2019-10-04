@@ -151,7 +151,6 @@ LDFLAGS=-ldflags "\
 	-X $(PACKAGE_NAME)/buildinfo.GitRevision=$(GIT_COMMIT)"
 
 PACKAGE_NAME?=github.com/projectcalico/node
-LIBCALICOGO_PATH?=none
 
 SRC_FILES=$(shell find ./pkg -name '*.go')
 
