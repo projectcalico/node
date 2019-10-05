@@ -170,18 +170,6 @@ endif
 
 EXTRA_DOCKER_ARGS += -v $(GOMOD_CACHE):/go/pkg/mod:rw
 
-DOCKER_RUN := mkdir -p .go-pkg-cache $(GOMOD_CACHE) && \
-        docker run --rm \
-                --net=host \
-                $(EXTRA_DOCKER_ARGS) \
-                -e LOCAL_USER_ID=$(LOCAL_USER_ID) \
-                -e GOCACHE=/go-cache \
-                -e GOARCH=$(ARCH) \
-                -e GOPATH=/go \
-                -v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
-                -v $(CURDIR)/.go-pkg-cache:/go-cache:rw \
-                -w /go/src/$(PACKAGE_NAME)
-
 # Build mounts for running in "local build" mode. This allows an easy build using local development code,
 # assuming that there is a local checkout of libcalico in the same directory as this repo.
 PHONY:local_build
@@ -206,6 +194,19 @@ endif
 ifeq ($(LOCAL_BUILD),true)
 .PHONY: $(SRC_FILES)
 endif
+
+DOCKER_RUN := mkdir -p .go-pkg-cache $(GOMOD_CACHE) && \
+        docker run --rm \
+                --net=host \
+                $(EXTRA_DOCKER_ARGS) \
+                -e LOCAL_USER_ID=$(LOCAL_USER_ID) \
+                -e GOCACHE=/go-cache \
+                -e GOARCH=$(ARCH) \
+                -e GOPATH=/go \
+                -v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
+                -v $(CURDIR)/.go-pkg-cache:/go-cache:rw \
+                -w /go/src/$(PACKAGE_NAME)
+
 
 ## Clean enough that a new release build will be clean
 clean:
