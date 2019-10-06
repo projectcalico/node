@@ -8,9 +8,9 @@ require (
 	github.com/mattn/go-isatty v0.0.8 // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
-	github.com/projectcalico/felix v0.0.0-20190930212430-7103830d61de
-	github.com/projectcalico/libcalico-go v0.0.0-20190930172755-3e9f97a04dc5
-	github.com/projectcalico/typha v0.0.0-20190930175822-667233ccc5dc
+	github.com/projectcalico/felix v0.0.0-20191005065108-aa226df7849b
+	github.com/projectcalico/libcalico-go v0.0.0-20191002165503-ce68b855671e
+	github.com/projectcalico/typha v0.0.0-20191004184630-bb3d326e47e8
 	github.com/sirupsen/logrus v1.4.2
 	github.com/ugorji/go/codec v1.1.7
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
