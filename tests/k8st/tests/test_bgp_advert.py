@@ -26,6 +26,9 @@ attempts = 10
 bird_conf = """
 router id 10.192.0.5;
 
+protocol bfd {
+}
+
 # Configure synchronization between routing tables and kernel.
 protocol kernel {
   learn;             # Learn all alien routes from the kernel
@@ -58,7 +61,7 @@ template bgp bgp_template {
   debug { states };
   description "Connection to BGP peer";
   local as 64512;
-  multihop;
+  direct;
   gateway recursive; # This should be the default, but just in case.
   import all;        # Import all routes, since we don't know what the upstream
                      # topology is and therefore have to trust the ToR/RR.
@@ -69,6 +72,7 @@ template bgp bgp_template {
   connect delay time 2;
   connect retry time 5;
   error wait time 5,30;
+  bfd on;
 }
 
 # ------------- Node-to-node mesh -------------
@@ -97,6 +101,9 @@ protocol bgp Mesh_10_192_0_4 from bgp_template {
 bird_conf_rr = """
 router id 10.192.0.5;
 
+protocol bfd {
+}
+
 # Configure synchronization between routing tables and kernel.
 protocol kernel {
   learn;             # Learn all alien routes from the kernel
@@ -129,7 +136,7 @@ template bgp bgp_template {
   debug { states };
   description "Connection to BGP peer";
   local as 64512;
-  multihop;
+  direct;
   gateway recursive; # This should be the default, but just in case.
   import all;        # Import all routes, since we don't know what the upstream
                      # topology is and therefore have to trust the ToR/RR.
@@ -140,6 +147,7 @@ template bgp bgp_template {
   connect delay time 2;
   connect retry time 5;
   error wait time 5,30;
+  bfd on;
 }
 
 # For peer /host/kube-node-2/ip_addr_v4

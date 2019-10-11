@@ -50,6 +50,10 @@ class TestUpdateIPAddress(TestBase):
 
             # Allow network to converge
             self.assert_true(workload_host1.check_can_ping(workload_host2.ip, retries=10))
+            host1.birdc("show protocols all")
+            host1.birdc("show bfd sessions")
+            host2.birdc("show protocols all")
+            host2.birdc("show bfd sessions")
 
             # Check connectivity in both directions
             self.assert_ip_connectivity(workload_list=[workload_host1,

@@ -656,6 +656,9 @@ class DockerHost(object):
         self.writejson("new_data", data)
         self.calicoctl("%s -f new_data" % action)
 
+    def birdc(self, args):
+        self.execute("docker exec calico-node birdcl -s /var/run/calico/bird.ctl " + args, raise_exception_on_failure=False)
+
     def log_extra_diags(self):
         # Check for OOM kills.
         log_and_run("dmesg | grep -i kill", raise_exception_on_failure=False)
