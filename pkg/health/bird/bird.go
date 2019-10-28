@@ -82,24 +82,26 @@ func GRInProgress(ipv string) (bool, error) {
 		// Process the next line that has been read by the scanner.
 		str := scanner.Text()
 		log.Debugf("Read: %s\n", str)
-		if strings.HasPrefix(str, "0013") {
-			// "0013" code is the final line and indicates that BIRD is ready,
-			break
-		} else if strings.HasPrefix(str, "0001") {
-			// "0001" code means BIRD is ready.
-		} else if strings.HasPrefix(str, "1000") {
-			// "1000" code shows the BIRD version
-		} else if strings.HasPrefix(str, "1011") {
-			// "1011" shows uptime
-		} else if strings.HasPrefix(str, "0024") {
-			// "0024" code indicates the start of a graceful restart status report.
-			// This means a GR is in progress.
-			return true, nil
-		} else if strings.HasPrefix(str, " ") {
+
+		if len(str) < 4 || strings.HasPrefix(str, " ") {
 			// Row starting with a " " is another row of data.
 		} else {
-			// Format of row is unexpected.
-			return false, fmt.Errorf("unexpected output line from BIRD: '%s'", str)
+			switch str[0:4] {
+			case "0001", "1000", "1011":
+				// "0001" code means BIRD is ready.
+				// "1000" code shows the BIRD version.
+				// "1011" shows uptime.
+			case "0013":
+				// "0013" code is the final line and indicates that BIRD is ready.
+				return false, nil
+			case "0024":
+				// "0024" code indicates the start of a graceful restart status report.
+				// This means a GR is in progress.
+				return true, nil
+			default:
+				// Format of row is unexpected.
+				return false, fmt.Errorf("unexpected output line from BIRD: '%s'", str)
+			}
 		}
 
 		// Before reading the next line, adjust the time-out for

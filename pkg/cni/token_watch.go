@@ -27,7 +27,7 @@ func Run() {
 	}
 	defer watcher.Close()
 
-	// Watch for changes to the serviceaccount directory. Rety if necessary.
+	// Watch for changes to the serviceaccount directory. Retry if necessary.
 	for {
 		if err := watcher.Add(serviceaccountDirectory); err != nil {
 			// Error watching the file - retry
