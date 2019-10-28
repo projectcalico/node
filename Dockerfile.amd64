@@ -18,12 +18,11 @@ FROM ${BIRD_IMAGE} as bird
 
 FROM centos:8 as centos
 ARG ARCH=x86_64
-ARG CDN_BASE_URL=https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/${ARCH}/
+ARG CENTOS_MIRROR_BASE_URL=http://vault.centos.org/8.0.1905
 ARG LIBNFTNL_VER=1.1.1-4
-ARG LIBNFTNL_SOURCERPM_URL=${CDN_BASE_URL}/baseos/source/SRPMS/Packages/l/libnftnl-${LIBNFTNL_VER}.el8.src.rpm
-ARG LIBNFTNL_RPM_URL=${CDN_BASE_URL}/baseos/os/Packages/l/libnftnl-${LIBNFTNL_VER}.el8.${ARCH}.rpm
+ARG LIBNFTNL_SOURCERPM_URL=${CENTOS_MIRROR_BASE_URL}/BaseOS/Source/SPackages/libnftnl-${LIBNFTNL_VER}.el8.src.rpm
 ARG IPTABLES_VER=1.8.2-9
-ARG IPTABLES_SOURCERPM_URL=${CDN_BASE_URL}/baseos/source/SRPMS/Packages/i/iptables-${IPTABLES_VER}.el8_0.1.src.rpm
+ARG IPTABLES_SOURCERPM_URL=${CENTOS_MIRROR_BASE_URL}/BaseOS/Source/SPackages/iptables-${IPTABLES_VER}.el8_0.1.src.rpm
 ARG RUNIT_VER=2.1.2
 
 RUN yum update -y && \
@@ -34,19 +33,19 @@ RUN yum update -y && \
     # Install required packages for building rpms
     yum install -y rpm-build yum-utils make && \
     # In order to rebuild the iptables RPM, we first need to rebuild the libnftnl RPM because building
-    # iptables requires libnftnl-devel but that RPM is not available on Redhat's opensource registry.
+    # iptables requires libnftnl-devel but libnftnl-devel is not available on ubi or CentOS repos.
     # (Note: it's not in RHEL8.1 either https://bugzilla.redhat.com/show_bug.cgi?id=1711361).
     # Rebuilding libnftnl will give us libnftnl-devel too.
     rpm -i ${LIBNFTNL_SOURCERPM_URL} && \
     yum-builddep -y --spec /root/rpmbuild/SPECS/libnftnl.spec && \
     rpmbuild -bb /root/rpmbuild/SPECS/libnftnl.spec && \
     # Now install libnftnl and libnftnl-devel
-    rpm -i ${LIBNFTNL_RPM_URL} && \
+    rpm -Uv /root/rpmbuild/RPMS/${ARCH}/libnftnl-${LIBNFTNL_VER}.el8.${ARCH}.rpm && \
     rpm -Uv /root/rpmbuild/RPMS/${ARCH}/libnftnl-devel-${LIBNFTNL_VER}.el8.${ARCH}.rpm && \
     # Install source RPM for iptables and install its build dependencies.
     rpm -i ${IPTABLES_SOURCERPM_URL} && \
     yum-builddep -y --spec /root/rpmbuild/SPECS/iptables.spec && \
-    # Patch the spec so that:
+    # Patch the iptables build spec so that:
     # - we keep the legacy iptables binaries
     # - and rename the legacy binaries so they use the canonical iptables binary name. I.e., iptables-legacy => iptables.
     #   (The default spec does the opposite and make the nft binaries use the default binary names.)
@@ -98,8 +97,9 @@ COPY --from=centos  /root/rpmbuild/RPMS/${ARCH}/* /tmp/rpms/
 
 COPY centos.repo /etc/yum.repos.d/
 
-# Install everything but conntrack, making sure that we're using only ubi repos.
-RUN microdnf --disablerepo=centos-8-base-os --disablerepo=centos-8-appstream install --nodocs \
+# Install everything but conntrack, making sure that we're using only CentOS repos.
+RUN rm /etc/yum.repos.d/ubi.repo && \
+    microdnf install --nodocs \
     # Needed for iptables
     libpcap libmnl libnfnetlink libnftnl libnetfilter_conntrack \
     ipset \
@@ -111,6 +111,9 @@ RUN microdnf --disablerepo=centos-8-base-os --disablerepo=centos-8-appstream ins
     # Also needed (provides utilities for browsing procfs like ps)
     procps \
     iproute \
+    # Needed for conntrack
+    libnetfilter_cthelper libnetfilter_cttimeout libnetfilter_queue \
+    conntrack-tools \
     # Needed for runit startup script
     which && \
     microdnf clean all && \
@@ -118,13 +121,6 @@ RUN microdnf --disablerepo=centos-8-base-os --disablerepo=centos-8-appstream ins
     # version '9.el8_0.1' while the existing iptables-libs (pulled in by the iputils package) has version '9.el8.1'.
     rpm --force -i /tmp/rpms/iptables-libs-${IPTABLES_VER}.el8.1.${ARCH}.rpm && \
     rpm -i /tmp/rpms/iptables-${IPTABLES_VER}.el8.1.${ARCH}.rpm
-
-# Install conntrack from CentOS repos.
-RUN microdnf install --nodocs \
-    # Needed for conntrack
-    libnetfilter_cthelper libnetfilter_cttimeout libnetfilter_queue \
-    conntrack-tools && \
-    microdnf clean all
 
 # Copy our bird binaries in
 COPY --from=bird /bird* /bin/
