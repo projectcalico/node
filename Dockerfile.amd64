@@ -23,7 +23,7 @@ FROM ${BIRD_IMAGE} as bird
 
 # Use this build stage to build iptables rpm and runit binaries.
 # We need to rebuild the iptables rpm because the prepackaged rpm does not have legacy iptables binaries.
-# We need to build runit because there aren't any rpms for it in our repos.
+# We need to build runit because there aren't any rpms for it in CentOS or ubi repositories.
 FROM centos:8 as centos
 
 ARG ARCH
@@ -114,11 +114,11 @@ COPY --from=centos  /tmp/admin/runit-${RUNIT_VER}/command/* /usr/local/bin/
 # Copy in our rpms
 COPY --from=centos  /root/rpmbuild/RPMS/${ARCH}/* /tmp/rpms/
 
+# Install the necessary packages, making sure that we're using only CentOS repos.
+# Since the ubi repos do not contain all the packages we need (they're missing conntrack-tools),
+# we're using CentOS repos for all our packages. Using packages from a single source (CentOS) makes
+# it less likely we'll run into package dependency version mismatches.
 COPY centos.repo /etc/yum.repos.d/
-
-# Install everything but conntrack, making sure that we're using only CentOS repos.
-# We're using CentOS for all our packages for consistency and probably better compatibility.
-# The ubi repos unfortunately do not contain all the packages we need (they're missing conntrack-tools).
 RUN rm /etc/yum.repos.d/ubi.repo && \
     microdnf install --nodocs \
     # Needed for iptables
