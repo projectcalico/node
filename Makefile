@@ -26,13 +26,13 @@ LOCAL_BUILD_DEP:=set-up-local-build
 EXTRA_DOCKER_ARGS+=-v $(CURDIR)/../libcalico-go:/go/src/github.com/projectcalico/libcalico-go:rw \
 	-v $(CURDIR)/../felix:/go/src/github.com/projectcalico/felix:rw \
 	-v $(CURDIR)/../typha:/go/src/github.com/projectcalico/typha:rw \
-	-v $(CURDIR)/../typha:/go/src/github.com/projectcalico/confd:rw
+	-v $(CURDIR)/../confd:/go/src/github.com/projectcalico/confd:rw
 
 $(LOCAL_BUILD_DEP):
 	$(DOCKER_RUN) $(CALICO_BUILD) go mod edit -replace=github.com/projectcalico/libcalico-go=../libcalico-go \
 		-replace=github.com/projectcalico/felix=../felix \
 		-replace=github.com/projectcalico/typha=../typha \
-		-replace=github.com/projectcalico/confd=../confd
+		-replace=github.com/kelseyhightower/confd=../confd
 endif
 
 include Makefile.common
