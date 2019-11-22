@@ -14,10 +14,10 @@ require (
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
 	k8s.io/api v0.0.0-20190718183219-b59d8169aab5
 	k8s.io/apimachinery v0.0.0-20190612205821-1799e75a0719
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.0.0-20190620085101-78d2af792bab
 )
 
 replace (
-	github.com/kelseyhightower/confd => github.com/projectcalico/confd v0.0.0-20191119041309-8fb60a3e1669
+	github.com/kelseyhightower/confd => github.com/projectcalico/confd v1.0.1-0.20191122060249-d09d1a5e2cc5
 	github.com/sirupsen/logrus => github.com/projectcalico/logrus v1.0.4-calico
 )

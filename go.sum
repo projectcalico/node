@@ -288,6 +288,8 @@ github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndr
 github.com/pquerna/ffjson v0.0.0-20190813045741-dac163c6c0a9/go.mod h1:YARuvh7BUWHNhzDq2OM5tzR2RiCcN2D7sapiKyCel/M=
 github.com/projectcalico/confd v0.0.0-20191119041309-8fb60a3e1669 h1:gM6KeNn1giUW2aZ3BIC7p0vTxQujFvIyBnjz1Q3KaC0=
 github.com/projectcalico/confd v0.0.0-20191119041309-8fb60a3e1669/go.mod h1:sNan0U1JeYGYhnUO144Ws9zRfp62HzEz6UEmtLgpN8U=
+github.com/projectcalico/confd v1.0.1-0.20191122060249-d09d1a5e2cc5 h1:6NcS6uV9XMff11GvISbx6/4S+A/KROfNi+H5mB/dvV4=
+github.com/projectcalico/confd v1.0.1-0.20191122060249-d09d1a5e2cc5/go.mod h1:ntFD34U402Uz+VhAGjWjgqH6QRejG3YzqxQ75nYow/k=
 github.com/projectcalico/confd v3.2.0+incompatible/go.mod h1:kUM7VZ267QKU9j3n60w/bB792J5qNVF1jAltjl7AzRM=
 github.com/projectcalico/felix v0.0.0-20191122063206-5ef23057d939 h1:+Ui3fo/g6DVywCDgPAc/PoiGfS+4Nq+nrs5OuEDqqd0=
 github.com/projectcalico/felix v0.0.0-20191122063206-5ef23057d939/go.mod h1:MUEX3v638vIU51oj0IRyGys6FYMhFFsRk0iWVhdc7H0=
