@@ -4,11 +4,11 @@ go 1.13
 
 require (
 	github.com/coreos/etcd v3.3.13+incompatible // indirect
-	github.com/kelseyhightower/confd v0.16.0
+	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000 // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
-	github.com/projectcalico/felix v0.0.0-20191119064945-bc9f3fb41aa4
-	github.com/projectcalico/libcalico-go v1.7.2-0.20191119183141-c072e7a2fae4
+	github.com/projectcalico/felix v0.0.0-20191122063206-5ef23057d939
+	github.com/projectcalico/libcalico-go v1.7.2-0.20191122034129-d601846715fa
 	github.com/sirupsen/logrus v1.4.2
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
