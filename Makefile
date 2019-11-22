@@ -82,7 +82,7 @@ NODE_CONTAINER_FILES=$(shell find ./filesystem -type f)
 DATE:=$(shell date -u +'%FT%T%z')
 
 LDFLAGS=-ldflags "\
-	-X $(PACKAGE_NAME)/pkg/startup.VERSION=$(CALICO_GIT_VER) \
+	-X $(PACKAGE_NAME)/pkg/startup.VERSION=$(GIT_VERSION) \
 	-X $(PACKAGE_NAME)/buildinfo.GitVersion=$(GIT_DESCRIPTION) \
 	-X $(PACKAGE_NAME)/buildinfo.BuildDate=$(DATE) \
 	-X $(PACKAGE_NAME)/buildinfo.GitRevision=$(GIT_COMMIT)"
@@ -147,7 +147,7 @@ endif
 	docker run --rm -v $(CURDIR)/dist/bin:/go/bin:rw $(CALICO_BUILD) /bin/sh -c "\
 	  echo; echo calico-node-$(ARCH) -v;	 /go/bin/calico-node-$(ARCH) -v; \
 	"
-	docker build --pull -t $(BUILD_IMAGE):latest-$(ARCH) . --build-arg BIRD_IMAGE=$(BIRD_IMAGE) --build-arg QEMU_IMAGE=$(CALICO_BUILD) --build-arg GIT_VERSION=$(CALICO_GIT_VER) -f ./Dockerfile.$(ARCH)
+	docker build --pull -t $(BUILD_IMAGE):latest-$(ARCH) . --build-arg BIRD_IMAGE=$(BIRD_IMAGE) --build-arg QEMU_IMAGE=$(CALICO_BUILD) --build-arg GIT_VERSION=$(GIT_VERSION) -f ./Dockerfile.$(ARCH)
 	touch $@
 
 ###############################################################################
@@ -486,4 +486,4 @@ $(info "Test dependency versions")
 $(info $(shell printf "%-21s = %-10s\n" "CNI_VER" $(CNI_VER)))
 
 $(info "Calico git version")
-$(info $(shell printf "%-21s = %-10s\n" "CALICO_GIT_VER" $(CALICO_GIT_VER)))
+$(info $(shell printf "%-21s = %-10s\n" "GIT_VERSION" $(GIT_VERSION)))
