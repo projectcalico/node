@@ -24,6 +24,7 @@ import (
 	felix "github.com/projectcalico/felix/daemon"
 
 	"github.com/projectcalico/node/pkg/allocateip"
+	"github.com/projectcalico/node/pkg/cni"
 	"github.com/projectcalico/node/pkg/health"
 	"github.com/projectcalico/node/pkg/startup"
 
