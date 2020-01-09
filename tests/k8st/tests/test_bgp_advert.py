@@ -24,35 +24,6 @@ _log = logging.getLogger(__name__)
 attempts = 10
 
 bird_conf = """
-router id 10.192.0.5;
-
-# Configure synchronization between routing tables and kernel.
-protocol kernel {
-  learn;             # Learn all alien routes from the kernel
-  persist;           # Don't remove routes on bird shutdown
-  scan time 2;       # Scan kernel routing table every 2 seconds
-  import all;
-  export all;
-  graceful restart;  # Turn on graceful restart to reduce potential flaps in
-                     # routes when reloading BIRD configuration.  With a full
-                     # automatic mesh, there is no way to prevent BGP from
-                     # flapping since multiple nodes update their BGP
-                     # configuration at the same time, GR is not guaranteed to
-                     # work correctly in this scenario.
-  merge paths on;
-}
-
-# Watch interface up/down events.
-protocol device {
-  debug { states };
-  scan time 2;    # Scan interfaces every 2 seconds
-}
-
-protocol direct {
-  debug { states };
-  interface -"cali*", "*"; # Exclude cali* but include everything else.
-}
-
 # Template for all BGP clients
 template bgp bgp_template {
   debug { states };
@@ -78,7 +49,6 @@ protocol bgp Mesh_10_192_0_2 from bgp_template {
   passive on; # Mesh is unidirectional, peer will connect to us.
 }
 
-
 # For peer /host/kube-node-1/ip_addr_v4
 protocol bgp Mesh_10_192_0_3 from bgp_template {
   neighbor 10.192.0.3 as 64512;
@@ -95,35 +65,6 @@ protocol bgp Mesh_10_192_0_4 from bgp_template {
 # BIRD config for an external node to peer with
 # the in-cluster route reflector on kube-node-2.
 bird_conf_rr = """
-router id 10.192.0.5;
-
-# Configure synchronization between routing tables and kernel.
-protocol kernel {
-  learn;             # Learn all alien routes from the kernel
-  persist;           # Don't remove routes on bird shutdown
-  scan time 2;       # Scan kernel routing table every 2 seconds
-  import all;
-  export all;
-  graceful restart;  # Turn on graceful restart to reduce potential flaps in
-                     # routes when reloading BIRD configuration.  With a full
-                     # automatic mesh, there is no way to prevent BGP from
-                     # flapping since multiple nodes update their BGP
-                     # configuration at the same time, GR is not guaranteed to
-                     # work correctly in this scenario.
-  merge paths on;
-}
-
-# Watch interface up/down events.
-protocol device {
-  debug { states };
-  scan time 2;    # Scan interfaces every 2 seconds
-}
-
-protocol direct {
-  debug { states };
-  interface -"cali*", "*"; # Exclude cali* but include everything else.
-}
-
 # Template for all BGP clients
 template bgp bgp_template {
   debug { states };
