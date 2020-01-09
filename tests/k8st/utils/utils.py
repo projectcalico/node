@@ -80,8 +80,8 @@ def start_external_node_with_bgp(name, config):
     run("rm bird.conf")
     run("docker exec %s birdcl configure" % name)
 
-    # Also install curl.
-    run("docker exec %s apk add --no-cache curl" % name)
+    # Also install curl and iproute2.
+    run("docker exec %s apk add --no-cache curl iproute2" % name)
 
 
 def retry_until_success(fun,
