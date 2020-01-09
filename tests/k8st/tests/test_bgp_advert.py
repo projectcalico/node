@@ -443,7 +443,7 @@ EOF
             # Try to curl 10 times.
             try:
               for i in range(attempts):
-                curl("kube-node-extra", cluster_svc_ip)
+                curl(cluster_svc_ip)
               self.fail("external node should not be able to consistently access the cluster svc")
             except subprocess.CalledProcessError:
               pass

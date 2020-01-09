@@ -52,12 +52,12 @@ def start_external_node_with_bgp(name, config):
     # Check how much disk space we have.
     run("df -h")
 
-    # Setup external node: use privileged mode for setting routes
+    # Setup external node: use privileged mode for setting routes.
     run("docker run -d "
         "--privileged "
         "--name %s "
         "--network kubeadm-dind-net "
-        "mirantis/kubeadm-dind-cluster:v1.10" % name)
+        "neiljerram/birdy" % name)
 
     # Check how much space there is inside the container.  We may need
     # to retry this, as it may take a while for the image to download
@@ -70,15 +70,15 @@ def start_external_node_with_bgp(name, config):
             _log.exception("Container not ready yet")
             time.sleep(20)
 
-    # Install bird on extra node
-    run("docker exec %s apt-get update --fix-missing" % name)
-    run("docker exec %s apt-get install -y bird" % name)
-    run("docker exec %s mkdir /run/bird" % name)
+    # Install desired bird config.
     with open('bird.conf', 'w') as birdconfig:
         birdconfig.write(config)
-    run("docker cp bird.conf %s:/etc/bird/bird.conf" % name)
+    run("docker cp bird.conf %s:/etc/bird/peers.conf" % name)
     run("rm bird.conf")
-    run("docker exec %s service bird restart" % name)
+    run("docker exec %s birdcl configure" % name)
+
+    # Also install curl.
+    run("docker exec %s apk add --no-cache curl" % name)
 
 
 def retry_until_success(fun,
