@@ -70,7 +70,10 @@ def start_external_node_with_bgp(name, config):
             _log.exception("Container not ready yet")
             time.sleep(20)
 
-    # Install desired bird config.
+    # Add "merge paths on" to the BIRD config.
+    run("docker exec %s sed -i '/protocol kernel {/a merge paths on;' /etc/bird.conf" % name)
+
+    # Install desired peer config.
     with open('bird.conf', 'w') as birdconfig:
         birdconfig.write(config)
     run("docker cp bird.conf %s:/etc/bird/peers.conf" % name)
