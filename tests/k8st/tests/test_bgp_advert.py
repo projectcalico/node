@@ -189,7 +189,7 @@ EOF
     def assert_ecmp_routes(self, dst, via=["10.192.0.3", "10.192.0.4"]):
         matchStr = dst + " proto bird "
         for ip in via:
-            matchStr += "\n\tnexthop via %s  dev eth0 weight 1" % ip
+            matchStr += "\n\tnexthop via %s dev eth0 weight 1 " % ip
         retry_until_success(lambda: self.assertIn(matchStr, self.get_routes()))
 
     def get_svc_host_ip(self, svc, ns):
