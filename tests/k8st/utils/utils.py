@@ -57,7 +57,7 @@ def start_external_node_with_bgp(name, bird_peer_config=None, bird6_peer_config=
     run("docker run -d "
         "--privileged "
         "--name %s "
-        "neiljerram/birdy" % name)
+        "neiljerram/birdy:v6" % name)
 
     # Check how much space there is inside the container.  We may need
     # to retry this, as it may take a while for the image to download
