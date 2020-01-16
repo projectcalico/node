@@ -12,4 +12,7 @@ blocks:
         commands:
           # Checkout the code and run the Kubernetes tests.
           - checkout
+          # Semaphore is doing shallow clone without tags.
+          # Fetch tags manually for GIT_VERSION:=$(shell git describe --tags --dirty --always) @ Makefile.common
+          - git fetch --tags
           - make k8s-test
