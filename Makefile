@@ -3,7 +3,7 @@ GO_BUILD_VER?=v0.34
 
 # This needs to be evaluated before the common makefile is included.
 # This var contains some default values that the common makefile may append to.
-PUSH_IMAGES?=$(BUILD_IMAGE) quay.io/calico/cni
+PUSH_IMAGES?=$(BUILD_IMAGE) quay.io/calico/node
 
 ###############################################################################
 # Download and include Makefile.common
