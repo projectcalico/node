@@ -15,4 +15,4 @@ blocks:
           # Semaphore is doing shallow clone on a commit without tags.
           # unshallow it for GIT_VERSION:=$(shell git describe --tags --dirty --always) @ Makefile.common
           - git fetch --unshallow
-          - make k8s-test
+          - K8ST_TO_RUN='tests/test_bgp_advert.py:TestBGPAdvert.test_rr -s --nocapture --nologcaptur' make k8s-test
