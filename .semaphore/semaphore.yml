@@ -12,4 +12,7 @@ blocks:
         commands:
           # Checkout the code and run the Kubernetes tests.
           - checkout
-          - make k8s-test
+          # Semaphore is doing shallow clone on a commit without tags.
+          # unshallow it for GIT_VERSION:=$(shell git describe --tags --dirty --always) @ Makefile.common
+          - git fetch --unshallow
+          - K8ST_TO_RUN='tests/test_bgp_advert.py:TestBGPAdvert.test_rr -s --nocapture --nologcaptur' make k8s-test
