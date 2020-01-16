@@ -308,7 +308,7 @@ kind-k8st-run-test: calico_test.created
 	    --net host \
 	${TEST_CONTAINER_NAME} \
 	    sh -c 'echo "container started.." && \
-	     cd /code/tests/k8st && nosetests $(K8ST_TO_RUN) -v --with-xunit --xunit-file="/code/report/k8s-tests.xml" --with-timer'
+	     cd /code/tests/k8st && nosetests $(K8ST_TO_RUN) -s --nocapture --nologcapture -v --with-xunit --xunit-file="/code/report/k8s-tests.xml" --with-timer'
 
 .PHONY: kind-k8st-cleanup
 kind-k8st-cleanup:
