@@ -30,6 +30,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -99,6 +100,19 @@ const (
 	randomULAPool = "<random ULA pool>"
 )
 
+// createClientset creates a kubernetes clientset when running under that platform.
+func createClientset() *kubernetes.Clientset {
+	var clientset *kubernetes.Clientset
+
+	if config, err := rest.InClusterConfig(); err == nil {
+		config.Timeout = 10 * time.Second
+		clientset, err = kubernetes.NewForConfig(config)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	return clientset
+}
+
 var _ = Describe("FV tests against a real etcd", func() {
 	RegisterFailHandler(Fail)
 	ctx := context.Background()
@@ -111,6 +125,9 @@ var _ = Describe("FV tests against a real etcd", func() {
 		"CALICO_IPV4POOL_BLOCK_SIZE", "CALICO_IPV6POOL_BLOCK_SIZE",
 		"CALICO_IPV4POOL_NODE_SELECTOR", "CALICO_IPV6POOL_NODE_SELECTOR",
 	}
+
+	// If running under kubernetes with secrets to call k8s API
+	clientset := createClientset()
 
 	BeforeEach(func() {
 		for _, envName := range changedEnvVars {
@@ -146,7 +163,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(poolList.Items).To(BeEmpty())
 
 			// Run the UUT.
-			configureIPPools(ctx, c)
+			configureIPPools(ctx, c, clientset)
 
 			// Get the IPPool list.
 			poolList, err = c.IPPools().List(ctx, options.ListOptions{})
@@ -349,7 +366,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("NO_DEFAULT_POOLS", "true")
 
 			// Run the UUT.
-			configureIPPools(ctx, c)
+			configureIPPools(ctx, c, clientset)
 
 			// Get the IPPool list.
 			poolList, err := c.IPPools().List(ctx, options.ListOptions{})
@@ -390,7 +407,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			}
 
 			// Run the UUT.
-			configureIPPools(ctx, c)
+			configureIPPools(ctx, c, clientset)
 
 			Expect(my_ec).To(Equal(1))
 		},
@@ -497,7 +514,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			nodeName := determineNodeName()
 			node := getNode(ctx, c, nodeName)
 
-			err = ensureDefaultConfig(ctx, cfg, c, node)
+			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -539,7 +556,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node)
+			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -586,7 +603,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node)
+			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -645,7 +662,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node)
+			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -706,7 +723,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node)
+			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -754,7 +771,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "type1,type1")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node)
+			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -898,6 +915,9 @@ var _ = Describe("FV tests against K8s API server.", func() {
 			Fail(fmt.Sprintf("Could not retrieve Nodes %v", err))
 		}
 
+		// If running under kubernetes with secrets to call k8s API
+		clientset := createClientset()
+
 		// Run ensureDefaultConfig against each of the Nodes using goroutines to simulate multiple Nodes coming online.
 		var wg sync.WaitGroup
 		errors := []error{}
@@ -905,7 +925,7 @@ var _ = Describe("FV tests against K8s API server.", func() {
 			wg.Add(1)
 			go func(n api.Node) {
 				defer wg.Done()
-				err = ensureDefaultConfig(ctx, cfg, c, &n)
+				err = ensureDefaultConfig(ctx, cfg, c, &n, clientset)
 				if err != nil {
 					errors = append(errors, err)
 				}
