@@ -747,7 +747,7 @@ func configureIPPools(ctx context.Context, client client.Interface, kubeadmConfi
 	if (len(ipv4Pool) == 0 || len(ipv6Pool) == 0) && kubeadmConfig != nil {
 		ipv4Pool, ipv6Pool, err := extractKubeadmCIDRs(kubeadmConfig)
 		if err == nil {
-			log.Info("found v4=%s, v6=%s in the kubeadm config map", ipv4Pool, ipv6Pool)
+			log.Infof("found v4=%s, v6=%s in the kubeadm config map", ipv4Pool, ipv6Pool)
 		}
 	}
 

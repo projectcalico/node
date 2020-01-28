@@ -30,7 +30,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -100,18 +99,7 @@ const (
 	randomULAPool = "<random ULA pool>"
 )
 
-// createClientset creates a kubernetes clientset when running under that platform.
-func createClientset() (*kubernetes.Clientset, error) {
-	var clientset *kubernetes.Clientset
-
-	if config, err := rest.InClusterConfig(); err == nil {
-		config.Timeout = 10 * time.Second
-		clientset, err = kubernetes.NewForConfig(config)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	return clientset, err
-}
+var kubeadmConfig *v1.ConfigMap = &v1.ConfigMap{Data: map[string]string{"podSubnet": "192.168.0.0/16"}}
 
 var _ = Describe("FV tests against a real etcd", func() {
 	RegisterFailHandler(Fail)
@@ -125,9 +113,6 @@ var _ = Describe("FV tests against a real etcd", func() {
 		"CALICO_IPV4POOL_BLOCK_SIZE", "CALICO_IPV6POOL_BLOCK_SIZE",
 		"CALICO_IPV4POOL_NODE_SELECTOR", "CALICO_IPV6POOL_NODE_SELECTOR",
 	}
-
-	// If running under kubernetes with secrets to call k8s API
-	clientset := createClientset()
 
 	BeforeEach(func() {
 		for _, envName := range changedEnvVars {
@@ -163,7 +148,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(poolList.Items).To(BeEmpty())
 
 			// Run the UUT.
-			configureIPPools(ctx, c, clientset)
+			configureIPPools(ctx, c, kubeadmConfig)
 
 			// Get the IPPool list.
 			poolList, err = c.IPPools().List(ctx, options.ListOptions{})
@@ -366,7 +351,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("NO_DEFAULT_POOLS", "true")
 
 			// Run the UUT.
-			configureIPPools(ctx, c, clientset)
+			configureIPPools(ctx, c, kubeadmConfig)
 
 			// Get the IPPool list.
 			poolList, err := c.IPPools().List(ctx, options.ListOptions{})
@@ -407,7 +392,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			}
 
 			// Run the UUT.
-			configureIPPools(ctx, c, clientset)
+			configureIPPools(ctx, c, kubeadmConfig)
 
 			Expect(my_ec).To(Equal(1))
 		},
@@ -514,7 +499,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			nodeName := determineNodeName()
 			node := getNode(ctx, c, nodeName)
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -525,7 +510,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			})
 
 			It("should be emtpy", func() {
-				Expect(clusterInfo.Spec.ClusterType).To(Equal(""))
+				Expect(clusterInfo.Spec.ClusterType).To(Equal("kubeadm"))
 			})
 
 		})
@@ -556,7 +541,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -567,7 +552,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			})
 
 			It("should have the set value", func() {
-				Expect(clusterInfo.Spec.ClusterType).To(Equal("theType"))
+				Expect(clusterInfo.Spec.ClusterType).To(Equal("theType,kubeadm"))
 			})
 		})
 		Context("With env var and Cluster Type prepopulated, Cluster Type should have both", func() {
@@ -603,7 +588,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -662,7 +647,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -723,7 +708,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -734,7 +719,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			})
 
 			It("should only have 'kdd' set", func() {
-				Expect(clusterInfo.Spec.ClusterType).Should(Equal("kdd"))
+				Expect(clusterInfo.Spec.ClusterType).Should(Equal("kubeadm,kdd"))
 			})
 		})
 
@@ -771,7 +756,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "type1,type1")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, clientset)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -915,9 +900,6 @@ var _ = Describe("FV tests against K8s API server.", func() {
 			Fail(fmt.Sprintf("Could not retrieve Nodes %v", err))
 		}
 
-		// If running under kubernetes with secrets to call k8s API
-		clientset := createClientset()
-
 		// Run ensureDefaultConfig against each of the Nodes using goroutines to simulate multiple Nodes coming online.
 		var wg sync.WaitGroup
 		errors := []error{}
@@ -925,7 +907,7 @@ var _ = Describe("FV tests against K8s API server.", func() {
 			wg.Add(1)
 			go func(n api.Node) {
 				defer wg.Done()
-				err = ensureDefaultConfig(ctx, cfg, c, &n, clientset)
+				err = ensureDefaultConfig(ctx, cfg, c, &n, kubeadmConfig)
 				if err != nil {
 					errors = append(errors, err)
 				}
