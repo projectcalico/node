@@ -101,7 +101,7 @@ const (
 )
 
 // createClientset creates a kubernetes clientset when running under that platform.
-func createClientset() *kubernetes.Clientset {
+func createClientset() (*kubernetes.Clientset, error) {
 	var clientset *kubernetes.Clientset
 
 	if config, err := rest.InClusterConfig(); err == nil {
@@ -110,7 +110,7 @@ func createClientset() *kubernetes.Clientset {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	return clientset
+	return clientset, err
 }
 
 var _ = Describe("FV tests against a real etcd", func() {

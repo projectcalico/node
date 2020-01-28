@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Tigera, Inc. All rights reserved.
+// Copyright (c) 2016,2020 Tigera, Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ import (
 	"github.com/projectcalico/node/pkg/startup/autodetection"
 	log "github.com/sirupsen/logrus"
 	kapiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -188,11 +189,13 @@ func Run() {
 		terminate()
 	}
 
+	kubeadmConfig, _ := queryKubeadmConfigMap(clientset)
+
 	// Configure IP Pool configuration.
-	configureIPPools(ctx, cli, clientset)
+	configureIPPools(ctx, cli, kubeadmConfig)
 
 	// Set default configuration required for the cluster.
-	if err := ensureDefaultConfig(ctx, cfg, cli, node, clientset); err != nil {
+	if err := ensureDefaultConfig(ctx, cfg, cli, node, kubeadmConfig); err != nil {
 		log.WithError(err).Errorf("Unable to set global default configuration")
 		terminate()
 	}
@@ -724,7 +727,7 @@ func GenerateIPv6ULAPrefix() (string, error) {
 }
 
 // configureIPPools ensures that default IP pools are created (unless explicitly requested otherwise).
-func configureIPPools(ctx context.Context, client client.Interface, clientset *kubernetes.Clientset) {
+func configureIPPools(ctx context.Context, client client.Interface, kubeadmConfig *v1.ConfigMap) {
 	// Read in environment variables for use here and later.
 	ipv4Pool := os.Getenv("CALICO_IPV4POOL_CIDR")
 	ipv6Pool := os.Getenv("CALICO_IPV6POOL_CIDR")
@@ -741,51 +744,10 @@ func configureIPPools(ctx context.Context, client client.Interface, clientset *k
 
 	// If CIDRs weren't specified through the environment variables, check if they're present in kubeadm's
 	// config map.
-	if clientset != nil && (len(ipv4Pool) == 0 || len(ipv6Pool) == 0) {
-		kubeadmConfig, err := clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
-
-		if err != nil {
-			// Any error other than not finding kubeadm's config map should be serious enough that
-			// we ought to stop here and return.
-			if !errors.IsNotFound(err) {
-				log.WithError(err).Error("failed to query kubeadm's config map")
-				terminate()
-				return
-			}
-		} else {
-			// Look through the config map for lines starting with 'podSubnet', then assign
-			// the right variable according to the IP family of the matching string.
-			re := regexp.MustCompile(`podSubnet: (.*)`)
-			found := false
-
-			for _, line := range kubeadmConfig.Data {
-				match := re.FindStringSubmatch(line)
-				if match != nil {
-					found = true
-
-					// IPv4 and IPv6 CIDRs will be separated by a comma in a dual stack setup.
-					for _, cidr := range strings.Split(match[1], ",") {
-						addr, _, err := net.ParseCIDR(cidr)
-						if err == nil {
-							if addr.To4() == nil {
-								if len(ipv6Pool) == 0 {
-									ipv6Pool = cidr
-								}
-							} else {
-								if len(ipv4Pool) == 0 {
-									ipv4Pool = cidr
-								}
-							}
-						} else {
-							log.WithError(err).Warnf("failed to parse CIDR %v", cidr)
-						}
-					}
-				}
-			}
-
-			if !found {
-				log.Info("unable to find CIDR configuration in kubeadm's config map")
-			}
+	if (len(ipv4Pool) == 0 || len(ipv6Pool) == 0) && kubeadmConfig != nil {
+		ipv4Pool, ipv6Pool, err := extractKubeadmCIDRs(kubeadmConfig)
+		if err == nil {
+			log.Info("found v4=%s, v6=%s in the kubeadm config map", ipv4Pool, ipv6Pool)
 		}
 	}
 
@@ -1025,19 +987,16 @@ func checkConflictingNodes(ctx context.Context, client client.Interface, node *a
 
 // ensureDefaultConfig ensures all of the required default settings are
 // configured.
-func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c client.Interface, node *api.Node, clientset *kubernetes.Clientset) error {
+func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c client.Interface, node *api.Node, kubeadmConfig *v1.ConfigMap) error {
 	// Ensure the ClusterInformation is populated.
 	// Get the ClusterType from ENV var. This is set from the manifest.
 	clusterType := os.Getenv("CLUSTER_TYPE")
 
-	if clientset != nil {
-		_, err := clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
-		if err == nil {
-			if len(clusterType) == 0 {
-				clusterType = "kubeadm"
-			} else {
-				clusterType += ",kubeadm"
-			}
+	if kubeadmConfig != nil {
+		if len(clusterType) == 0 {
+			clusterType = "kubeadm"
+		} else {
+			clusterType += ",kubeadm"
 		}
 	}
 
@@ -1210,4 +1169,64 @@ func setNodeNetworkUnavailableFalse(clientset kubernetes.Clientset, nodeName str
 func terminate() {
 	log.Warn("Terminating")
 	exitFunction(1)
+}
+
+func queryKubeadmConfigMap(clientset *kubernetes.Clientset) (*v1.ConfigMap, error) {
+	if clientset == nil {
+		return nil, fmt.Errorf("Not running on kubeadm")
+	}
+
+	cm, err := clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
+	if err != nil {
+		// Any error other than not finding kubeadm's config map should be serious enough that
+		// we ought to stop here and return.
+		if !errors.IsNotFound(err) {
+			log.WithError(err).Error("failed to query kubeadm's config map")
+			terminate()
+			return nil, err
+		}
+	}
+
+	return cm, err
+}
+
+// extractKubeadmCIDRs looks through the config map and parses lines starting with 'podSubnet'.
+func extractKubeadmCIDRs(kubeadmConfig *v1.ConfigMap) (string, string, error) {
+	var v4, v6 string
+	var line []string
+	var err error
+
+	// Look through the config map for lines starting with 'podSubnet', then assign the right variable
+	// according to the IP family of the matching string.
+	re := regexp.MustCompile(`podSubnet: (.*)`)
+
+	for _, l := range kubeadmConfig.Data {
+		if line := re.FindStringSubmatch(l); line != nil {
+			break
+		}
+	}
+
+	if len(line) != 0 {
+		// IPv4 and IPv6 CIDRs will be separated by a comma in a dual stack setup.
+		for _, cidr := range strings.Split(line[1], ",") {
+			addr, _, err := net.ParseCIDR(cidr)
+			if err != nil {
+				break
+			}
+			if addr.To4() == nil {
+				if len(v6) == 0 {
+					v6 = cidr
+				}
+			} else {
+				if len(v4) == 0 {
+					v4 = cidr
+				}
+			}
+			if len(v6) != 0 && len(v4) != 0 {
+				break
+			}
+		}
+	}
+
+	return v4, v6, err
 }
