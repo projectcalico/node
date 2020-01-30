@@ -115,8 +115,7 @@ func Run() {
 	// updated IP data and use the full list of nodes for validation.
 	node := getNode(ctx, cli, nodeName)
 
-	// clientset will be initialized when running on k8s but nil otherwise.
-	var clientset *kubernetes.Clientset
+	var kubeadmConfig *v1.ConfigMap
 
 	// If Calico is running in policy only mode we don't need to write
 	// BGP related details to the Node.
@@ -162,8 +161,8 @@ func Run() {
 			// a few seconds behind.
 			config.Timeout = 2 * time.Second
 
-			// creates the k8s clientset
-			clientset, err = kubernetes.NewForConfig(config)
+			// Creates the k8s clientset.
+			clientset, err := kubernetes.NewForConfig(config)
 			if err != nil {
 				log.WithError(err).Error("Failed to create clientset")
 				return
@@ -173,6 +172,17 @@ func Run() {
 			err = setNodeNetworkUnavailableFalse(*clientset, nodeName)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
+			}
+
+			kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
+			if err != nil {
+				// Any error other than not finding kubeadm's config map should be serious enough
+				// that we ought to stop here and return.
+				if !errors.IsNotFound(err) {
+					log.WithError(err).Error("failed to query kubeadm's config map")
+					terminate()
+					return
+				}
 			}
 		}
 	}
@@ -188,8 +198,6 @@ func Run() {
 		log.WithError(err).Errorf("Unable to set node resource configuration")
 		terminate()
 	}
-
-	kubeadmConfig, _ := queryKubeadmConfigMap(clientset)
 
 	// Configure IP Pool configuration.
 	configureIPPools(ctx, cli, kubeadmConfig)
@@ -745,9 +753,18 @@ func configureIPPools(ctx context.Context, client client.Interface, kubeadmConfi
 	// If CIDRs weren't specified through the environment variables, check if they're present in kubeadm's
 	// config map.
 	if (len(ipv4Pool) == 0 || len(ipv6Pool) == 0) && kubeadmConfig != nil {
-		ipv4Pool, ipv6Pool, err := extractKubeadmCIDRs(kubeadmConfig)
+		v4, v6, err := extractKubeadmCIDRs(kubeadmConfig)
 		if err == nil {
-			log.Infof("found v4=%s, v6=%s in the kubeadm config map", ipv4Pool, ipv6Pool)
+			if len(ipv4Pool) == 0 {
+				ipv4Pool = v4
+				log.Infof("found v4=%s in the kubeadm config map", ipv4Pool)
+			}
+			if len(ipv6Pool) == 0 {
+				ipv6Pool = v6
+				log.Infof("found v6=%s in the kubeadm config map", ipv6Pool)
+			}
+		} else {
+			log.WithError(err).Error("Failed to extract CIDRs from kubeadm config.")
 		}
 	}
 
@@ -1171,30 +1188,15 @@ func terminate() {
 	exitFunction(1)
 }
 
-func queryKubeadmConfigMap(clientset *kubernetes.Clientset) (*v1.ConfigMap, error) {
-	if clientset == nil {
-		return nil, fmt.Errorf("Not running on kubeadm")
-	}
-
-	cm, err := clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
-	if err != nil {
-		// Any error other than not finding kubeadm's config map should be serious enough that
-		// we ought to stop here and return.
-		if !errors.IsNotFound(err) {
-			log.WithError(err).Error("failed to query kubeadm's config map")
-			terminate()
-			return nil, err
-		}
-	}
-
-	return cm, err
-}
-
 // extractKubeadmCIDRs looks through the config map and parses lines starting with 'podSubnet'.
 func extractKubeadmCIDRs(kubeadmConfig *v1.ConfigMap) (string, string, error) {
 	var v4, v6 string
 	var line []string
 	var err error
+
+	if kubeadmConfig == nil {
+		return "", "", fmt.Errorf("Invalid config map.")
+	}
 
 	// Look through the config map for lines starting with 'podSubnet', then assign the right variable
 	// according to the IP family of the matching string.

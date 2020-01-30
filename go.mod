@@ -8,6 +8,7 @@ require (
 	github.com/onsi/gomega v1.7.0
 	github.com/projectcalico/felix v0.0.0-20200121214536-d51cbfa8c774
 	github.com/projectcalico/libcalico-go v0.0.0-20200121214551-31188cbacff0
+	github.com/rafaelvanoni/node v3.8.4+incompatible // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7

@@ -989,3 +989,17 @@ var _ = Describe("UT for GenerateIPv6ULAPrefix", func() {
 		Fail("random bits were all zeros")
 	})
 })
+
+var _ = DescribeTable("UT for extractKubeadmCIDRs",
+	func(cm *v1.ConfigMap, expectedIPv4 string, expectedIPv6 string, expectErr bool) {
+		v4, v6, err := extractKubeadmCIDRs(cm)
+		if expectErr {
+			Expect(err).To(HaveOccurred())
+		} else {
+			Expect(err).ToNot(HaveOccurred())
+		}
+		Expect(v4).To(Equal(expectedIPv4))
+		Expect(v6).To(Equal(expectedIPv6))
+	},
+	Entry("nil config map", nil, "", "", true),
+)
