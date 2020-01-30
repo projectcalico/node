@@ -1203,7 +1203,7 @@ func extractKubeadmCIDRs(kubeadmConfig *v1.ConfigMap) (string, string, error) {
 	re := regexp.MustCompile(`podSubnet: (.*)`)
 
 	for _, l := range kubeadmConfig.Data {
-		if line := re.FindStringSubmatch(l); line != nil {
+		if line = re.FindStringSubmatch(l); line != nil {
 			break
 		}
 	}

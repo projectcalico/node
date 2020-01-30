@@ -99,7 +99,7 @@ const (
 	randomULAPool = "<random ULA pool>"
 )
 
-var kubeadmConfig *v1.ConfigMap = &v1.ConfigMap{Data: map[string]string{"podSubnet": "192.168.0.0/16"}}
+var kubeadmConfig *v1.ConfigMap = &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16"}}
 
 var _ = Describe("FV tests against a real etcd", func() {
 	RegisterFailHandler(Fail)
@@ -1002,4 +1002,10 @@ var _ = DescribeTable("UT for extractKubeadmCIDRs",
 		Expect(v6).To(Equal(expectedIPv6))
 	},
 	Entry("nil config map", nil, "", "", true),
+	Entry("empty config map", &v1.ConfigMap{}, "", "", true),
+	Entry("v4 only config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16"}}, "192.168.0.0/16", "", false),
+	Entry("dual v4 config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16,10.10.0.0/16"}}, "192.168.0.0/16", "", false),
+	Entry("v6 only config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: fdff:ffff:ffff:ffff:ffff::/80"}}, "", "fdff:ffff:ffff:ffff:ffff::/80", false),
+	Entry("dual v6 config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: fdff:ffff:ffff:ffff:ffff::/80,fdff:ffff:ffff:ffff:ffff::/80"}}, "", "fdff:ffff:ffff:ffff:ffff::/80", false),
+	Entry("dual-stack config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16,fdff:ffff:ffff:ffff:ffff::/80"}}, "192.168.0.0/16", "fdff:ffff:ffff:ffff:ffff::/80", false),
 )
