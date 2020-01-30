@@ -1002,7 +1002,7 @@ var _ = DescribeTable("UT for extractKubeadmCIDRs",
 		Expect(v6).To(Equal(expectedIPv6))
 	},
 	Entry("nil config map", nil, "", "", true),
-	Entry("empty config map", &v1.ConfigMap{}, "", "", true),
+	Entry("empty config map", &v1.ConfigMap{}, "", "", false),
 	Entry("v4 only config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16"}}, "192.168.0.0/16", "", false),
 	Entry("dual v4 config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16,10.10.0.0/16"}}, "192.168.0.0/16", "", false),
 	Entry("v6 only config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: fdff:ffff:ffff:ffff:ffff::/80"}}, "", "fdff:ffff:ffff:ffff:ffff::/80", false),
