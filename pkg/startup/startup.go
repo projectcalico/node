@@ -764,7 +764,7 @@ func configureIPPools(ctx context.Context, client client.Interface, kubeadmConfi
 				log.Infof("found v6=%s in the kubeadm config map", ipv6Pool)
 			}
 		} else {
-			log.WithError(err).Error("Failed to extract CIDRs from kubeadm config.")
+			log.WithError(err).Warn("Failed to extract CIDRs from kubeadm config.")
 		}
 	}
 

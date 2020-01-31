@@ -1008,4 +1008,47 @@ var _ = DescribeTable("UT for extractKubeadmCIDRs",
 	Entry("v6 only config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: fdff:ffff:ffff:ffff:ffff::/80"}}, "", "fdff:ffff:ffff:ffff:ffff::/80", false),
 	Entry("dual v6 config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: fdff:ffff:ffff:ffff:ffff::/80,fdff:ffff:ffff:ffff:ffff::/80"}}, "", "fdff:ffff:ffff:ffff:ffff::/80", false),
 	Entry("dual-stack config map", &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16,fdff:ffff:ffff:ffff:ffff::/80"}}, "192.168.0.0/16", "fdff:ffff:ffff:ffff:ffff::/80", false),
+
+	Entry("full config map", &v1.ConfigMap{Data: map[string]string{
+		`ClusterConfiguration`: `    apiServerCertSANs:
+    - 35.223.231.224
+    - 127.0.0.1
+    apiServerExtraArgs:
+      audit-log-path: /var/log/calico/audit/kube-audit.log
+      audit-policy-file: /etc/kubernetes/pki/audit-policy.yaml
+      authorization-mode: Node,RBAC
+      basic-auth-file: /etc/kubernetes/pki/basic_auth.csv
+    apiServerExtraVolumes:
+    - hostPath: /var/log/calico/audit/
+      mountPath: /var/log/calico/audit/
+      name: calico-audit
+      pathType: DirectoryOrCreate
+      writable: true
+    apiVersion: kubeadm.k8s.io/v1alpha3
+    auditPolicy:
+      logDir: /var/log/kubernetes/audit
+      logMaxAge: 2
+      path: ""
+    certificatesDir: /etc/kubernetes/pki
+    clusterName: kubernetes
+    controlPlaneEndpoint: ""
+    etcd:
+      local:
+        dataDir: /var/lib/etcd
+        image: ""
+    imageRepository: k8s.gcr.io
+    kind: ClusterConfiguration
+    kubernetesVersion: v1.12.7
+    networking:
+      dnsDomain: cluster.local
+      podSubnet: 192.168.0.0/16
+      serviceSubnet: 10.96.0.0/12
+    unifiedControlPlaneImage: ""
+  ClusterStatus: |
+    apiEndpoints:
+      rafael-cluster-1-kadm-ms:
+        advertiseAddress: 10.128.0.73
+        bindPort: 6443
+    apiVersion: kubeadm.k8s.io/v1alpha3
+    kind: ClusterStatus`}}, "192.168.0.0/16", "", false),
 )
