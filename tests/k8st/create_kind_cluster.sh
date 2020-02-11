@@ -122,9 +122,10 @@ ${kubectl} apply -f $TEST_DIR/infra/calicoctl.yaml
 echo
 
 echo "Wait Calico to be ready..."
-while ! time ${kubectl} wait pod -l k8s-app=calico-node --for=condition=Ready -n kube-system --timeout=300s; do
+while ! time ${kubectl} wait pod -l k8s-app=calico-node --for=condition=Ready -n kube-system --timeout=60s; do
     # This happens when no matching resources exist yet,
     # i.e. immediately after application of the Calico YAML.
+    ${kubectl} get po --all-namespaces -o wide
     sleep 5
 done
 time ${kubectl} wait pod -l k8s-app=calico-kube-controllers --for=condition=Ready -n kube-system --timeout=300s
