@@ -329,11 +329,13 @@ metadata:
   name: calico-node
 rules:
   # The CNI plugin needs to get pods, nodes, and namespaces.
+  # node startup needs to get configmaps.
   - apiGroups: [""]
     resources:
       - pods
       - nodes
       - namespaces
+      - configmaps
     verbs:
       - get
   - apiGroups: [""]
@@ -792,5 +794,3 @@ metadata:
 
 ---
 # Source: calico/templates/configure-canal.yaml
-
-
