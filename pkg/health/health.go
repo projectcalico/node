@@ -207,7 +207,8 @@ func checkBIRDReady(ipv string, thresholdTime time.Duration) error {
 // Felix's readiness or liveness endpoint.
 func checkFelixHealth(ctx context.Context, endpoint, probeType string) error {
 	c := &http.Client{}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	req = req.WithContext(ctx)
 	if err != nil {
 		return err
 	}
