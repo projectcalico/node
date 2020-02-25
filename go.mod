@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0
 	github.com/projectcalico/felix v0.0.0-20200215081554-bf27c8a4e8c0
-	github.com/projectcalico/libcalico-go v0.0.0-20200212165426-dd72e0b33683
+	github.com/projectcalico/libcalico-go v0.0.0-20200225165413-26809aa675f6
 	github.com/sirupsen/logrus v1.4.2
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
