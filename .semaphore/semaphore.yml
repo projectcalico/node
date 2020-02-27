@@ -42,6 +42,8 @@ blocks:
 # We'll only do this on scheduled builds, where we have credentials to do so.
 - name: "Commit pin updates"
   dependencies: ["Tests"]
+  run:
+    when: "branch = 'master'"
   task:
     prologue:
       commands:
