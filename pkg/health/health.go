@@ -48,7 +48,7 @@ func init() {
 }
 
 func Run(bird, bird6, felixReady, felixLive, birdLive, bird6Live bool, thresholdTime time.Duration) {
-	livenessChecks := felixLive || birdLive  || bird6Live
+	livenessChecks := felixLive || birdLive || bird6Live
 	readinessChecks := bird || felixReady || bird6
 
 	if !livenessChecks && !readinessChecks {
