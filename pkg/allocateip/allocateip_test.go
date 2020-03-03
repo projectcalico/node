@@ -380,7 +380,7 @@ var _ = Describe("determineEnabledPoolCIDRs", func() {
 			n := api.Node{ObjectMeta: metav1.ObjectMeta{Name: "bee-node", Labels: map[string]string{"foo": "bar"}}}
 			pl := api.IPPoolList{
 				Items: []api.IPPool{
-					api.IPPool{
+					{
 						ObjectMeta: metav1.ObjectMeta{Name: "ip-pool-1"},
 						Spec: api.IPPoolSpec{
 							Disabled:     false,
@@ -388,7 +388,7 @@ var _ = Describe("determineEnabledPoolCIDRs", func() {
 							NodeSelector: `foo == "bar"`,
 							IPIPMode:     api.IPIPModeAlways,
 						},
-					}, api.IPPool{
+					}, {
 						ObjectMeta: metav1.ObjectMeta{Name: "ip-pool-2"},
 						Spec: api.IPPoolSpec{
 							Disabled:     false,
@@ -413,7 +413,7 @@ var _ = Describe("determineEnabledPoolCIDRs", func() {
 			n := api.Node{ObjectMeta: metav1.ObjectMeta{Name: "bee-node", Labels: map[string]string{"foo": "bar"}}}
 			pl := api.IPPoolList{
 				Items: []api.IPPool{
-					api.IPPool{
+					{
 						ObjectMeta: metav1.ObjectMeta{Name: "ip-pool-1"},
 						Spec: api.IPPoolSpec{
 							Disabled:     false,
@@ -421,7 +421,7 @@ var _ = Describe("determineEnabledPoolCIDRs", func() {
 							NodeSelector: `foo == "bar"`,
 							VXLANMode:    api.VXLANModeAlways,
 						},
-					}, api.IPPool{
+					}, {
 						ObjectMeta: metav1.ObjectMeta{Name: "ip-pool-2"},
 						Spec: api.IPPoolSpec{
 							Disabled:     false,
@@ -443,7 +443,7 @@ var _ = Describe("determineEnabledPoolCIDRs", func() {
 			n := api.Node{ObjectMeta: metav1.ObjectMeta{Name: "bee-node", Labels: map[string]string{"foo": "bar"}}}
 			pl := api.IPPoolList{
 				Items: []api.IPPool{
-					api.IPPool{
+					{
 						ObjectMeta: metav1.ObjectMeta{Name: "ip-pool-1"},
 						Spec: api.IPPoolSpec{
 							Disabled:     false,
@@ -451,7 +451,7 @@ var _ = Describe("determineEnabledPoolCIDRs", func() {
 							NodeSelector: `foo == "bar"`,
 							VXLANMode:    api.VXLANModeCrossSubnet,
 						},
-					}, api.IPPool{
+					}, {
 						ObjectMeta: metav1.ObjectMeta{Name: "ip-pool-2"},
 						Spec: api.IPPoolSpec{
 							Disabled:     false,
