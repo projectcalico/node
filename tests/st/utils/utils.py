@@ -134,7 +134,7 @@ def retry_until_success(function, retries=10, ex_class=Exception, *args, **kwarg
             result = function(*args, **kwargs)
         except ex_class:
             if retry < retries:
-                sleep(1)
+                sleep(.1)
             else:
                 raise
         else:
