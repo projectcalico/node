@@ -51,6 +51,8 @@ RELEASE_IMAGES?=gcr.io/projectcalico-org/node eu.gcr.io/projectcalico-org/node a
 BIRD_VERSION=v0.3.3-151-g767b5389
 BIRD_IMAGE ?= calico/bird:$(BIRD_VERSION)-$(ARCH)
 BIRD_SOURCE=filesystem/included-source/bird-$(BIRD_VERSION).tar.gz
+FELIX_GPL_SOURCE=filesystem/included-source/felix-ebpf-gpl.tar.gz
+INCLUDED_SOURCE=$(BIRD_SOURCE) $(FELIX_GPL_SOURCE)
 
 # Versions and locations of dependencies used in tests.
 CALICOCTL_VER?=master
@@ -165,7 +167,7 @@ sub-image-%:
 	$(MAKE) image ARCH=$*
 
 $(BUILD_IMAGE): $(NODE_CONTAINER_CREATED)
-$(NODE_CONTAINER_CREATED): register $(BIRD_SOURCE) ./Dockerfile.$(ARCH) $(NODE_CONTAINER_FILES) $(NODE_CONTAINER_BINARY) remote-deps
+$(NODE_CONTAINER_CREATED): register $(INCLUDED_SOURCE) ./Dockerfile.$(ARCH) $(NODE_CONTAINER_FILES) $(NODE_CONTAINER_BINARY) remote-deps
 ifeq ($(LOCAL_BUILD),true)
 	# If doing a local build, copy in local confd templates in case there are changes.
 	rm -rf filesystem/etc/calico/confd/templates
@@ -184,6 +186,13 @@ endif
 $(BIRD_SOURCE):
 	mkdir -p filesystem/included-source/
 	wget -O $@ https://github.com/projectcalico/bird/tarball/$(BIRD_VER)
+
+# download any GPL felix code to include in the image.
+$(FELIX_GPL_SOURCE):
+	mkdir -p filesystem/included-source/
+	$(DOCKER_RUN) $(CALICO_BUILD) sh -c ' \
+		tar cf $@ `go list -m -f "{{.Dir}}" github.com/projectcalico/felix`/bpf-gpl;'
+	
 
 ###############################################################################
 # FV Tests
