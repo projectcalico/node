@@ -508,7 +508,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			nodeName := determineNodeName()
 			node := getNode(ctx, c, nodeName)
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
+			err = ensureDefaultConfig(ctx, cfg, c, node, nil, nil)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -519,7 +519,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			})
 
 			It("should be emtpy", func() {
-				Expect(clusterInfo.Spec.ClusterType).To(Equal("kubeadm"))
+				Expect(clusterInfo.Spec.ClusterType).To(Equal(""))
 			})
 
 		})
@@ -550,7 +550,8 @@ var _ = Describe("FV tests against a real etcd", func() {
 
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
+			localRancherState := &v1.ConfigMap{Data: map[string]string{"foo": "bar"}}
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, localRancherState)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -561,7 +562,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			})
 
 			It("should have the set value", func() {
-				Expect(clusterInfo.Spec.ClusterType).To(Equal("theType,kubeadm"))
+				Expect(clusterInfo.Spec.ClusterType).To(Equal("theType,kubeadm,rancher"))
 			})
 		})
 		Context("With env var and Cluster Type prepopulated, Cluster Type should have both", func() {
