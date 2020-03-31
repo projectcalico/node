@@ -157,7 +157,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(poolList.Items).To(BeEmpty())
 
 			// Run the UUT.
-			configureIPPools(ctx, c, kubeadmConfig, rancherState)
+			configureIPPools(ctx, c, kubeadmConfig)
 
 			// Get the IPPool list.
 			poolList, err = c.IPPools().List(ctx, options.ListOptions{})
@@ -360,7 +360,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("NO_DEFAULT_POOLS", "true")
 
 			// Run the UUT.
-			configureIPPools(ctx, c, kubeadmConfig, rancherState)
+			configureIPPools(ctx, c, kubeadmConfig)
 
 			// Get the IPPool list.
 			poolList, err := c.IPPools().List(ctx, options.ListOptions{})
@@ -401,7 +401,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			}
 
 			// Run the UUT.
-			configureIPPools(ctx, c, kubeadmConfig, rancherState)
+			configureIPPools(ctx, c, kubeadmConfig)
 
 			Expect(my_ec).To(Equal(1))
 		},
