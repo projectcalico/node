@@ -108,6 +108,7 @@ const (
 )
 
 var kubeadmConfig *v1.ConfigMap = &v1.ConfigMap{Data: map[string]string{"ClusterConfiguration": "podSubnet: 192.168.0.0/16"}}
+var rancherState *v1.ConfigMap = nil
 
 var _ = Describe("FV tests against a real etcd", func() {
 	RegisterFailHandler(Fail)
@@ -156,7 +157,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(poolList.Items).To(BeEmpty())
 
 			// Run the UUT.
-			configureIPPools(ctx, c, kubeadmConfig)
+			configureIPPools(ctx, c, kubeadmConfig, rancherState)
 
 			// Get the IPPool list.
 			poolList, err = c.IPPools().List(ctx, options.ListOptions{})
@@ -359,7 +360,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("NO_DEFAULT_POOLS", "true")
 
 			// Run the UUT.
-			configureIPPools(ctx, c, kubeadmConfig)
+			configureIPPools(ctx, c, kubeadmConfig, rancherState)
 
 			// Get the IPPool list.
 			poolList, err := c.IPPools().List(ctx, options.ListOptions{})
@@ -400,7 +401,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			}
 
 			// Run the UUT.
-			configureIPPools(ctx, c, kubeadmConfig)
+			configureIPPools(ctx, c, kubeadmConfig, rancherState)
 
 			Expect(my_ec).To(Equal(1))
 		},
@@ -507,7 +508,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			nodeName := determineNodeName()
 			node := getNode(ctx, c, nodeName)
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -549,7 +550,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -596,7 +597,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -655,7 +656,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "theType")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -716,7 +717,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -764,7 +765,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			Expect(err).ToNot(HaveOccurred())
 			os.Setenv("CLUSTER_TYPE", "type1,type1")
 
-			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig)
+			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
 			It("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -915,7 +916,7 @@ var _ = Describe("FV tests against K8s API server.", func() {
 			wg.Add(1)
 			go func(n api.Node) {
 				defer wg.Done()
-				err = ensureDefaultConfig(ctx, cfg, c, &n, kubeadmConfig)
+				err = ensureDefaultConfig(ctx, cfg, c, &n, kubeadmConfig, rancherState)
 				if err != nil {
 					errors = append(errors, err)
 				}
