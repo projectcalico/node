@@ -181,7 +181,9 @@ func Run() {
 			if err != nil {
 				// Any error other than not finding kubeadm's config map should be serious enough
 				// that we ought to stop here and return.
-				if !errors.IsNotFound(err) {
+				if errors.IsNotFound(err) {
+					kubeadmConfig = nil
+				} else {
 					log.WithError(err).Error("failed to query kubeadm's config map")
 					terminate()
 					return
@@ -190,7 +192,9 @@ func Run() {
 
 			rancherState, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(RancherStateConfigMap, metav1.GetOptions{})
 			if err != nil {
-				if !errors.IsNotFound(err) {
+				if errors.IsNotFound(err) {
+					rancherState = nil
+				} else {
 					log.WithError(err).Error("failed to query Rancher's cluster state config map")
 					terminate()
 					return
