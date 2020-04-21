@@ -399,6 +399,7 @@ github.com/projectcalico/libcalico-go v1.7.2-0.20200331221808-0febf7aab4ad h1:jE
 github.com/projectcalico/libcalico-go v1.7.2-0.20200331221808-0febf7aab4ad/go.mod h1:yd3FK67e+YeaYtKw5ImPw+YFyFF/G0ZCzbbwNAwwZh8=
 github.com/projectcalico/libcalico-go v1.7.2-0.20200416162604-2c6069396afd h1:E+CHSQobzFt11x77IR1AKD4p/0u+wveC6JH/Q+jJaGU=
 github.com/projectcalico/libcalico-go v1.7.2-0.20200416162604-2c6069396afd/go.mod h1:yd3FK67e+YeaYtKw5ImPw+YFyFF/G0ZCzbbwNAwwZh8=
+github.com/projectcalico/libcalico-go v1.7.2-0.20200421015013-07b4e117bf26/go.mod h1:+JXWhLhg+IrIwStlE/VCgH28aXSL9uehnHbtYUl+hfY=
 github.com/projectcalico/logrus v1.0.4-calico h1:bHJ2KLGTFzoWpRISe13CO7HVxxrKunDjyUz/wFiBY8c=
 github.com/projectcalico/logrus v1.0.4-calico/go.mod h1:DfgrchabbtEO9wjOz5lVae+XRvjFKKWEA9GTMme6A8g=
 github.com/projectcalico/pod2daemon v0.0.0-20191223184832-a0e1c4693271 h1:AOFOckD83tAIMQob6I1FpzSVs+Rn5Td701Q3/aQFqe8=
@@ -408,6 +409,7 @@ github.com/projectcalico/typha v0.7.3-0.20200327230615-99d223e5f7bd h1:FSH598WlV
 github.com/projectcalico/typha v0.7.3-0.20200327230615-99d223e5f7bd/go.mod h1:JeWELyUMIYWsxsiKAXu9H8LYJ6mOTrhlNqJagOaczgs=
 github.com/projectcalico/typha v0.7.3-0.20200416164311-caad2c175836 h1:pPaQQD1+Wg/yGYC6Ztjxl5wPhusklwZjtAX9AySwO6o=
 github.com/projectcalico/typha v0.7.3-0.20200416164311-caad2c175836/go.mod h1:LDYMsVZslAB9viMoDI6b9je18smDki0/YaQp/YsgZ28=
+github.com/projectcalico/typha v0.7.3-0.20200417143203-303330aea7f1/go.mod h1:LDYMsVZslAB9viMoDI6b9je18smDki0/YaQp/YsgZ28=
 github.com/prometheus/client_golang v0.0.0-20171005112915-5cec1d0429b0/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.2 h1:awm861/B8OKDd2I/6o1dy3ra4BamzKhYOiGItCeZ740=
@@ -426,6 +428,7 @@ github.com/prometheus/procfs v0.0.0-20181204211112-1dc9a6cbc91a h1:9a8MnZMP0X2nL
 github.com/prometheus/procfs v0.0.0-20181204211112-1dc9a6cbc91a/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/quobyte/api v0.1.2/go.mod h1:jL7lIHrmqQ7yh05OJ+eEEdHr0u/kmT1Ff9iHd+4H6VI=
 github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446/go.mod h1:uYEyJGbgTkfkS4+E/PavXkNJcbFIpEtjt2B0KDQ5+9M=
+github.com/robbrockbank/felix v0.0.0-20200421215355-ee7f85cec223/go.mod h1:beGDhzXMDqCIYRNRjbwrGS2v4bJuhbm7aWnm+CqWgVM=
 github.com/robfig/cron v1.1.0/go.mod h1:JGuDeoQd7Z6yL4zQhZ3OPEVHB7fL6Ka6skscFHfmt2k=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
@@ -675,6 +678,7 @@ gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.2.4/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.2.5 h1:ymVxjfMaHvXD8RqPRmzHHsB3VvucivSkIAvJFDI5O3c=
 gopkg.in/yaml.v2 v2.2.5/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gotest.tools v2.1.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 gotest.tools/gotestsum v0.3.5/go.mod h1:Mnf3e5FUzXbkCfynWBGOwLssY7gTQgCHObK9tMpAriY=
