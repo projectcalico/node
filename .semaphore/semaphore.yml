@@ -14,6 +14,13 @@ global_job_config:
       # unshallow it for GIT_VERSION:=$(shell git describe --tags --dirty --always) @ Makefile.common
       - git fetch --unshallow
 
+promotions:
+- name: Auto-update and commit dependency pins
+  pipeline_file: update-pins.yml
+  auto_promote:
+    # Auto-update pins only if the build passed and only for master.
+    when: "result = 'passed' and (branch = 'master')"
+
 blocks:
 
 # Run the full set of tests. Each job can potentially be run in parallel,
