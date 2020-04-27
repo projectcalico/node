@@ -110,8 +110,7 @@ class _TestBGPAdvertV6(TestBaseV6):
         # Enable debug logging
         self.update_ds_env("calico-node",
                            "kube-system",
-                           "BGP_LOGSEVERITYSCREEN",
-                           "debug")
+                           {"BGP_LOGSEVERITYSCREEN": "debug"})
 
         # Establish BGPPeer from cluster nodes to node-extra
         calicoctl("""apply -f - << EOF
@@ -161,7 +160,7 @@ EOF
                        (svc, ns)).strip()
 
     def assert_ecmp_routes(self, dst, via):
-        matchStr = dst + " proto bird metric 1024 "
+        matchStr = dst + " proto bird metric 1024 pref medium"
         # sort ips and construct match string for ECMP routes.
         for ip in sorted(via):
             matchStr += "\n\tnexthop via %s dev eth0 weight 1 " % ip

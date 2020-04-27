@@ -31,7 +31,6 @@ import (
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
 	cerrors "github.com/projectcalico/libcalico-go/lib/errors"
-	"github.com/projectcalico/libcalico-go/lib/logutils"
 	"github.com/projectcalico/libcalico-go/lib/names"
 	cnet "github.com/projectcalico/libcalico-go/lib/net"
 	"github.com/projectcalico/libcalico-go/lib/numorstring"
@@ -41,6 +40,7 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator/clients"
 	"github.com/projectcalico/node/pkg/calicoclient"
 	"github.com/projectcalico/node/pkg/startup/autodetection"
+	"github.com/projectcalico/node/pkg/startup/autodetection/ipv4"
 	log "github.com/sirupsen/logrus"
 	kapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -63,6 +63,8 @@ const (
 
 	// KubeadmConfigConfigMap is defined in k8s.io/kubernetes, which we can't import due to versioning issues.
 	KubeadmConfigConfigMap = "kubeadm-config"
+	// Rancher clusters store their state in this config map in the kube-system namespace.
+	RancherStateConfigMap = "full-cluster-state"
 )
 
 // Version string, set during build.
@@ -115,10 +117,52 @@ func Run() {
 	// updated IP data and use the full list of nodes for validation.
 	node := getNode(ctx, cli, nodeName)
 
-	var kubeadmConfig *v1.ConfigMap
+	var clientset *kubernetes.Clientset
+	var kubeadmConfig, rancherState *v1.ConfigMap
 
-	// If Calico is running in policy only mode we don't need to write
-	// BGP related details to the Node.
+	// If running under kubernetes with secrets to call k8s API
+	if config, err := rest.InClusterConfig(); err == nil {
+		// default timeout is 30 seconds, which isn't appropriate for this kind of
+		// startup action because network services, like kube-proxy might not be
+		// running and we don't want to block the full 30 seconds if they are just
+		// a few seconds behind.
+		config.Timeout = 2 * time.Second
+
+		// Create the k8s clientset.
+		clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			log.WithError(err).Error("Failed to create clientset")
+			return
+		}
+
+		// Check if we're running on a kubeadm and/or rancher cluster. Any error other than not finding the respective
+		// config map should be serious enough that we ought to stop here and return.
+		kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap,
+			metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				kubeadmConfig = nil
+			} else {
+				log.WithError(err).Error("failed to query kubeadm's config map")
+				terminate()
+				return
+			}
+		}
+
+		rancherState, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(RancherStateConfigMap,
+			metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				rancherState = nil
+			} else {
+				log.WithError(err).Error("failed to query Rancher's cluster state config map")
+				terminate()
+				return
+			}
+		}
+	}
+
+	// If Calico is running in policy only mode we don't need to write BGP related details to the Node.
 	if os.Getenv("CALICO_NETWORKING_BACKEND") != "none" {
 		// Configure and verify the node IP addresses and subnets.
 		checkConflicts, err := configureIPsAndSubnets(node)
@@ -153,36 +197,11 @@ func Run() {
 		// Configure the node AS number.
 		configureASNumber(node)
 
-		// If running under kubernetes with secrets to call k8s API
-		if config, err := rest.InClusterConfig(); err == nil {
-			// default timeout is 30 seconds, which isn't appropriate for this kind of
-			// startup action because network services, like kube-proxy might not be
-			// running and we don't want to block the full 30 seconds if they are just
-			// a few seconds behind.
-			config.Timeout = 2 * time.Second
-
-			// Creates the k8s clientset.
-			clientset, err := kubernetes.NewForConfig(config)
-			if err != nil {
-				log.WithError(err).Error("Failed to create clientset")
-				return
-			}
-
+		if clientset != nil {
 			log.Info("Setting NetworkUnavailable to False")
 			err = setNodeNetworkUnavailableFalse(*clientset, nodeName)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
-			}
-
-			kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
-			if err != nil {
-				// Any error other than not finding kubeadm's config map should be serious enough
-				// that we ought to stop here and return.
-				if !errors.IsNotFound(err) {
-					log.WithError(err).Error("failed to query kubeadm's config map")
-					terminate()
-					return
-				}
 			}
 		}
 	}
@@ -203,7 +222,7 @@ func Run() {
 	configureIPPools(ctx, cli, kubeadmConfig)
 
 	// Set default configuration required for the cluster.
-	if err := ensureDefaultConfig(ctx, cfg, cli, node, kubeadmConfig); err != nil {
+	if err := ensureDefaultConfig(ctx, cfg, cli, node, kubeadmConfig, rancherState); err != nil {
 		log.WithError(err).Errorf("Unable to set global default configuration")
 		terminate()
 	}
@@ -263,16 +282,6 @@ func clearNodeIPs(ctx context.Context, client client.Interface, node *api.Node, 
 }
 
 func configureLogging() {
-	// Log to stdout.  this prevents our logs from being interpreted as errors by, for example,
-	// fluentd's default configuration.
-	log.SetOutput(os.Stdout)
-
-	// Set log formatting.
-	log.SetFormatter(&logutils.Formatter{})
-
-	// Install a hook that adds file and line number information.
-	log.AddHook(&logutils.ContextHook{})
-
 	// Default to info level logging
 	logLevel := log.InfoLevel
 
@@ -570,6 +579,9 @@ func validateBlockSize(version int, blockSize int) {
 			log.Errorf("Invalid blocksize %d for version %d", blockSize, version)
 			terminate()
 		}
+	} else {
+		log.Errorf("Invalid ip version specified (%d) when validating blocksize", version)
+		terminate()
 	}
 }
 
@@ -781,14 +793,14 @@ func configureIPPools(ctx context.Context, client client.Interface, kubeadmConfi
 	} else {
 		ipv4BlockSize = DEFAULT_IPV4_POOL_BLOCK_SIZE
 	}
-	validateBlockSize(ipv4BlockSize, 4)
+	validateBlockSize(4, ipv4BlockSize)
 	ipv6BlockSizeEnvVar := os.Getenv("CALICO_IPV6POOL_BLOCK_SIZE")
 	if ipv6BlockSizeEnvVar != "" {
 		ipv6BlockSize = parseBlockSizeEnvironment(ipv6BlockSizeEnvVar)
 	} else {
 		ipv6BlockSize = DEFAULT_IPV6_POOL_BLOCK_SIZE
 	}
-	validateBlockSize(ipv6BlockSize, 6)
+	validateBlockSize(6, ipv6BlockSize)
 	ipv4NodeSelector := os.Getenv("CALICO_IPV4POOL_NODE_SELECTOR")
 	validateNodeSelector(4, ipv4NodeSelector)
 	ipv6NodeSelector := os.Getenv("CALICO_IPV6POOL_NODE_SELECTOR")
@@ -821,6 +833,13 @@ func configureIPPools(ctx context.Context, client client.Interface, kubeadmConfi
 	// Read IPV4 CIDR from env if set and parse then check it for errors
 	if ipv4Pool == "" {
 		ipv4Pool = DEFAULT_IPV4_POOL_CIDR
+
+		_, preferedNet, _ := net.ParseCIDR(DEFAULT_IPV4_POOL_CIDR)
+		if selectedPool, err := ipv4.GetDefaultIPv4Pool(preferedNet); err == nil {
+			ipv4Pool = selectedPool.String()
+		}
+
+		log.Infof("Selected default IP pool is '%s'", ipv4Pool)
 	}
 	_, ipv4Cidr, err := cnet.ParseCIDR(ipv4Pool)
 	if err != nil || ipv4Cidr.Version() != 4 {
@@ -1004,7 +1023,7 @@ func checkConflictingNodes(ctx context.Context, client client.Interface, node *a
 
 // ensureDefaultConfig ensures all of the required default settings are
 // configured.
-func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c client.Interface, node *api.Node, kubeadmConfig *v1.ConfigMap) error {
+func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c client.Interface, node *api.Node, kubeadmConfig, rancherState *v1.ConfigMap) error {
 	// Ensure the ClusterInformation is populated.
 	// Get the ClusterType from ENV var. This is set from the manifest.
 	clusterType := os.Getenv("CLUSTER_TYPE")
@@ -1014,6 +1033,14 @@ func ensureDefaultConfig(ctx context.Context, cfg *apiconfig.CalicoAPIConfig, c 
 			clusterType = "kubeadm"
 		} else {
 			clusterType += ",kubeadm"
+		}
+	}
+
+	if rancherState != nil {
+		if len(clusterType) == 0 {
+			clusterType = "rancher"
+		} else {
+			clusterType += ",rancher"
 		}
 	}
 

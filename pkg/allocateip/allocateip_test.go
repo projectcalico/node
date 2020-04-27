@@ -88,7 +88,7 @@ func checkTunnelAddressForNode(c client.Interface, tunnelType string, nodeName s
 	n, err := c.Nodes().Get(ctx, nodeName, options.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
-	attr, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP(addr)})
+	attr, _, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP(addr)})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(attr[ipam.AttributeNode]).To(Equal(nodeName))
 
@@ -102,6 +102,205 @@ func checkTunnelAddressForNode(c client.Interface, tunnelType string, nodeName s
 		panic(fmt.Errorf("Unknown tunnelType, %s", tunnelType))
 	}
 }
+
+var _ = Describe("FV tests", func() {
+	// Set up logging.
+	log.SetOutput(os.Stdout)
+	log.SetFormatter(&logutils.Formatter{})
+	log.AddHook(&logutils.ContextHook{})
+
+	ctx := context.Background()
+	cfg, _ := apiconfig.LoadClientConfigFromEnvironment()
+
+	var c client.Interface
+	BeforeEach(func() {
+		// Clear out datastore
+		be, err := backend.NewClient(*cfg)
+		Expect(err).ToNot(HaveOccurred())
+		err = be.Clean()
+		Expect(err).ToNot(HaveOccurred())
+
+		// Create a client.
+		c, _ = client.New(*cfg)
+
+		// Create an IPPool.
+		_, err = c.IPPools().Create(ctx, makeIPv4Pool("pool1", "172.16.0.0/16", 31), options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should not leak addresses if the existing allocation has no attributes", func() {
+		// Create an allocation which simulates an "old-style" allocation, prior to us
+		// using handles and attributes to attach metadata.
+		ipAddr, _, _ := net.ParseCIDR("172.16.0.1/32")
+		nodename := "my-test-node"
+		args := ipam.AssignIPArgs{
+			IP:       *ipAddr,
+			Hostname: nodename,
+		}
+		Expect(c.IPAM().AssignIP(ctx, args)).NotTo(HaveOccurred())
+
+		// Create a Node object which uses that allocation.
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = nodename
+		node.Spec.BGP.IPv4IPIPTunnelAddr = "172.16.0.1"
+		_, err := c.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Run the allocateip code.
+		run(nodename)
+
+		// Assert that the node has the same IP on it.
+		newNode, err := c.Nodes().Get(ctx, nodename, options.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(newNode.Spec.BGP).NotTo(BeNil())
+		Expect(newNode.Spec.BGP.IPv4IPIPTunnelAddr).To(Equal("172.16.0.1"))
+
+		// Assert that the IPAM allocation has been updated to include a handle and attributes.
+		attrs, handle, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(attrs)).To(Equal(2))
+		Expect(handle).NotTo(BeNil())
+		Expect(*handle).To(Equal("ipip-tunnel-addr-my-test-node"))
+	})
+
+	It("should not claim an address that has a handle but no attributes", func() {
+		// This test covers a scenario where the node has an IP address in its spec,
+		// but the IP has no attributes because it was assigned using an old version of Calico.
+		// In this scenario, either the allocation in IPAM has a  handle - in which case it is a
+		// WEP address - or the allocation has no handle, in which case it is a node tunnel addr.
+		// For WEP addresses, we should leave them alone and just allocate a new tunnel addr.
+
+		// Create an allocation which simulates an "old-style" allocation, prior to us
+		// using attributes to attach metadata.
+		ipAddr, _, _ := net.ParseCIDR("172.16.0.1/32")
+		nodename := "my-test-node"
+		wepHandle := "some-wep-handle"
+		args := ipam.AssignIPArgs{
+			IP:       *ipAddr,
+			HandleID: &wepHandle,
+			Hostname: nodename,
+		}
+		Expect(c.IPAM().AssignIP(ctx, args)).NotTo(HaveOccurred())
+
+		// Create a Node object which uses that allocation.
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = nodename
+		node.Spec.BGP.IPv4IPIPTunnelAddr = "172.16.0.1"
+		_, err := c.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Run the allocateip code.
+		run(nodename)
+
+		// Assert that the node no longer has the same IP on it.
+		newNode, err := c.Nodes().Get(ctx, nodename, options.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(newNode.Spec.BGP).NotTo(BeNil())
+		Expect(newNode.Spec.BGP.IPv4IPIPTunnelAddr).NotTo(Equal("172.16.0.1"))
+
+		// Try to parse the new address to make sure it's a valid IP.
+		_, _, err = net.ParseCIDROrIP(newNode.Spec.BGP.IPv4IPIPTunnelAddr)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Assert that the IPAM allocation for the original address is stil intact.
+		_, handle, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(handle).NotTo(BeNil())
+		Expect(*handle).To(Equal("some-wep-handle"))
+	})
+
+	It("should release old IPAM addresses if they exist and the node has none", func() {
+		// Create an allocation for this node in IPAM.
+		ipAddr, _, _ := net.ParseCIDR("172.16.0.1/32")
+		nodename := "my-test-node"
+		handle, attrs := generateHandleAndAttributes(nodename, false)
+		args := ipam.AssignIPArgs{
+			IP:       *ipAddr,
+			HandleID: &handle,
+			Hostname: nodename,
+			Attrs:    attrs,
+		}
+		Expect(c.IPAM().AssignIP(ctx, args)).NotTo(HaveOccurred())
+
+		// Create a Node object which does NOT use that allocation. It should clean up
+		// the old leaked address and assign a new one.
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = nodename
+
+		// We don't want an address on the node for this scenario.
+		node.Spec.BGP.IPv4IPIPTunnelAddr = ""
+		_, err := c.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Run the allocateip code.
+		run(nodename)
+
+		// Assert that the node no longer has the same IP on it.
+		newNode, err := c.Nodes().Get(ctx, nodename, options.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(newNode.Spec.BGP).NotTo(BeNil())
+
+		// Try to parse the new address to make sure it's a valid IP.
+		_, _, err = net.ParseCIDROrIP(newNode.Spec.BGP.IPv4IPIPTunnelAddr)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Assert that the IPAM allocation for the original leaked address is gone.
+		_, _, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		Expect(err).To(HaveOccurred())
+
+		// Assert that exactly one address exists for the node and that it matches the node.
+		ips, err := c.IPAM().IPsByHandle(ctx, handle)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(ips)).To(Equal(1))
+		Expect(newNode.Spec.BGP.IPv4IPIPTunnelAddr).To(Equal(ips[0].String()))
+	})
+
+	It("should release old IPAM addresses if they exist and the node has a different address", func() {
+		// Create an allocation for this node in IPAM.
+		ipAddr, _, _ := net.ParseCIDR("172.16.0.1/32")
+		nodename := "my-test-node"
+		handle, attrs := generateHandleAndAttributes(nodename, false)
+		args := ipam.AssignIPArgs{
+			IP:       *ipAddr,
+			HandleID: &handle,
+			Hostname: nodename,
+			Attrs:    attrs,
+		}
+		Expect(c.IPAM().AssignIP(ctx, args)).NotTo(HaveOccurred())
+
+		// Create a Node object which does NOT use that allocation. It should clean up
+		// the old leaked address and assign a new one.
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = nodename
+
+		// Put a different address on the node.
+		node.Spec.BGP.IPv4IPIPTunnelAddr = "172.16.0.5"
+		_, err := c.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Run the allocateip code.
+		run(nodename)
+
+		// Assert that the node no longer has the same IP on it.
+		newNode, err := c.Nodes().Get(ctx, nodename, options.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(newNode.Spec.BGP).NotTo(BeNil())
+
+		// Try to parse the new address to make sure it's a valid IP.
+		_, _, err = net.ParseCIDROrIP(newNode.Spec.BGP.IPv4IPIPTunnelAddr)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Assert that the IPAM allocation for the original leaked address is gone.
+		_, _, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		Expect(err).To(HaveOccurred())
+
+		// Assert that exactly one address exists for the node and that it matches the node.
+		ips, err := c.IPAM().IPsByHandle(ctx, handle)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(ips)).To(Equal(1))
+		Expect(newNode.Spec.BGP.IPv4IPIPTunnelAddr).To(Equal(ips[0].String()))
+	})
+})
 
 var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"}, func(tunnelType string) {
 	log.SetOutput(os.Stdout)
@@ -195,7 +394,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 
 		// Check old address
 		// Verify 172.16.10.10 has been released.
-		_, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.10.10")})
+		_, _, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.10.10")})
 		Expect(err).To(BeAssignableToTypeOf(cerrors.ErrorResourceDoesNotExist{}))
 
 		// Check new address has been assigned in pool1.
@@ -226,7 +425,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 
 		// Check old address.
 		// Verify 172.16.10.10 has not been touched.
-		attr, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.10.10")})
+		attr, _, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.10.10")})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(attr).To(Equal(wepAttr))
 
@@ -263,7 +462,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify 172.16.0.1 is not properly assigned to tunnel address.
-		_, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		_, _, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
 		Expect(err).To(BeAssignableToTypeOf(cerrors.ErrorResourceDoesNotExist{}))
 
 		_, ip4net, _ := net.ParseCIDR("172.16.0.0/31")
@@ -284,7 +483,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{"ipip", "vxlan"},
 		checkTunnelAddressForNode(c, tunnelType, node.Name, "172.16.0.1")
 
 		// Verify 172.16.0.0 has not been released.
-		attr, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.0")})
+		attr, _, err := c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.0")})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(attr).To(Equal(wepAttr))
 	})
@@ -364,6 +563,86 @@ var _ = allocateIPDescribe("removeHostTunnelAddress", []string{"ipip", "vxlan"},
 		n, err := c.Nodes().Get(ctx, node.Name, options.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n.Spec.BGP).To(BeNil())
+	})
+
+	It("should release IP address allocations", func() {
+		// Create an allocation for this node in IPAM.
+		ipAddr, _, _ := net.ParseCIDR("172.16.0.1/32")
+		nodename := "my-test-node"
+		handle, attrs := generateHandleAndAttributes(nodename, isVxlan)
+		args := ipam.AssignIPArgs{
+			IP:       *ipAddr,
+			HandleID: &handle,
+			Attrs:    attrs,
+			Hostname: nodename,
+		}
+		Expect(c.IPAM().AssignIP(ctx, args)).NotTo(HaveOccurred())
+
+		// Create a Node object which uses that allocation.
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = nodename
+		setTunnelAddressForNode(tunnelType, node, "172.16.0.1")
+		_, err := c.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Remove the tunnel address.
+		removeHostTunnelAddr(ctx, c, node.Name, isVxlan)
+
+		// Assert that the IPAM allocation is gone.
+		_, _, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should release old-style IP address allocations", func() {
+		// Create an old-style allocation for this node in IPAM.
+		ipAddr, _, _ := net.ParseCIDR("172.16.0.1/32")
+		nodename := "my-test-node"
+		args := ipam.AssignIPArgs{
+			IP:       *ipAddr,
+			Hostname: nodename,
+		}
+		Expect(c.IPAM().AssignIP(ctx, args)).NotTo(HaveOccurred())
+
+		// Create a Node object which uses that allocation.
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = nodename
+		setTunnelAddressForNode(tunnelType, node, "172.16.0.1")
+		_, err := c.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Remove the tunnel address.
+		removeHostTunnelAddr(ctx, c, node.Name, isVxlan)
+
+		// Assert that the IPAM allocation is gone.
+		_, _, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should not release old-style IP address allocations belonging to someone else", func() {
+		// Create an old-style allocation for this node in IPAM.
+		ipAddr, _, _ := net.ParseCIDR("172.16.0.1/32")
+		nodename := "my-test-node"
+		handle := "some-handle"
+		args := ipam.AssignIPArgs{
+			IP:       *ipAddr,
+			HandleID: &handle,
+			Hostname: nodename,
+		}
+		Expect(c.IPAM().AssignIP(ctx, args)).NotTo(HaveOccurred())
+
+		// Create a Node object which uses that allocation.
+		node := makeNode("192.168.0.1/24", "fdff:ffff:ffff:ffff:ffff::/80")
+		node.Name = nodename
+		setTunnelAddressForNode(tunnelType, node, "172.16.0.1")
+		_, err := c.Nodes().Create(ctx, node, options.SetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Remove the tunnel address.
+		removeHostTunnelAddr(ctx, c, node.Name, isVxlan)
+
+		// Assert that the IPAM allocation is not gone.
+		_, _, err = c.IPAM().GetAssignmentAttributes(ctx, net.IP{IP: gnet.ParseIP("172.16.0.1")})
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
 
@@ -566,6 +845,11 @@ func (c shimClient) FelixConfigurations() client.FelixConfigurationInterface {
 // ClusterInformation returns an interface for managing the cluster information resource.
 func (c shimClient) ClusterInformation() client.ClusterInformationInterface {
 	return c.client.ClusterInformation()
+}
+
+// KubeControllersConfiguration returns an interface for managing the Kubernetes controllers configuration resource.
+func (c shimClient) KubeControllersConfiguration() client.KubeControllersConfigurationInterface {
+	return c.client.KubeControllersConfiguration()
 }
 
 func (c shimClient) EnsureInitialized(ctx context.Context, calicoVersion, clusterType string) error {
