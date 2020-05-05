@@ -42,8 +42,8 @@ func init() {
 		return
 
 	} else if felixPort == "" {
-		felixReadinessEp =  felixHost + ":9099/readiness"
-		felixLivenessEp = felixHost + ":9099/liveness"
+		felixReadinessEp =  "http://" + felixHost + ":9099/readiness"
+		felixLivenessEp = "http://" + felixHost + ":9099/liveness"
 		return
 
 	} else if felixHost == "" {
@@ -56,8 +56,8 @@ func init() {
 		log.Panicf("Failed to parse value for port %q", felixPort)
 	}
 
-	felixReadinessEp = felixHost + ":" + felixPort + "/readiness"
-	felixLivenessEp = felixHost + ":" + felixPort + "/liveness"
+	felixReadinessEp = "http://" + felixHost + ":" + felixPort + "/readiness"
+	felixLivenessEp = "http://" + felixHost + ":" + felixPort + "/liveness"
 }
 
 func Run(bird, bird6, felixReady, felixLive, birdLive, bird6Live bool, thresholdTime time.Duration) {
