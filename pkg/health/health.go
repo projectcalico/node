@@ -35,25 +35,17 @@ var felixLivenessEp string
 
 func init() {
 	felixPort := os.Getenv("FELIX_HEALTHPORT")
-	felixHost := os.Getenv("FELIX_HEALTHHOST")
-	if felixPort == "" && felixHost == "" {
-		felixReadinessEp = "http://localhost:9099/readiness"
-		felixLivenessEp = "http://localhost:9099/liveness"
-		return
-
-	} else if felixPort == "" {
-		felixReadinessEp =  "http://" + felixHost + ":9099/readiness"
-		felixLivenessEp = "http://" + felixHost + ":9099/liveness"
-		return
-
-	} else if felixHost == "" {
-		felixReadinessEp = "http://localhost:" + felixPort + "/readiness"
-		felixLivenessEp = "http://localhost:" + felixPort + "/liveness"
-		return
+	if felixPort == "" {
+		felixPort = "9099"
 	}
 
 	if _, err := strconv.Atoi(felixPort); err != nil {
 		log.Panicf("Failed to parse value for port %q", felixPort)
+	}
+
+	felixHost := os.Getenv("FELIX_HEALTHHOST")
+	if felixHost == "" {
+		felixHost = "localhost"
 	}
 
 	felixReadinessEp = "http://" + felixHost + ":" + felixPort + "/readiness"
