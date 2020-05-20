@@ -18,10 +18,8 @@ global_job_config:
     - name: docker
 
 blocks:
-
-# If tests passed, then build and push images.
-# We'll only do this on non-PR builds, where we have credentials to do so.
-- name: "Push images (non-PR builds only)"
+- name: "Push images (retry)"
+  dependencies: []
   task:
     jobs:
     - name: "make cd"
