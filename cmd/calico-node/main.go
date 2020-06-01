@@ -40,7 +40,8 @@ var flagSet = flag.NewFlagSet("Calico", flag.ContinueOnError)
 var version = flagSet.Bool("v", false, "Display version")
 var runFelix = flagSet.Bool("felix", false, "Run Felix")
 var runStartup = flagSet.Bool("startup", false, "Initialize a new node")
-var allocateTunnelAddrs = flagSet.Bool("allocate-tunnel-addrs", false, "Configure tunnel addresses for this node")
+var runAllocateTunnelAddrs = flagSet.Bool("allocate-tunnel-addrs", false, "Configure tunnel addresses for this node")
+var allocateTunnelAddrsRunOnce = flagSet.Bool("allocate-tunnel-addrs-run-once", false, "Run allocate-tunnel-addrs in oneshot mode")
 var monitorToken = flagSet.Bool("monitor-token", false, "Watch for Kubernetes token changes, update CNI config")
 
 // Options for liveness checks.
@@ -110,16 +111,16 @@ func main() {
 	} else if *runConfd {
 		logrus.SetFormatter(&logutils.Formatter{Component: "confd"})
 		cfg, err := confdConfig.InitConfig(true)
-		cfg.ConfDir = "/etc/calico/confd"
-		cfg.KeepStageFile = *confdKeep
-		cfg.Onetime = *confdRunOnce
 		if err != nil {
 			panic(err)
 		}
+		cfg.ConfDir = "/etc/calico/confd"
+		cfg.KeepStageFile = *confdKeep
+		cfg.Onetime = *confdRunOnce
 		confd.Run(cfg)
-	} else if *allocateTunnelAddrs {
+	} else if *runAllocateTunnelAddrs {
 		logrus.SetFormatter(&logutils.Formatter{Component: "tunnel-ip-allocator"})
-		allocateip.Run()
+		allocateip.Run(*allocateTunnelAddrsRunOnce)
 	} else if *monitorToken {
 		logrus.SetFormatter(&logutils.Formatter{Component: "cni-config-monitor"})
 		cni.Run()
