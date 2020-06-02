@@ -234,9 +234,13 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 	case ipam.AttributeTypeVXLAN:
 		addr = node.Spec.IPv4VXLANTunnelAddr
 	case ipam.AttributeTypeIPIP:
-		addr = node.Spec.BGP.IPv4IPIPTunnelAddr
+		if node.Spec.BGP != nil {
+			addr = node.Spec.BGP.IPv4IPIPTunnelAddr
+		}
 	case ipam.AttributeTypeWireguard:
-		addr = node.Spec.Wireguard.InterfaceIPv4Address
+		if node.Spec.Wireguard != nil {
+			addr = node.Spec.Wireguard.InterfaceIPv4Address
+		}
 	}
 
 	// Work out if we need to assign a tunnel address.
