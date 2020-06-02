@@ -126,7 +126,7 @@ func main() {
 		if *allocateTunnelAddrsRunOnce {
 			allocateip.Run(nil)
 		} else {
-			allocateip.Run(make(chan struct{}, 0))
+			allocateip.Run(make(chan struct{}))
 		}
 	} else if *monitorToken {
 		logrus.SetFormatter(&logutils.Formatter{Component: "cni-config-monitor"})

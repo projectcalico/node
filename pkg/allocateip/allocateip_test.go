@@ -744,7 +744,7 @@ var _ = Describe("Running as daemon", func() {
 		// Modify the node so that the wireguard status has a different public key - the IP address should not change.
 		By("changing the wireguard public key")
 		node.Status.WireguardPublicKey = "12345"
-		node, err = c.Nodes().Update(ctx, node, options.SetOptions{})
+		_, err = c.Nodes().Update(ctx, node, options.SetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Consistently(func() error {
 			return checkTunnelAddressForNode(c, ipam.AttributeTypeWireguard, "test.node", "192.16.0.1")
