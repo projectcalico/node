@@ -73,7 +73,13 @@ func setTunnelAddressForNode(tunnelType string, n *api.Node, addr string) {
 	} else if tunnelType == ipam.AttributeTypeVXLAN {
 		n.Spec.IPv4VXLANTunnelAddr = addr
 	} else if tunnelType == ipam.AttributeTypeWireguard {
-		n.Spec.Wireguard.InterfaceIPv4Address = addr
+		if addr != "" {
+			n.Spec.Wireguard = &api.NodeWireguardSpec{
+				InterfaceIPv4Address: addr,
+			}
+		} else {
+			n.Spec.Wireguard = nil
+		}
 	} else {
 		panic(fmt.Errorf("Unknown tunnelType, %s", tunnelType))
 	}
@@ -94,7 +100,9 @@ func checkTunnelAddressEmpty(c client.Interface, tunnelType string, nodeName str
 	} else if tunnelType == ipam.AttributeTypeVXLAN {
 		addr = n.Spec.IPv4VXLANTunnelAddr
 	} else if tunnelType == ipam.AttributeTypeWireguard {
-		addr = n.Spec.Wireguard.InterfaceIPv4Address
+		if n.Spec.Wireguard != nil {
+			addr = n.Spec.Wireguard.InterfaceIPv4Address
+		}
 	} else {
 		panic(fmt.Errorf("Unknown tunnelType, %s", tunnelType))
 	}
@@ -127,7 +135,9 @@ func checkTunnelAddressForNode(c client.Interface, tunnelType string, nodeName s
 	} else if tunnelType == ipam.AttributeTypeVXLAN {
 		addr = n.Spec.IPv4VXLANTunnelAddr
 	} else if tunnelType == ipam.AttributeTypeWireguard {
-		addr = n.Spec.Wireguard.InterfaceIPv4Address
+		if n.Spec.Wireguard != nil {
+			addr = n.Spec.Wireguard.InterfaceIPv4Address
+		}
 	} else {
 		panic(fmt.Errorf("Unknown tunnelType, %s", tunnelType))
 	}
