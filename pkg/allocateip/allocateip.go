@@ -520,6 +520,9 @@ func removeHostTunnelAddr(ctx context.Context, c client.Interface, nodename stri
 		if ipAddrStr != "" {
 			ipAddr = net.ParseIP(ipAddrStr)
 		}
+		if ipAddr == nil {
+			return
+		}
 
 		// Release tunnel IP address(es) for the node.
 		handle, _ := generateHandleAndAttributes(nodename, attrType)
