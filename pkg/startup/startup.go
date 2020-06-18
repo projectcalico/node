@@ -636,9 +636,14 @@ func autoDetectCIDR(method string, version int) *cnet.IPNet {
 		// Autodetect the IP by filtering interface by its address.
 		cidrStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_CIDR)
 		// CIDRs are passed in as a string separated by ","
-		matches:=[]cnet.IPNet{}
-		for _, r:= range regexp.MustCompile(`\s*,\s*`).Split(cidrStr, -1) {
-			matches=append(matches, cnet.MustParseCIDR(r))
+		matches := []cnet.IPNet{}
+		for _, r := range regexp.MustCompile(`\s*,\s*`).Split(cidrStr, -1) {
+			_, cidr, err := cnet.ParseCIDR(r)
+			if err != nil {
+				log.Errorf("Invalid CIDR %q for IP autodetection method: %s", r, method)
+				return nil
+			}
+			matches = append(matches, *cidr)
 		}
 		return autoDetectCIDRByCIDR(matches, version)
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_CAN_REACH) {
