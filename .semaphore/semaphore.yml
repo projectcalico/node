@@ -56,3 +56,41 @@ blocks:
       - echo $QUAY_TOKEN | docker login --username "$QUAY_USER" --password-stdin quay.io
       - export BRANCH_NAME=$SEMAPHORE_GIT_BRANCH
       - if [ -z "${SEMAPHORE_GIT_PR_NUMBER}" ]; then make image-all cd CONFIRM=true; fi
+
+# remove later. build windows release and push to google store.
+- name: "nightly build windows release"
+  dependencies: []
+  task:
+    secrets:
+    # Mount the github SSH secret for pulling private repositories.
+    - name: private-repo
+    - name: banzai-secrets
+    jobs:
+    - name: "build windows release"
+      commands:
+      # Correct permissions since they are too open by default:
+      - chmod 0600 ~/.keys/*
+      # Add the key to the ssh agent:
+      - ssh-add ~/.keys/*
+      - mkdir -p $HOME/.local/bin
+      - export PATH=$HOME/.local/bin:$PATH
+      - mkdir -p $HOME/.docker
+      - cp ~/secrets/docker_cfg.json $HOME/.docker/config.json
+      # Login to docker in order to pull images.
+      - export GOOGLE_APPLICATION_CREDENTIALS=$HOME/secrets/banzai-google-service-account.json
+      - sudo apt-get update && sudo apt-get -y --only-upgrade install google-cloud-sdk
+      - gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
+      - export BRANCH_NAME=$SEMAPHORE_GIT_BRANCH
+      - make build-windows-archive
+      - gsutil cp dist/tigera-calico-windows-*.zip gs://tigera-windows/tigera-calico-windows-${BRANCH_NAME}.zip
+
+      env_vars:
+      - name: GOOGLE_PROJECT
+        value: unique-caldron-775
+      - name: GOOGLE_REGION
+        value: us-west1
+      - name: GOOGLE_ZONE
+        value: us-west1-b
+      - name: GOOGLE_NETWORK
+        value: semaphore-autotest
+

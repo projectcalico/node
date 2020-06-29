@@ -1,0 +1,41 @@
+version: v1.0
+name: node
+agent:
+  machine:
+    type: e1-standard-4
+    os_image: ubuntu1804
+execution_time_limit:
+  minutes: 120
+global_job_config:
+  secrets:
+  # Mount the github SSH secret for pulling private repositories.
+  - name: private-repo
+  - name: banzai-secrets
+
+  prologue:
+    commands:
+      # Correct permissions since they are too open by default:
+      - chmod 0600 ~/.keys/*
+      # Add the key to the ssh agent:
+      - ssh-add ~/.keys/*
+      - mkdir -p $HOME/.local/bin
+      - export PATH=$HOME/.local/bin:$PATH
+      # Config google credentials.
+      - export GOOGLE_APPLICATION_CREDENTIALS=$HOME/secrets/banzai-google-service-account.json
+      - sudo apt-get update && sudo apt-get -y --only-upgrade install google-cloud-sdk
+      - gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
+      - export BRANCH_NAME=$SEMAPHORE_GIT_BRANCH
+      - checkout
+      # Semaphore is doing shallow clone on a commit without tags.
+      # unshallow it for GIT_VERSION:=$(shell git describe --tags --dirty --always) @ Makefile.common
+      - git fetch --unshallow
+
+blocks:
+# build windows release and push to google store.
+- name: "nightly build windows release"
+  dependencies: []
+  task:
+    jobs:
+    - name: "build windows release"
+      commands:
+      - make build-windows-archive
