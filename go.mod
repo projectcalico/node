@@ -8,16 +8,17 @@ require (
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectcalico/felix v0.0.0-20200810145751-a3621e3c3aa4
+	github.com/projectcalico/cni-plugin v0.0.0-00010101000000-000000000000
+	github.com/projectcalico/felix v0.0.0-20200808080218-c79ea203a813
 	github.com/projectcalico/libcalico-go v1.7.2-0.20200807225946-83627ff7d609
 	github.com/projectcalico/typha v0.7.3-0.20200808040656-32dfe0e092a8
 	github.com/sirupsen/logrus v1.4.2
-	github.com/vishvananda/netlink v1.0.0
+	github.com/vishvananda/netlink v1.0.1-0.20181108222139-023a6dafdcdf
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
-	k8s.io/api v0.17.2
-	k8s.io/apimachinery v0.17.2
-	k8s.io/client-go v0.17.2
+	k8s.io/api v0.17.3
+	k8s.io/apimachinery v0.17.3
+	k8s.io/client-go v0.17.3
 )
 
 replace (
@@ -48,3 +49,7 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.17.2
 
 )
+
+replace github.com/projectcalico/felix => github.com/song-jiang/felix v0.0.0-20200808201846-cb49d31188dd
+
+replace github.com/projectcalico/cni-plugin => github.com/song-jiang/cni-plugin v1.11.1-0.20200809162107-4669c6f9bdc7
