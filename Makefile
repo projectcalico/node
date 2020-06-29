@@ -1,5 +1,5 @@
 PACKAGE_NAME?=github.com/projectcalico/node
-GO_BUILD_VER?=v0.45
+GO_BUILD_VER?=v0.40
 
 # This needs to be evaluated before the common makefile is included.
 # This var contains some default values that the common makefile may append to.
@@ -18,7 +18,7 @@ Makefile.common: Makefile.common.$(MAKE_BRANCH)
 Makefile.common.$(MAKE_BRANCH):
 	# Clean up any files downloaded from other branches so they don't accumulate.
 	rm -f Makefile.common.*
-	curl --fail $(MAKE_REPO)/Makefile.common -o "$@"
+	curl -k --fail $(MAKE_REPO)/Makefile.common -o "$@"
 
 # Build mounts for running in "local build" mode. This allows an easy build using local development code,
 # assuming that there is a local checkout of libcalico in the same directory as this repo.
@@ -39,7 +39,6 @@ $(LOCAL_BUILD_DEP):
 endif
 
 EXTRA_DOCKER_ARGS+=-e GOPRIVATE='github.com/tigera/*'
-
 include Makefile.common
 
 ###############################################################################
@@ -55,8 +54,8 @@ FELIX_GPL_SOURCE=filesystem/included-source/felix-ebpf-gpl.tar.gz
 INCLUDED_SOURCE=$(BIRD_SOURCE) $(FELIX_GPL_SOURCE)
 
 # Versions and locations of dependencies used in tests.
-CALICOCTL_VER?=master
-CNI_VER?=master
+CALICOCTL_VER?=v3.14.1
+CNI_VER?=v3.14.1
 TEST_CONTAINER_NAME_VER?=latest
 CTL_CONTAINER_NAME?=calico/ctl:$(CALICOCTL_VER)-$(ARCH)
 TEST_CONTAINER_NAME?=calico/test:$(TEST_CONTAINER_NAME_VER)-$(ARCH)
@@ -139,6 +138,8 @@ remote-deps: mod-download
 		cp -r `go list -m -f "{{.Dir}}" github.com/projectcalico/felix`/bpf-apache bin/bpf; \
 		chmod -R +w bin/bpf; \
 		chmod +x bin/bpf/bpf-gpl/list-* bin/bpf/bpf-gpl/calculate-*; \
+		sed -i "s/amd64/arm64/" ./bin/bpf/bpf-gpl/Makefile; \
+		sed -i "/Werror/d" ./bin/bpf/bpf-gpl/Makefile; \
 		make -j 16 -C ./bin/bpf/bpf-apache/ all; \
 		make -j 16 -C ./bin/bpf/bpf-gpl/ all; \
 		cp bin/bpf/bpf-gpl/bin/* filesystem/usr/lib/calico/bpf/; \
@@ -186,7 +187,7 @@ endif
 # download BIRD source to include in image.
 $(BIRD_SOURCE): go.mod
 	mkdir -p filesystem/included-source/
-	wget -O $@ https://github.com/projectcalico/bird/tarball/$(BIRD_VERSION)
+	wget --no-check-certificate -O $@ https://github.com/projectcalico/bird/tarball/$(BIRD_VERSION)
 
 # download any GPL felix code to include in the image.
 $(FELIX_GPL_SOURCE): go.mod

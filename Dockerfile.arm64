@@ -11,27 +11,123 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-ARG QEMU_IMAGE=calico/go-build:latest
-ARG BIRD_IMAGE=calico/bird:latest
+ARG ARCH=aarch64
+ARG GIT_VERSION=unknown
+ARG IPTABLES_VER=1.8.2-16
+ARG RUNIT_VER=2.1.2
+ARG BIRD_IMAGE=calico/bird:v0.3.3-151-g767b5389-arm64
 
-FROM ${QEMU_IMAGE} as qemu
+#FROM ${QEMU_IMAGE} as qemu
+#FROM ${BIRD_IMAGE} as bird
 FROM ${BIRD_IMAGE} as bird
 
 FROM calico/bpftool:v5.0-arm64 as bpftool
 
-FROM arm64v8/alpine:3.8 as base
+FROM centos:8 as buildbase
+ARG ARCH=aarch64
+ARG IPTABLES_VER=1.8.2-16
+ARG RUNIT_VER=2.1.2
+ARG CENTOS_MIRROR_BASE_URL=http://vault.centos.org/8.1.1911
+ARG LIBNFTNL_VER=1.1.1-4
+ARG LIBNFTNL_SOURCERPM_URL=${CENTOS_MIRROR_BASE_URL}/BaseOS/Source/SPackages/libnftnl-${LIBNFTNL_VER}.el8.src.rpm
+ARG IPTABLES_SOURCERPM_URL=${CENTOS_MIRROR_BASE_URL}/BaseOS/Source/SPackages/iptables-${IPTABLES_VER}.el8.src.rpm
+ARG http_proxy
+ARG https_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+ARG GLIBC_STATIC=https://rpmfind.net/linux/centos/8.2.2004/PowerTools/aarch64/os/Packages/glibc-static-2.28-101.el8.aarch64.rpm
+ARG LIBXCRYPT_STATIC=https://rpmfind.net/linux/centos/8-stream/PowerTools/aarch64/os/Packages/libxcrypt-static-4.1.1-4.el8.aarch64.rpm
+ARG LIBMNL_DEVEL=https://rpmfind.net/linux/centos/8-stream/PowerTools/aarch64/os/Packages/libmnl-devel-1.0.4-6.el8.aarch64.rpm
+ARG LIBNFNETLINK_DEVEL=https://rpmfind.net/linux/centos/8-stream/PowerTools/aarch64/os/Packages/libnfnetlink-devel-1.0.1-13.el8.aarch64.rpm
+ARG LIBNETFILTER_CONNTRACK_DEVEL=https://rpmfind.net/linux/centos/8-stream/PowerTools/aarch64/os/Packages/libnetfilter_conntrack-devel-1.0.6-5.el8.aarch64.rpm
+
+ENV http_proxy=
+ENV https_proxy=
+ENV no_proxy=
+
+RUN yum install -y rpm-build yum-utils make epel-release && yum-config-manager --set-enabled PowerTools && \
+        yum install -y wget gcc libnfnetlink libnetfilter_conntrack libpcap-devel && \
+        mkdir -p /root/deps && \
+        wget --no-check-certificate -P /root/deps ${LIBNFTNL_SOURCERPM_URL} && \
+        wget --no-check-certificate -P /root/deps ${IPTABLES_SOURCERPM_URL} && \
+        wget --no-check-certificate -P /root/deps ${GLIBC_STATIC} && \
+        wget --no-check-certificate -P /root/deps ${LIBXCRYPT_STATIC} && \
+        wget --no-check-certificate -P /root/deps ${LIBMNL_DEVEL}  && \
+        wget --no-check-certificate -P /root/deps ${LIBNFNETLINK_DEVEL} && \
+        wget --no-check-certificate -P /root/deps ${LIBNETFILTER_CONNTRACK_DEVEL}
+
+RUN useradd mockbuild && rpm -i /root/deps/libxcrypt-static-4.1.1-4.el8.aarch64.rpm /root/deps/glibc-static-2.28-101.el8.aarch64.rpm && \
+        rpm -i /root/deps/libmnl-devel-1.0.4-6.el8.aarch64.rpm && \
+        rpm -i /root/deps/libnfnetlink-devel-1.0.1-13.el8.aarch64.rpm && \
+        rpm -i /root/deps/libnetfilter_conntrack-devel-1.0.6-5.el8.aarch64.rpm
+RUN rpm -i /root/deps/libnftnl-1.1.1-4.el8.src.rpm && \
+        yum-builddep -y --spec /root/rpmbuild/SPECS/libnftnl.spec && \
+        rpmbuild -bb /root/rpmbuild/SPECS/libnftnl.spec && \
+        rpm -i /root/rpmbuild/RPMS/${ARCH}/libnftnl-${LIBNFTNL_VER}.el8.${ARCH}.rpm && \
+        rpm -i /root/rpmbuild/RPMS/${ARCH}/libnftnl-devel-${LIBNFTNL_VER}.el8.${ARCH}.rpm && \
+        rpm -i /root/deps/iptables-1.8.2-16.el8.src.rpm && \
+        yum-builddep -y --spec /root/rpmbuild/SPECS/iptables.spec
+
+RUN sed -i '/drop all legacy tools/,/sbindir.*legacy/d' /root/rpmbuild/SPECS/iptables.spec
+RUN sed -i '/rename nft versions to standard name/,/^done/d' /root/rpmbuild/SPECS/iptables.spec
+RUN sed -i '/%files$/a \
+\%\{_sbindir\}\/xtables-legacy-multi \n\
+\%\{_sbindir\}\/ip6tables-legacy \n\
+\%\{_sbindir\}\/ip6tables-legacy-restore \n\
+\%\{_sbindir\}\/ip6tables-legacy-save \n\
+\%\{_sbindir\}\/iptables-legacy \n\
+\%\{_sbindir\}\/iptables-legacy-restore \n\
+\%\{_sbindir\}\/iptables-legacy-save \n\
+\%\{_sbindir\}\/ip6tables-nft\n\
+\%\{_sbindir\}\/ip6tables-nft-restore\n\
+\%\{_sbindir\}\/ip6tables-nft-save\n\
+\%\{_sbindir\}\/iptables-nft\n\
+\%\{_sbindir\}\/iptables-nft-restore\n\
+\%\{_sbindir\}\/iptables-nft-save\n\
+' /root/rpmbuild/SPECS/iptables.spec
+RUN rpmbuild -bb /root/rpmbuild/SPECS/iptables.spec
+RUN wget --no-check-certificate -P /tmp http://smarden.org/runit/runit-${RUNIT_VER}.tar.gz && \
+    gunzip /tmp/runit-${RUNIT_VER}.tar.gz && \
+    tar -xpf /tmp/runit-${RUNIT_VER}.tar -C /tmp && \
+    cd /tmp/admin/runit-${RUNIT_VER}/ && \
+    package/install
+
+
+#FROM arm64v8/alpine:3.8 as base
+FROM centos:8 as centos
 MAINTAINER Tom Denham <tom@projectcalico.org>
 
-ARG ARCH=arm64
+ARG ARCH=aarch64
+ARG IPTABLES_VER
+ARG RUNIT_VER
+ARG CENTOS_MIRROR_BASE_URL=http://vault.centos.org/8.1.1911
+ARG LIBNFTNL_VER=1.1.1-4
+ARG LIBNFTNL_SOURCERPM_URL=${CENTOS_MIRROR_BASE_URL}/BaseOS/Source/SPackages/libnftnl-${LIBNFTNL_VER}.el8.src.rpm
+ARG IPTABLES_SOURCERPM_URL=${CENTOS_MIRROR_BASE_URL}/BaseOS/Source/SPackages/iptables-${IPTABLES_VER}.el8.src.rpm
+ARG http_proxy
+ARG https_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+
+COPY --from=buildbase /root/rpmbuild/RPMS/${ARCH}/* /tmp/rpms/
+
+COPY --from=buildbase /tmp/admin/runit-${RUNIT_VER}/command/* /usr/local/bin/
+
+COPY centos.repo /etc/yum.repo.d
+RUN yum install -y libpcap libmnl libnfnetlink libnftnl libnetfilter_conntrack \
+	ipset iputils net-tools kmod procps-ng iproute iproute-tc \
+	libnetfilter_cthelper libnetfilter_cttimeout libnetfilter_queue \
+	conntrack-tools which && \
+	rpm --force -i /tmp/rpms/iptables-libs-${IPTABLES_VER}.el8.${ARCH}.rpm && \
+	rpm -i /tmp/rpms/iptables-${IPTABLES_VER}.el8.${ARCH}.rpm && \
+	alternatives --install /usr/sbin/iptables iptables /usr/sbin/iptables-legacy 1 && \
+	alternatives --install /usr/sbin/ip6tables ip6tables /usr/sbin/ip6tables-legacy 1
 
 # Enable non-native builds of this image on an amd64 hosts.
 # This must be the first RUN command in this file!
 # we only need this for the intermediate "base" image, so we can run all the apk and other commands
 # when running on a kernel >= 4.8, this will become less relevant
-COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/
-
-# Install remaining runtime deps required for felix from the global repository
-RUN apk add --no-cache ip6tables ipset iputils iproute2 conntrack-tools runit ca-certificates
+#COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/
 
 # Copy our bird binaries in
 COPY --from=bird /bird* /bin/
@@ -39,11 +135,14 @@ COPY --from=bird /bird* /bin/
 # Copy in the filesystem - this contains felix, calico-bgp-daemon etc...
 COPY filesystem/ /
 
+RUN ln -s /usr/sbin/modprobe /sbin/modprobe
 # Copy in the calico-node binary
-COPY dist/bin/calico-node-${ARCH} /bin/calico-node
+COPY dist/bin/calico-node-arm64 /bin/calico-node
 
 COPY --from=bpftool /bpftool /bin
 
-RUN rm /usr/bin/qemu-aarch64-static
+ENV http_proxy=
+ENV https_proxy=
+#RUN rm /usr/bin/qemu-aarch64-static
 
 CMD ["start_runit"]
