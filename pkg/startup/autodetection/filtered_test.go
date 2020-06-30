@@ -14,6 +14,8 @@
 package autodetection_test
 
 import (
+	"github.com/projectcalico/libcalico-go/lib/net"
+
 	"github.com/projectcalico/node/pkg/startup/autodetection"
 
 	. "github.com/onsi/ginkgo"
@@ -30,6 +32,14 @@ var _ = Describe("Filtered enumeration tests", func() {
 				Expect(err).To(BeNil())
 				Expect(iface).ToNot(BeNil())
 				Expect(addr).ToNot(BeNil())
+			})
+
+			It("should have enumerated at least IP address for one given known network cidr", func() {
+				liface, laddr, err := autodetection.FilteredEnumeration(nil, nil, []net.IPNet{*addr.Network()}, 4)
+				Expect(err).To(BeNil())
+				Expect(liface).NotTo(BeNil())
+				Expect(liface.Name).To(Equal(iface.Name))
+				Expect(laddr).To(Equal(addr))
 			})
 		})
 	})
