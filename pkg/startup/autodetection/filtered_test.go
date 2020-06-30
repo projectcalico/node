@@ -25,7 +25,7 @@ var _ = Describe("Filtered enumeration tests", func() {
 	Describe("No filters", func() {
 		Context("Get interface and address", func() {
 
-			iface, addr, err := autodetection.FilteredEnumeration(nil, nil, 4)
+			iface, addr, err := autodetection.FilteredEnumeration(nil, nil, nil, 4)
 			It("should have enumerated at least one IP address", func() {
 				Expect(err).To(BeNil())
 				Expect(iface).ToNot(BeNil())
