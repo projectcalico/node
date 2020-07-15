@@ -21,7 +21,6 @@ require (
 
 replace (
 	github.com/kelseyhightower/confd => github.com/projectcalico/confd v1.0.1-0.20200714080855-4dfd3536b60a
-
 	github.com/sirupsen/logrus => github.com/projectcalico/logrus v1.0.4-calico
 
 	k8s.io/api => k8s.io/api v0.17.2
@@ -45,5 +44,4 @@ replace (
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.17.2
 	k8s.io/metrics => k8s.io/metrics v0.17.2
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.17.2
-
 )
