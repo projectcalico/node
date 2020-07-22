@@ -279,10 +279,10 @@ dist/calico-cni-plugin dist/calico-ipam-plugin:
 	-docker rm -f calico-cni
 	docker pull calico/cni:$(CNI_VER)
 	docker create --name calico-cni calico/cni:$(CNI_VER)
-	docker cp calico-cni:/opt/cni/bin/calico dist/calico-cni-plugin && \
+	docker cp calico-cni:/opt/cni/bin/install dist/calico-cni-plugin && \
 	  test -e dist/calico-cni-plugin && \
 	  touch dist/calico-cni-plugin
-	docker cp calico-cni:/opt/cni/bin/calico-ipam dist/calico-ipam-plugin && \
+	docker cp calico-cni:/opt/cni/bin/install dist/calico-ipam-plugin && \
 	  test -e dist/calico-ipam-plugin && \
 	  touch dist/calico-ipam-plugin
 	-docker rm -f calico-cni
