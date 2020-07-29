@@ -40,6 +40,11 @@ endif
 
 EXTRA_DOCKER_ARGS+=-e GOPRIVATE='github.com/tigera/*'
 
+ifeq ("$(LOCAL_USER_ID)", "0")
+# The build needs to run as root.
+EXTRA_DOCKER_ARGS+=-e RUN_AS_ROOT='true'
+endif
+
 include Makefile.common
 
 ###############################################################################
