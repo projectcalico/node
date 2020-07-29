@@ -3,8 +3,7 @@ module github.com/projectcalico/node
 go 1.13
 
 require (
-	github.com/golangci/golangci-lint v1.27.0 // indirect
-	github.com/hashicorp/go-version v1.2.0 // indirect
+	github.com/aws/aws-sdk-go v1.33.15 // indirect
 	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
