@@ -139,11 +139,13 @@ func Run() {
 
 		// Check if we're running on a kubeadm and/or rancher cluster. Any error other than not finding the respective
 		// config map should be serious enough that we ought to stop here and return.
-		kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap,
-			metav1.GetOptions{})
+		kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				kubeadmConfig = nil
+			} else if errors.IsUnauthorized(err) {
+				kubeadmConfig = nil
+				log.WithError(err).Info("Unauthorized to query kubeadm configmap, assuming not on kubeadm")
 			} else {
 				log.WithError(err).Error("failed to query kubeadm's config map")
 				terminate()
@@ -156,6 +158,9 @@ func Run() {
 		if err != nil {
 			if errors.IsNotFound(err) {
 				rancherState = nil
+			} else if errors.IsUnauthorized(err) {
+				kubeadmConfig = nil
+				log.WithError(err).Info("Unauthorized to query rancher configmap, assuming not on rancher")
 			} else {
 				log.WithError(err).Error("failed to query Rancher's cluster state config map")
 				terminate()
