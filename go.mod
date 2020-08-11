@@ -8,8 +8,8 @@ require (
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectcalico/cni-plugin v0.0.0-00010101000000-000000000000
-	github.com/projectcalico/felix v0.0.0-20200808080218-c79ea203a813
+	github.com/projectcalico/cni-plugin v1.11.1-0.20200811150549-55fa20e1ad20
+	github.com/projectcalico/felix v0.0.0-20200811143132-be623092157e
 	github.com/projectcalico/libcalico-go v1.7.2-0.20200807225946-83627ff7d609
 	github.com/projectcalico/typha v0.7.3-0.20200808040656-32dfe0e092a8
 	github.com/sirupsen/logrus v1.4.2
@@ -49,7 +49,3 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.17.2
 
 )
-
-replace github.com/projectcalico/felix => github.com/song-jiang/felix v0.0.0-20200808201846-cb49d31188dd
-
-replace github.com/projectcalico/cni-plugin => github.com/song-jiang/cni-plugin v1.11.1-0.20200809162107-4669c6f9bdc7
