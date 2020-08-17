@@ -495,6 +495,7 @@ endif
 	$(MAKE) tag-images-all RELEASE=true IMAGETAG=$(VERSION)
 	# Generate the `latest` images.
 	$(MAKE) tag-images-all RELEASE=true IMAGETAG=latest
+	$(MAKE) release-windows-archive
 
 ## Produces the Windows ZIP archive for the release.
 release-windows-archive $(WINDOWS_ARCHIVE): release-prereqs
@@ -519,6 +520,13 @@ release-publish: release-prereqs
 
 	# Push images.
 	$(MAKE) push-all push-manifests push-non-manifests RELEASE=true IMAGETAG=$(VERSION)
+
+	# Push Windows artifacts to GitHub release.
+	# Requires ghr: https://github.com/tcnksm/ghr
+	# Requires GITHUB_TOKEN environment variable set.
+	ghr -u projectcalico -r node \
+		-n $(VERSION) \
+		$(VERSION) $(WINDOWS_ARCHIVE)
 
 	@echo "Finalize the GitHub release based on the pushed tag."
 	@echo ""
@@ -549,6 +557,9 @@ node-test-at: release-prereqs
 release-prereqs:
 ifndef VERSION
 	$(error VERSION is undefined - run using make release VERSION=vX.Y.Z)
+endif
+ifeq (, $(shell which ghr))
+	$(error Unable to find `ghr` in PATH, run this: go get -u github.com/tcnksm/ghr)
 endif
 ifdef LOCAL_BUILD
 	$(error LOCAL_BUILD must not be set for a release)
