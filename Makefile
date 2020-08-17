@@ -56,7 +56,7 @@ INCLUDED_SOURCE=$(BIRD_SOURCE) $(FELIX_GPL_SOURCE)
 
 # Versions and locations of dependencies used in tests.
 CALICOCTL_VER?=v3.15.1
-CNI_VER?=v3.15.1
+CNI_VER?=release-v3.15
 TEST_CONTAINER_NAME_VER?=latest
 CTL_CONTAINER_NAME?=calico/ctl:$(CALICOCTL_VER)-$(ARCH)
 TEST_CONTAINER_NAME?=calico/test:$(TEST_CONTAINER_NAME_VER)-$(ARCH)
