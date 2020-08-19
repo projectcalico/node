@@ -27,6 +27,14 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	kapiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
@@ -38,13 +46,6 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/selector"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator/clients"
-	log "github.com/sirupsen/logrus"
-	kapiv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"github.com/projectcalico/node/pkg/calicoclient"
 	"github.com/projectcalico/node/pkg/startup/autodetection"
@@ -66,7 +67,7 @@ const (
 	// KubeadmConfigConfigMap is defined in k8s.io/kubernetes, which we can't import due to versioning issues.
 	KubeadmConfigConfigMap = "kubeadm-config"
 	// Rancher clusters store their state in this config map in the kube-system namespace.
-	RancherStateConfigMap = "full-cluster-state"
+	RancherStateConfigMap            = "full-cluster-state"
 	DEFAULT_AUTODETECT_POLL_INTERVAL = 60 * time.Minute
 )
 
@@ -173,6 +174,7 @@ func Run(runOnce bool) {
 	// If we report an IP change (v4 or v6) we should verify there are no
 	// conflicts between Nodes.
 	if checkConflicts {
+		checkNodeIPConflictCheck(ctx, node, cli)
 	}
 
 	// If Calico is running in policy only mode we don't need to write BGP related details to the Node.
@@ -221,7 +223,7 @@ func Run(runOnce bool) {
 		terminate()
 	}
 
-	if (!runOnce) {
+	if !runOnce {
 		autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
 		if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
 			autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
