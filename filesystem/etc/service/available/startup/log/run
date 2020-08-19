@@ -1,0 +1,4 @@
+#!/bin/sh
+LOGDIR=/var/log/calico/startup
+mkdir -p $LOGDIR
+exec svlogd $LOGDIR
