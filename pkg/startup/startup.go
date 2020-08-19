@@ -27,6 +27,15 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
+	kapiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
@@ -38,13 +47,6 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/selector"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator/clients"
-	log "github.com/sirupsen/logrus"
-	kapiv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"github.com/projectcalico/node/pkg/calicoclient"
 	"github.com/projectcalico/node/pkg/startup/autodetection"
@@ -66,7 +68,8 @@ const (
 	// KubeadmConfigConfigMap is defined in k8s.io/kubernetes, which we can't import due to versioning issues.
 	KubeadmConfigConfigMap = "kubeadm-config"
 	// Rancher clusters store their state in this config map in the kube-system namespace.
-	RancherStateConfigMap = "full-cluster-state"
+	RancherStateConfigMap            = "full-cluster-state"
+	DEFAULT_AUTODETECT_POLL_INTERVAL = 60 * time.Minute
 )
 
 // Version string, set during build.
@@ -149,7 +152,6 @@ func Run() {
 			} else {
 				log.WithError(err).Error("failed to query kubeadm's config map")
 				terminate()
-				return
 			}
 		}
 
@@ -164,7 +166,6 @@ func Run() {
 			} else {
 				log.WithError(err).Error("failed to query Rancher's cluster state config map")
 				terminate()
-				return
 			}
 		}
 	}
@@ -194,7 +195,6 @@ func Run() {
 			if node.ResourceVersion != "" {
 				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
 			}
-
 			terminate()
 		}
 	}
@@ -206,7 +206,7 @@ func Run() {
 
 		if clientset != nil {
 			log.Info("Setting NetworkUnavailable to False")
-			err = setNodeNetworkUnavailableFalse(*clientset, nodeName)
+			err := setNodeNetworkUnavailableFalse(*clientset, nodeName)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
 			}
@@ -244,6 +244,61 @@ func Run() {
 		log.WithError(err).Errorf("Unable to ensure network for os")
 		terminate()
 	}
+}
+
+func MonitorIPAddressSubnets() {
+	autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
+	if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
+		autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
+	}
+
+	// Add a subscription to get updated if there is any change to interface addresses.
+	addrUpdate := make(chan netlink.AddrUpdate)
+	done := make(chan struct{})
+	if err := netlink.AddrSubscribe(addrUpdate, done); err != nil {
+		log.WithError(err).Error("Failed to subscribe to network interface updates")
+	}
+
+	ctx := context.Background()
+	_, cli := calicoclient.CreateClient()
+	nodeName := determineNodeName()
+	node := getNode(ctx, cli, nodeName)
+
+	for {
+		select {
+		case <-time.After(autoDetectPollingInterval):
+		case <-addrUpdate:
+			updated := checkIPAddressSubnets(ctx, node, cli)
+			if updated {
+				// Apply the updated node resource.
+				for i := 0; i < 3; i++ {
+					_, err := CreateOrUpdate(ctx, cli, node)
+					if err == nil {
+						log.WithError(err).Error("retrying...")
+						break
+					}
+					log.WithError(err).Error("Unable to set node resource configuration")
+				}
+			}
+		}
+	}
+}
+
+func checkIPAddressSubnets(ctx context.Context, node *api.Node, cli client.Interface) bool {
+	currentIPV4 := node.Spec.BGP.IPv4Address
+	currentIPV6 := node.Spec.BGP.IPv6Address
+
+	cidr := autoDetectCIDR(os.Getenv("IP_AUTODETECTION_METHOD"), 4)
+	if cidr != nil {
+		node.Spec.BGP.IPv4Address = cidr.String()
+	}
+
+	cidr = autoDetectCIDR(os.Getenv("IP6_AUTODETECTION_METHOD"), 6)
+	if cidr != nil {
+		node.Spec.BGP.IPv6Address = cidr.String()
+	}
+
+	return node.Spec.BGP.IPv4Address != currentIPV4 || node.Spec.BGP.IPv6Address != currentIPV6
 }
 
 // configureNodeRef will attempt to discover the cluster type it is running on, check to ensure we
