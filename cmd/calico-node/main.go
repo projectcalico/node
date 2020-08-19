@@ -40,7 +40,8 @@ var flagSet = flag.NewFlagSet("Calico", flag.ContinueOnError)
 // Build the set of supported flags.
 var version = flagSet.Bool("v", false, "Display version")
 var runFelix = flagSet.Bool("felix", false, "Run Felix")
-var runStartup = flagSet.Bool("startup", false, "Initialize a new node")
+var runStartup = flagSet.Bool("startup", false, "Initialize a new node with constant monitoring of IP address")
+var startupRunOnce = flagSet.Bool("startup-run-once", false, "Initialize a new node once")
 var runAllocateTunnelAddrs = flagSet.Bool("allocate-tunnel-addrs", false, "Configure tunnel addresses for this node")
 var allocateTunnelAddrsRunOnce = flagSet.Bool("allocate-tunnel-addrs-run-once", false, "Run allocate-tunnel-addrs in oneshot mode")
 var monitorToken = flagSet.Bool("monitor-token", false, "Watch for Kubernetes token changes, update CNI config")
@@ -108,7 +109,7 @@ func main() {
 		felix.Run("/etc/calico/felix.cfg", buildinfo.GitVersion, buildinfo.GitRevision, buildinfo.BuildDate)
 	} else if *runStartup {
 		logrus.SetFormatter(&logutils.Formatter{Component: "startup"})
-		startup.Run()
+		startup.Run(*startupRunOnce)
 	} else if *runConfd {
 		logrus.SetFormatter(&logutils.Formatter{Component: "confd"})
 		cfg, err := confdConfig.InitConfig(true)
