@@ -28,6 +28,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	kapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -90,7 +91,7 @@ var (
 // -  Configuring the node resource with IP/AS information provided in the
 //    environment, or autodetected.
 // -  Creating default IP Pools for quick-start use
-func Run(runOnce bool) {
+func Run() {
 	// Check $CALICO_STARTUP_LOGLEVEL to capture early log statements
 	configureLogging()
 
@@ -169,12 +170,33 @@ func Run(runOnce bool) {
 		}
 	}
 
-	checkConflicts := setupIPAndSubnets(ctx, node, cli)
+	// Configure and verify the node IP addresses and subnets.
+	checkConflicts, err := configureIPsAndSubnets(node)
+	if err != nil {
+		clearv4 := os.Getenv("IP") == "autodetect"
+		clearv6 := os.Getenv("IP6") == "autodetect"
+		if node.ResourceVersion != "" {
+			// If we're auto-detecting an IP on an existing node and hit an error, clear the previous
+			// IP addresses from the node since they are no longer valid.
+			clearNodeIPs(ctx, cli, node, clearv4, clearv6)
+		}
+		terminate()
+	}
 
 	// If we report an IP change (v4 or v6) we should verify there are no
 	// conflicts between Nodes.
-	if checkConflicts {
-		checkNodeIPConflictCheck(ctx, node, cli)
+	if checkConflicts && os.Getenv("DISABLE_NODE_IP_CHECK") != "true" {
+		v4conflict, v6conflict, err := checkConflictingNodes(ctx, cli, node)
+		if err != nil {
+			// If we've auto-detected a new IP address for an existing node that now conflicts, clear the old IP address(es)
+			// from the node in the datastore. This frees the address in case it needs to be used for another node.
+			clearv4 := (os.Getenv("IP") == "autodetect") && v4conflict
+			clearv6 := (os.Getenv("IP6") == "autodetect") && v6conflict
+			if node.ResourceVersion != "" {
+				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
+			}
+			terminate()
+		}
 	}
 
 	// If Calico is running in policy only mode we don't need to write BGP related details to the Node.
@@ -222,61 +244,61 @@ func Run(runOnce bool) {
 		log.WithError(err).Errorf("Unable to ensure network for os")
 		terminate()
 	}
+}
 
-	if !runOnce {
-		autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
-		if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
-			autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
-		}
-		for {
-			select {
-			case <-time.After(autoDetectPollingInterval):
-				checkConflicts = setupIPAndSubnets(ctx, node, cli)
-				if checkConflicts {
-					checkNodeIPConflictCheck(ctx, node, cli)
-					// Apply the updated node resource.
-					if _, err := CreateOrUpdate(ctx, cli, node); err != nil {
-						log.WithError(err).Errorf("Unable to set node resource configuration")
-						terminate()
+func MonitorIPAddressSubnets() {
+	autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
+	if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
+		autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
+	}
+
+	// Add a subscription to get updated if there is any change to interface addresses.
+	addrUpdate := make(chan netlink.AddrUpdate)
+	done := make(chan struct{})
+	if err := netlink.AddrSubscribe(addrUpdate, done); err != nil {
+		log.WithError(err).Error("Failed to subscribe to network interface updates")
+	}
+
+	ctx := context.Background()
+	_, cli := calicoclient.CreateClient()
+	nodeName := determineNodeName()
+	node := getNode(ctx, cli, nodeName)
+
+	for {
+		select {
+		case <-time.After(autoDetectPollingInterval):
+		case <-addrUpdate:
+			updated := checkIPAddressSubnets(ctx, node, cli)
+			if updated {
+				// Apply the updated node resource.
+				for i := 0; i < 3; i++ {
+					_, err := CreateOrUpdate(ctx, cli, node)
+					if err == nil {
+						log.WithError(err).Error("retrying...")
+						break
 					}
+					log.WithError(err).Error("Unable to set node resource configuration")
 				}
 			}
 		}
 	}
 }
 
-func setupIPAndSubnets(ctx context.Context, node *api.Node, cli client.Interface) bool {
-	// Configure and verify the node IP addresses and subnets.
-	checkConflicts, err := configureIPsAndSubnets(node)
-	if err != nil {
-		clearv4 := os.Getenv("IP") == "autodetect"
-		clearv6 := os.Getenv("IP6") == "autodetect"
-		if node.ResourceVersion != "" {
-			// If we're auto-detecting an IP on an existing node and hit an error, clear the previous
-			// IP addresses from the node since they are no longer valid.
-			clearNodeIPs(ctx, cli, node, clearv4, clearv6)
-		}
-		terminate()
+func checkIPAddressSubnets(ctx context.Context, node *api.Node, cli client.Interface) bool {
+	currentIPV4 := node.Spec.BGP.IPv4Address
+	currentIPV6 := node.Spec.BGP.IPv6Address
+
+	cidr := autoDetectCIDR(os.Getenv("IP_AUTODETECTION_METHOD"), 4)
+	if cidr != nil {
+		node.Spec.BGP.IPv4Address = cidr.String()
 	}
 
-	return checkConflicts
-}
-
-func checkNodeIPConflictCheck(ctx context.Context, node *api.Node, cli client.Interface) {
-	if os.Getenv("DISABLE_NODE_IP_CHECK") != "true" {
-		v4conflict, v6conflict, err := checkConflictingNodes(ctx, cli, node)
-		if err != nil {
-			// If we've auto-detected a new IP address for an existing node that now conflicts, clear the old IP address(es)
-			// from the node in the datastore. This frees the address in case it needs to be used for another node.
-			clearv4 := (os.Getenv("IP") == "autodetect") && v4conflict
-			clearv6 := (os.Getenv("IP6") == "autodetect") && v6conflict
-			if node.ResourceVersion != "" {
-				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
-			}
-
-			terminate()
-		}
+	cidr = autoDetectCIDR(os.Getenv("IP6_AUTODETECTION_METHOD"), 6)
+	if cidr != nil {
+		node.Spec.BGP.IPv6Address = cidr.String()
 	}
+
+	return node.Spec.BGP.IPv4Address != currentIPV4 || node.Spec.BGP.IPv6Address != currentIPV6
 }
 
 // configureNodeRef will attempt to discover the cluster type it is running on, check to ensure we
