@@ -18,10 +18,13 @@ import (
 	"context"
 	"os"
 	"strings"
+	"time"
 
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
+	"github.com/projectcalico/node/pkg/calicoclient"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 )
 
 // Default interfaces to exclude for any logic following the first-found
@@ -99,4 +102,42 @@ func ipv6Supported() bool {
 
 func ensureNetworkForOS(ctx context.Context, client client.Interface, nodeName string) error {
 	return nil
+}
+
+func MonitorIPAddressSubnets() {
+	autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
+	if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
+		autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
+	}
+
+	// Add a subscription to get updated if there is any change to interface addresses.
+	addrUpdate := make(chan netlink.AddrUpdate)
+	done := make(chan struct{})
+	if err := netlink.AddrSubscribe(addrUpdate, done); err != nil {
+		log.WithError(err).Error("Failed to subscribe to network interface updates")
+	}
+
+	ctx := context.Background()
+	_, cli := calicoclient.CreateClient()
+	nodeName := determineNodeName()
+	node := getNode(ctx, cli, nodeName)
+
+	for {
+		select {
+		case <-time.After(autoDetectPollingInterval):
+		case <-addrUpdate:
+			updated := checkIPAddressSubnets(ctx, node, cli)
+			if updated {
+				// Apply the updated node resource.
+				for i := 0; i < 3; i++ {
+					_, err := CreateOrUpdate(ctx, cli, node)
+					if err == nil {
+						log.WithError(err).Error("retrying...")
+						break
+					}
+					log.WithError(err).Error("Unable to set node resource configuration")
+				}
+			}
+		}
+	}
 }
