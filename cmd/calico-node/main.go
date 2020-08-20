@@ -109,7 +109,11 @@ func main() {
 		felix.Run("/etc/calico/felix.cfg", buildinfo.GitVersion, buildinfo.GitRevision, buildinfo.BuildDate)
 	} else if *runStartup {
 		logrus.SetFormatter(&logutils.Formatter{Component: "startup"})
-		startup.Run(*startupRunOnce)
+		if *startupRunOnce {
+			startup.Run()
+		} else {
+			startup.MonitorIPAddressSubnets()
+		}
 	} else if *runConfd {
 		logrus.SetFormatter(&logutils.Formatter{Component: "confd"})
 		cfg, err := confdConfig.InitConfig(true)
