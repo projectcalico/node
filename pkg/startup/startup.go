@@ -28,7 +28,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	kapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -243,44 +242,6 @@ func Run() {
 	if err := ensureNetworkForOS(ctx, cli, nodeName); err != nil {
 		log.WithError(err).Errorf("Unable to ensure network for os")
 		terminate()
-	}
-}
-
-func MonitorIPAddressSubnets() {
-	autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
-	if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
-		autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
-	}
-
-	// Add a subscription to get updated if there is any change to interface addresses.
-	addrUpdate := make(chan netlink.AddrUpdate)
-	done := make(chan struct{})
-	if err := netlink.AddrSubscribe(addrUpdate, done); err != nil {
-		log.WithError(err).Error("Failed to subscribe to network interface updates")
-	}
-
-	ctx := context.Background()
-	_, cli := calicoclient.CreateClient()
-	nodeName := determineNodeName()
-	node := getNode(ctx, cli, nodeName)
-
-	for {
-		select {
-		case <-time.After(autoDetectPollingInterval):
-		case <-addrUpdate:
-			updated := checkIPAddressSubnets(ctx, node, cli)
-			if updated {
-				// Apply the updated node resource.
-				for i := 0; i < 3; i++ {
-					_, err := CreateOrUpdate(ctx, cli, node)
-					if err == nil {
-						log.WithError(err).Error("retrying...")
-						break
-					}
-					log.WithError(err).Error("Unable to set node resource configuration")
-				}
-			}
-		}
 	}
 }
 

@@ -96,3 +96,7 @@ func ensureNetworkForOS(ctx context.Context, c client.Interface, nodeName string
 	logrus.Info("Ensure network is done.")
 	return nil
 }
+
+// Placeholder to compile windows binary.
+func MonitorIPAddressSubnets() {
+}
