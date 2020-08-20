@@ -245,7 +245,7 @@ func Run() {
 	}
 }
 
-func checkIPAddressSubnets(ctx context.Context, node *api.Node, cli client.Interface) bool {
+func checkIPAddressSubnets(node *api.Node) bool {
 	currentIPV4 := node.Spec.BGP.IPv4Address
 	currentIPV6 := node.Spec.BGP.IPv6Address
 
@@ -1320,4 +1320,24 @@ func extractKubeadmCIDRs(kubeadmConfig *v1.ConfigMap) (string, string, error) {
 	}
 
 	return v4, v6, err
+}
+
+func checkAndUpdateNodeIPAddressSubnets() {
+	ctx := context.Background()
+	_, cli := calicoclient.CreateClient()
+	nodeName := determineNodeName()
+	node := getNode(ctx, cli, nodeName)
+
+	updated := checkIPAddressSubnets(node)
+	if updated {
+		// Apply the updated node resource.
+		for i := 0; i < 3; i++ {
+			_, err := CreateOrUpdate(ctx, cli, node)
+			if err == nil {
+				log.WithError(err).Error("retrying...")
+				break
+			}
+			log.WithError(err).Error("Unable to set node resource configuration")
+		}
+	}
 }

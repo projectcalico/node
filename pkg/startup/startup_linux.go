@@ -16,12 +16,12 @@ package startup
 
 import (
 	"context"
+	"net"
 	"os"
 	"strings"
 	"time"
 
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
-	"github.com/projectcalico/node/pkg/calicoclient"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -110,6 +110,16 @@ func MonitorIPAddressSubnets() {
 		autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
 	}
 
+	// Gather a map of available interfaces (index and name)
+	var availableIfaceMap map[int]string
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.WithError(err).Error("Error listing network interfaces")
+	}
+	for _, iface := range ifaces {
+		availableIfaceMap[iface.Index] = iface.Name
+	}
+
 	// Add a subscription to get updated if there is any change to interface addresses.
 	addrUpdate := make(chan netlink.AddrUpdate)
 	done := make(chan struct{})
@@ -117,27 +127,18 @@ func MonitorIPAddressSubnets() {
 		log.WithError(err).Error("Failed to subscribe to network interface updates")
 	}
 
-	ctx := context.Background()
-	_, cli := calicoclient.CreateClient()
-	nodeName := determineNodeName()
-	node := getNode(ctx, cli, nodeName)
-
 	for {
 		select {
 		case <-time.After(autoDetectPollingInterval):
-		case <-addrUpdate:
-			updated := checkIPAddressSubnets(ctx, node, cli)
-			if updated {
-				// Apply the updated node resource.
-				for i := 0; i < 3; i++ {
-					_, err := CreateOrUpdate(ctx, cli, node)
-					if err == nil {
-						log.WithError(err).Error("retrying...")
-						break
-					}
-					log.WithError(err).Error("Unable to set node resource configuration")
-				}
+			log.Info("received timeout, checking for change in no IP address")
+			checkAndUpdateNodeIPAddressSubnets()
+		case update := <-addrUpdate:
+			if _, ok := availableIfaceMap[update.LinkIndex]; !ok {
+				log.Debugf("ignoring address update for newly added interface id(%d)", update.LinkIndex)
+				continue
 			}
+			log.Info("received address update, checking for change in no IP address")
+			checkAndUpdateNodeIPAddressSubnets()
 		}
 	}
 }
