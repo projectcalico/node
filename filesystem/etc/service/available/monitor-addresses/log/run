@@ -1,4 +1,4 @@
 #!/bin/sh
-LOGDIR=/var/log/calico/startup
+LOGDIR=/var/log/calico/monitor-addresses
 mkdir -p $LOGDIR
 exec svlogd $LOGDIR

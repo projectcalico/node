@@ -81,7 +81,7 @@ func main() {
 
 	// Perform some validation on the parsed flags. Only one of the following may be
 	// specified at a time.
-	onlyOne := []*bool{version, runFelix, runStartup, monitorAddrs, runConfd}
+	onlyOne := []*bool{version, runFelix, runStartup, runConfd, monitorAddrs}
 	oneSelected := false
 	for _, o := range onlyOne {
 		if oneSelected && *o {
