@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -96,20 +95,4 @@ func ensureNetworkForOS(ctx context.Context, c client.Interface, nodeName string
 
 	logrus.Info("Ensure network is done.")
 	return nil
-}
-
-// Placeholder to compile windows binary.
-func MonitorIPAddressSubnets() {
-	autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
-	if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
-		autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
-	}
-
-	for {
-		select {
-		case <-time.After(autoDetectPollingInterval):
-			logrus.Info("received timeout, checking for change in no IP address")
-			checkAndUpdateNodeIPAddressSubnets()
-		}
-	}
 }

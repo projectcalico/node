@@ -16,15 +16,12 @@ package startup
 
 import (
 	"context"
-	"net"
 	"os"
 	"strings"
-	"time"
 
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 // Default interfaces to exclude for any logic following the first-found
@@ -102,43 +99,4 @@ func ipv6Supported() bool {
 
 func ensureNetworkForOS(ctx context.Context, client client.Interface, nodeName string) error {
 	return nil
-}
-
-func MonitorIPAddressSubnets() {
-	autoDetectPollingInterval := DEFAULT_AUTODETECT_POLL_INTERVAL
-	if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
-		autoDetectPollingInterval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
-	}
-
-	// Gather a map of available interfaces (index and name)
-	var availableIfaceMap map[int]string
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		log.WithError(err).Error("Error listing network interfaces")
-	}
-	for _, iface := range ifaces {
-		availableIfaceMap[iface.Index] = iface.Name
-	}
-
-	// Add a subscription to get updated if there is any change to interface addresses.
-	addrUpdate := make(chan netlink.AddrUpdate)
-	done := make(chan struct{})
-	if err := netlink.AddrSubscribe(addrUpdate, done); err != nil {
-		log.WithError(err).Error("Failed to subscribe to network interface updates")
-	}
-
-	for {
-		select {
-		case <-time.After(autoDetectPollingInterval):
-			log.Info("received timeout, checking for change in no IP address")
-			checkAndUpdateNodeIPAddressSubnets()
-		case update := <-addrUpdate:
-			if _, ok := availableIfaceMap[update.LinkIndex]; !ok {
-				log.Debugf("ignoring address update for newly added interface id(%d)", update.LinkIndex)
-				continue
-			}
-			log.Info("received address update, checking for change in no IP address")
-			checkAndUpdateNodeIPAddressSubnets()
-		}
-	}
 }
