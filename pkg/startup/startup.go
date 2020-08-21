@@ -65,11 +65,12 @@ const (
 	AUTODETECTION_METHOD_SKIP_INTERFACE = "skip-interface="
 	AUTODETECTION_METHOD_CIDR           = "cidr="
 
+	DEFAULT_MONITOR_IP_POLL_INTERVAL = 60 * time.Second
+
 	// KubeadmConfigConfigMap is defined in k8s.io/kubernetes, which we can't import due to versioning issues.
 	KubeadmConfigConfigMap = "kubeadm-config"
 	// Rancher clusters store their state in this config map in the kube-system namespace.
-	RancherStateConfigMap            = "full-cluster-state"
-	DEFAULT_MONITOR_IP_POLL_INTERVAL = 60 * time.Second
+	RancherStateConfigMap = "full-cluster-state"
 )
 
 // Version string, set during build.
@@ -184,7 +185,7 @@ func Run() {
 
 		if clientset != nil {
 			log.Info("Setting NetworkUnavailable to False")
-			err := setNodeNetworkUnavailableFalse(*clientset, nodeName)
+			err = setNodeNetworkUnavailableFalse(*clientset, nodeName)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
 			}
@@ -282,6 +283,7 @@ func MonitorIPAddressSubnets() {
 		updated, _ := configureAndCheckIPAddressSubnets(ctx, cli, node)
 		if updated {
 			// Apply the updated node resource.
+			// we try updating the resource 3 times to, in case of transient issues.
 			for i := 0; i < 3; i++ {
 				_, err := CreateOrUpdate(ctx, cli, node)
 				if err == nil {

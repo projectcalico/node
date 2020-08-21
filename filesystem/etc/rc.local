@@ -8,7 +8,7 @@ if [ -n "$CALICO_NETWORKING" ]; then
 	fi
 fi
 
-# Run the startup initialisation script once.
+# Run the startup initialisation script.
 # These ensure the node is correctly configured to run.
 calico-node -startup || exit 1
 
@@ -36,8 +36,8 @@ if [ -z "$CALICO_DISABLE_FELIX" ]; then
   cp -a /etc/service/available/felix /etc/service/enabled/
 fi
 
-# Monitor the node IP address and subnet using startup service.
-cp -a /etc/service/available/startup  /etc/service/enabled/
+# Monitor the node IP address and subnet.
+cp -a /etc/service/available/monitor-addresses  /etc/service/enabled/
 
 # Enable the allocate tunnel IP service
 cp -a /etc/service/available/allocate-tunnel-addrs  /etc/service/enabled/
@@ -80,7 +80,7 @@ if [ "$CALICO_DISABLE_FILE_LOGGING" = "true" ]; then
 	rm -rf /etc/service/enabled/felix/log
 	rm -rf /etc/service/enabled/calico-bgp-daemon/log
 	rm -rf /etc/service/enabled/cni/log
-	rm -rf /etc/service/enabled/startup/log
+	rm -rf /etc/service/enabled/monitor-addresses/log
 fi
 
 echo "Calico node started successfully"
