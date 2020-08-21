@@ -29,6 +29,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -841,7 +842,7 @@ var _ = Describe("UT for Node IP assignment and conflict checking.", func() {
 				os.Setenv(item.key, item.value)
 			}
 
-			check, err := configureIPsAndSubnets(node)
+			check, err := configureIPsAndSubnets(node, nil)
 
 			Expect(check).To(Equal(expected))
 			Expect(err).NotTo(HaveOccurred())
@@ -1077,4 +1078,175 @@ var _ = Describe("UTs for monitor-addresses option", func() {
 		os.Setenv("AUTODETECT_POLL_INTERVAL", "30m")
 		Expect(getMonitorPollInterval()).To(Equal(30 * time.Minute))
 	})
+})
+
+var _ = Describe("autoDetectCIDR", func() {
+	DescribeTable("AUTODETECTION_METHOD_K8S",
+		func(node *v1.Node, version int, nodeName string, found bool) {
+			var k8s *fake.Clientset
+			if node != nil {
+				k8s = fake.NewSimpleClientset(node)
+			} else {
+				k8s = fake.NewSimpleClientset()
+			}
+			cidr := autoDetectCIDR(AUTODETECTION_METHOD_K8S, version, k8s, nodeName)
+			Expect(found).To(Equal(cidr != nil))
+		},
+		Entry("no node",
+			nil,
+			4,
+			"my-node",
+			false,
+		),
+		Entry("no status",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+			},
+			4,
+			"my-node",
+			false,
+		),
+		Entry("no internal IP",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{{
+						Type:    v1.NodeExternalDNS,
+						Address: "blah",
+					}},
+				},
+			},
+			4,
+			"my-node",
+			false,
+		),
+		Entry("no internal parsable IPv4",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{{
+						Type:    v1.NodeInternalIP,
+						Address: "hi there!",
+					}},
+				},
+			},
+			4,
+			"my-node",
+			false,
+		),
+		Entry("no internal IPv4",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{{
+						Type:    v1.NodeInternalIP,
+						Address: "dead:beef:dead:beef:dead:beef:dead:beef",
+					}},
+				},
+			},
+			4,
+			"my-node",
+			false,
+		),
+		Entry("no internal IPv6",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{{
+						Type:    v1.NodeInternalIP,
+						Address: "1.2.3.4",
+					}},
+				},
+			},
+			6,
+			"my-node",
+			false,
+		),
+		Entry("internal IPv4",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{{
+						Type:    v1.NodeInternalIP,
+						Address: "1.2.3.4",
+					}},
+				},
+			},
+			4,
+			"my-node",
+			true,
+		),
+		Entry("multiple internal IPv4",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{
+						{
+							Type:    v1.NodeInternalIP,
+							Address: "1.2.3.4",
+						},
+						{
+							Type:    v1.NodeInternalIP,
+							Address: "4.3.2.1",
+						},
+					},
+				},
+			},
+			4,
+			"my-node",
+			true,
+		),
+		Entry("internal IPv6",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{{
+						Type:    v1.NodeInternalIP,
+						Address: "dead:beef:dead:beef:dead:beef:dead:beef",
+					}},
+				},
+			},
+			6,
+			"my-node",
+			true,
+		),
+		Entry("multiple internal IPv6",
+			&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-node",
+				},
+				Status: v1.NodeStatus{
+					Addresses: []v1.NodeAddress{
+						{
+							Type:    v1.NodeInternalIP,
+							Address: "dead:dead:dead:dead:dead:dead:dead:dead",
+						},
+						{
+							Type:    v1.NodeInternalIP,
+							Address: "beef:beef:beef:beef:beef:beef:beef:beef",
+						},
+					},
+				},
+			},
+			6,
+			"my-node",
+			true,
+		),
+	)
 })
