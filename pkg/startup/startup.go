@@ -17,7 +17,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -78,21 +77,6 @@ var VERSION string
 
 // For testing purposes we define an exit function that we can override.
 var exitFunction = os.Exit
-
-// Default terminate definition warns and exits with error-code 1.
-// The following definition is used when calico-node is used to initialize the
-// node. At this point, any error should be treated as fatal and calico-node
-// must be restarted to try again.
-// Defining terminate this way allows us to use the common code between startup
-// and monitor-address without doing a hard exit.
-var terminate = func() {
-	// terminate prints a terminate message and exists with status 1.
-	log.Warn("Terminating")
-	exitFunction(1)
-}
-
-// monitor-addresses mode can't use exitFunction, we use the following error to identify
-var ErrTerminate = errors.New("irrecoverable error condition, suspending further processing")
 
 var (
 	// Default values, names for different configs.
@@ -254,13 +238,6 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 	// Configure and verify the node IP addresses and subnets.
 	checkConflicts, err := configureIPsAndSubnets(node)
 	if err != nil {
-		// If this is irrecoverable error from CIDR detection or IP validation,
-		// don't process further. This condition is moot for startup code-path.
-		if err == ErrTerminate {
-			terminate()
-			return false
-		}
-
 		// If this is auto-detection error, do a cleanup before returning
 		clearv4 := os.Getenv("IP") == "autodetect"
 		clearv6 := os.Getenv("IP6") == "autodetect"
@@ -271,7 +248,6 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 		}
 
 		terminate()
-		return checkConflicts
 	}
 
 	// If we report an IP change (v4 or v6) we should verify there are no
@@ -287,7 +263,6 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
 			}
 			terminate()
-			return checkConflicts
 		}
 	}
 
@@ -301,10 +276,6 @@ func MonitorIPAddressSubnets() {
 	node := getNode(ctx, cli, nodeName)
 
 	pollInterval := getMonitorPollInterval()
-	terminate = func() {
-		log.Error("irrecoverable error")
-		//return errors.New("irrecoverable error, yielding")
-	}
 
 	for {
 		<-time.After(pollInterval)
@@ -529,11 +500,7 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 	ipv4Env := os.Getenv("IP")
 	if ipv4Env == "autodetect" || (ipv4Env == "" && node.Spec.BGP.IPv4Address == "") {
 		adm := os.Getenv("IP_AUTODETECTION_METHOD")
-		cidr, err := autoDetectCIDR(adm, 4)
-		if err != nil {
-			log.WithError(err).Error("failed auto-detecting node IPv4 address")
-			return false, err
-		}
+		cidr := autoDetectCIDR(adm, 4)
 		if cidr != nil {
 			// We autodetected an IPv4 address so update the value in the node.
 			node.Spec.BGP.IPv4Address = cidr.String()
@@ -546,35 +513,22 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 			// Tell the user we are leaving the value unchanged.  We
 			// will validate that the IP matches one on the interface.
 			log.Warnf("Autodetection of IPv4 address failed, keeping existing value: %s", node.Spec.BGP.IPv4Address)
-			if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
-				log.WithError(err).Error("error validating node IPv4 address")
-				return false, err
-			}
+			validateIP(node.Spec.BGP.IPv4Address)
 		}
 	} else if ipv4Env == "none" && node.Spec.BGP.IPv4Address != "" {
 		log.Infof("Autodetection for IPv4 disabled, keeping existing value: %s", node.Spec.BGP.IPv4Address)
-		if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
-			log.WithError(err).Error("error validating node IPv4 address")
-			return false, err
-		}
+		validateIP(node.Spec.BGP.IPv4Address)
 	} else if ipv4Env != "none" {
 		if ipv4Env != "" {
 			node.Spec.BGP.IPv4Address = parseIPEnvironment("IP", ipv4Env, 4)
 		}
-		if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
-			log.WithError(err).Error("error validating node IPv4 address")
-			return false, err
-		}
+		validateIP(node.Spec.BGP.IPv4Address)
 	}
 
 	ipv6Env := os.Getenv("IP6")
 	if ipv6Env == "autodetect" {
 		adm := os.Getenv("IP6_AUTODETECTION_METHOD")
-		cidr, err := autoDetectCIDR(adm, 6)
-		if err != nil {
-			log.WithError(err).Error("failed auto-detecting node IPv6 address")
-			return false, err
-		}
+		cidr := autoDetectCIDR(adm, 6)
 		if cidr != nil {
 			// We autodetected an IPv6 address so update the value in the node.
 			node.Spec.BGP.IPv6Address = cidr.String()
@@ -587,25 +541,16 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 			// Tell the user we are leaving the value unchanged.  We
 			// will validate that the IP matches one on the interface.
 			log.Warnf("Autodetection of IPv6 address failed, keeping existing value: %s", node.Spec.BGP.IPv6Address)
-			if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
-				log.WithError(err).Error("error validating node IPv6 address")
-				return false, err
-			}
+			validateIP(node.Spec.BGP.IPv6Address)
 		}
 	} else if ipv6Env == "none" && node.Spec.BGP.IPv6Address != "" {
 		log.Infof("Autodetection for IPv6 disabled, keeping existing value: %s", node.Spec.BGP.IPv6Address)
-		if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
-			log.WithError(err).Error("error validating node IPv6 address")
-			return false, err
-		}
+		validateIP(node.Spec.BGP.IPv6Address)
 	} else if ipv6Env != "none" {
 		if ipv6Env != "" {
 			node.Spec.BGP.IPv6Address = parseIPEnvironment("IP6", ipv6Env, 6)
 		}
-		if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
-			log.WithError(err).Error("error validating node IPv6 address")
-			return false, err
-		}
+		validateIP(node.Spec.BGP.IPv6Address)
 	}
 
 	if ipv4Env == "none" && (ipv6Env == "" || ipv6Env == "none") && node.Spec.BGP.IPv4Address == "" && node.Spec.BGP.IPv6Address == "" {
@@ -646,17 +591,16 @@ func parseIPEnvironment(envName, envValue string, version int) string {
 
 // validateIP checks that the IP address is actually on one of the host
 // interfaces and warns if not.
-func validateIP(ipn string) error {
+func validateIP(ipn string) {
 	// No validation required if no IP address is specified.
 	if ipn == "" {
-		return nil
+		return
 	}
 
 	ipAddr, _, err := cnet.ParseCIDROrIP(ipn)
 	if err != nil {
 		log.WithError(err).Errorf("Failed to parse autodetected CIDR '%s'", ipn)
 		terminate()
-		return ErrTerminate
 	}
 
 	// Get a complete list of interfaces with their addresses and check if
@@ -665,7 +609,6 @@ func validateIP(ipn string) error {
 	if err != nil {
 		log.WithError(err).Error("Unable to query host interfaces")
 		terminate()
-		return ErrTerminate
 	}
 	if len(ifaces) == 0 {
 		log.Info("No interfaces found for validating IP configuration")
@@ -675,12 +618,11 @@ func validateIP(ipn string) error {
 		for _, c := range i.Cidrs {
 			if ipAddr.Equal(c.IP) {
 				log.Infof("IPv%d address %s discovered on interface %s", ipAddr.Version(), ipAddr.String(), i.Name)
-				return nil
+				return
 			}
 		}
 	}
 	log.Warnf("Unable to confirm IPv%d address %s is assigned to this host", ipAddr.Version(), ipAddr)
-	return nil
 }
 
 func parseBlockSizeEnvironment(envValue string) int {
@@ -745,17 +687,17 @@ func evaluateENVBool(envVar string, defaultValue bool) bool {
 
 // autoDetectCIDR auto-detects the IP and Network using the requested
 // detection method.
-func autoDetectCIDR(method string, version int) (*cnet.IPNet, error) {
+func autoDetectCIDR(method string, version int) *cnet.IPNet {
 	if method == "" || method == AUTODETECTION_METHOD_FIRST {
 		// Autodetect the IP by enumerating all interfaces (excluding
 		// known internal interfaces).
-		return autoDetectCIDRFirstFound(version), nil
+		return autoDetectCIDRFirstFound(version)
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_INTERFACE) {
 		// Autodetect the IP from the specified interface.
 		ifStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_INTERFACE)
 		// Regexes are passed in as a string separated by ","
 		ifRegexes := regexp.MustCompile(`\s*,\s*`).Split(ifStr, -1)
-		return autoDetectCIDRByInterface(ifRegexes, version), nil
+		return autoDetectCIDRByInterface(ifRegexes, version)
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_CIDR) {
 		// Autodetect the IP by filtering interface by its address.
 		cidrStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_CIDR)
@@ -765,15 +707,15 @@ func autoDetectCIDR(method string, version int) (*cnet.IPNet, error) {
 			_, cidr, err := cnet.ParseCIDR(r)
 			if err != nil {
 				log.Errorf("Invalid CIDR %q for IP autodetection method: %s", r, method)
-				return nil, nil
+				return nil
 			}
 			matches = append(matches, *cidr)
 		}
-		return autoDetectCIDRByCIDR(matches, version), nil
+		return autoDetectCIDRByCIDR(matches, version)
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_CAN_REACH) {
 		// Autodetect the IP by connecting a UDP socket to a supplied address.
 		destStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_CAN_REACH)
-		return autoDetectCIDRByReach(destStr, version), nil
+		return autoDetectCIDRByReach(destStr, version)
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_SKIP_INTERFACE) {
 		// Autodetect the Ip by enumerating all interfaces (excluding
 		// known internal interfaces and any interfaces whose name
@@ -781,13 +723,13 @@ func autoDetectCIDR(method string, version int) (*cnet.IPNet, error) {
 		ifStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_SKIP_INTERFACE)
 		// Regexes are passed in as a string separated by ","
 		ifRegexes := regexp.MustCompile(`\s*,\s*`).Split(ifStr, -1)
-		return autoDetectCIDRBySkipInterface(ifRegexes, version), nil
+		return autoDetectCIDRBySkipInterface(ifRegexes, version)
 	}
 
 	// The autodetection method is not recognised and is required.  Exit.
 	log.Errorf("Invalid IP autodetection method: %s", method)
 	terminate()
-	return nil, ErrTerminate
+	return nil
 }
 
 // autoDetectCIDRFirstFound auto-detects the first valid Network it finds across
@@ -1361,6 +1303,12 @@ func setNodeNetworkUnavailableFalse(clientset kubernetes.Clientset, nodeName str
 			}
 		}
 	}
+}
+
+// terminate prints a terminate message and exists with status 1.
+func terminate() {
+	log.Warn("Terminating")
+	exitFunction(1)
 }
 
 // extractKubeadmCIDRs looks through the config map and parses lines starting with 'podSubnet'.
