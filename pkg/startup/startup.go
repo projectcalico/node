@@ -286,7 +286,7 @@ func MonitorIPAddressSubnets() {
 		}
 		if updated {
 			// Apply the updated node resource.
-			// we try updating the resource 3 times to, in case of transient issues.
+			// we try updating the resource up to 3 times, in case of transient issues.
 			for i := 0; i < 3; i++ {
 				_, err := CreateOrUpdate(ctx, cli, node)
 				if err == nil {
