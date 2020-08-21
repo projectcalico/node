@@ -840,7 +840,7 @@ var _ = Describe("UT for Node IP assignment and conflict checking.", func() {
 				os.Setenv(item.key, item.value)
 			}
 
-			check, _, err := configureIPsAndSubnets(node)
+			check, err := configureIPsAndSubnets(node)
 
 			Expect(check).To(Equal(expected))
 			Expect(err).NotTo(HaveOccurred())

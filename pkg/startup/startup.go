@@ -17,7 +17,7 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/json"
-	errs "errors"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -31,7 +31,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	kapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -65,17 +65,18 @@ const (
 	AUTODETECTION_METHOD_SKIP_INTERFACE = "skip-interface="
 	AUTODETECTION_METHOD_CIDR           = "cidr="
 
+	DEFAULT_MONITOR_IP_POLL_INTERVAL = 60 * time.Second
+
 	// KubeadmConfigConfigMap is defined in k8s.io/kubernetes, which we can't import due to versioning issues.
 	KubeadmConfigConfigMap = "kubeadm-config"
 	// Rancher clusters store their state in this config map in the kube-system namespace.
-	RancherStateConfigMap            = "full-cluster-state"
-	DEFAULT_MONITOR_IP_POLL_INTERVAL = 60 * time.Second
+	RancherStateConfigMap = "full-cluster-state"
 )
 
 // Version string, set during build.
 var VERSION string
 
-var ErrTerminate = errs.New("unrecoverable error, terminating")
+var ErrTerminate = errors.New("unrecoverable error, terminating")
 
 // For testing purposes we define an exit function that we can override.
 var exitFunction = os.Exit
@@ -146,9 +147,9 @@ func Run() {
 		// config map should be serious enough that we ought to stop here and return.
 		kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				kubeadmConfig = nil
-			} else if errors.IsUnauthorized(err) {
+			} else if k8serrors.IsUnauthorized(err) {
 				kubeadmConfig = nil
 				log.WithError(err).Info("Unauthorized to query kubeadm configmap, assuming not on kubeadm. CIDR detection will not occur.")
 			} else {
@@ -160,9 +161,9 @@ func Run() {
 		rancherState, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(RancherStateConfigMap,
 			metav1.GetOptions{})
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) {
 				rancherState = nil
-			} else if errors.IsUnauthorized(err) {
+			} else if k8serrors.IsUnauthorized(err) {
 				kubeadmConfig = nil
 				log.WithError(err).Info("Unauthorized to query rancher configmap, assuming not on rancher. CIDR detection will not occur.")
 			} else {
@@ -173,7 +174,8 @@ func Run() {
 	}
 
 	_, err := configureAndCheckIPAddressSubnets(ctx, cli, node)
-	if err == ErrTerminate {
+	if err != nil {
+		log.WithError(err).Error("Error setting up node IP address")
 		terminate()
 	}
 
@@ -184,7 +186,7 @@ func Run() {
 
 		if clientset != nil {
 			log.Info("Setting NetworkUnavailable to False")
-			err := setNodeNetworkUnavailableFalse(*clientset, nodeName)
+			err = setNodeNetworkUnavailableFalse(*clientset, nodeName)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
 			}
@@ -235,12 +237,8 @@ func getMonitorPollInterval() time.Duration {
 
 func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface, node *api.Node) (bool, error) {
 	// Configure and verify the node IP addresses and subnets.
-	checkConflicts, updated, err := configureIPsAndSubnets(node)
+	checkConflicts, err := configureIPsAndSubnets(node)
 	if err != nil {
-		if err == ErrTerminate {
-			return updated, ErrTerminate
-		}
-
 		clearv4 := os.Getenv("IP") == "autodetect"
 		clearv6 := os.Getenv("IP6") == "autodetect"
 		if node.ResourceVersion != "" {
@@ -248,7 +246,7 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 			// IP addresses from the node since they are no longer valid.
 			clearNodeIPs(ctx, cli, node, clearv4, clearv6)
 		}
-		return updated, ErrTerminate
+		return checkConflicts, ErrTerminate
 	}
 
 	// If we report an IP change (v4 or v6) we should verify there are no
@@ -263,11 +261,11 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 			if node.ResourceVersion != "" {
 				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
 			}
-			return updated, ErrTerminate
+			return checkConflicts, ErrTerminate
 		}
 	}
 
-	return updated, nil
+	return checkConflicts, nil
 }
 
 func MonitorIPAddressSubnets() {
@@ -276,19 +274,25 @@ func MonitorIPAddressSubnets() {
 	nodeName := determineNodeName()
 	node := getNode(ctx, cli, nodeName)
 
+	pollInterval := getMonitorPollInterval()
+
 	for {
-		<-time.After(getMonitorPollInterval())
-		log.Info("received timeout, checking for change in node IP address")
-		updated, _ := configureAndCheckIPAddressSubnets(ctx, cli, node)
+		<-time.After(pollInterval)
+		log.Debugf("Checking node IP address every %v", pollInterval)
+		updated, err := configureAndCheckIPAddressSubnets(ctx, cli, node)
+		if err != nil {
+			log.WithError(err).Error("error checking node IP address")
+			continue
+		}
 		if updated {
 			// Apply the updated node resource.
+			// we try updating the resource 3 times to, in case of transient issues.
 			for i := 0; i < 3; i++ {
 				_, err := CreateOrUpdate(ctx, cli, node)
 				if err == nil {
-					log.WithError(err).Error("retrying...")
 					break
 				}
-				log.WithError(err).Error("Unable to set node resource configuration")
+				log.WithError(err).Error("Unable to set node resource configuration, retrying...")
 			}
 		}
 	}
@@ -477,7 +481,7 @@ func getNode(ctx context.Context, client client.Interface, nodeName string) *api
 
 // configureIPsAndSubnets updates the supplied node resource with IP and Subnet
 // information to use for BGP.  This returns true if we detect a change in Node IP address.
-func configureIPsAndSubnets(node *api.Node) (bool, bool, error) {
+func configureIPsAndSubnets(node *api.Node) (bool, error) {
 	// If the node resource currently has no BGP configuration, add an empty
 	// set of configuration as it makes the processing below easier, and we
 	// must end up configuring some BGP fields before we complete.
@@ -499,8 +503,9 @@ func configureIPsAndSubnets(node *api.Node) (bool, bool, error) {
 	if ipv4Env == "autodetect" || (ipv4Env == "" && node.Spec.BGP.IPv4Address == "") {
 		adm := os.Getenv("IP_AUTODETECTION_METHOD")
 		cidr, err := autoDetectCIDR(adm, 4)
-		if err == ErrTerminate {
-			return false, false, ErrTerminate
+		if err != nil {
+			log.WithError(err).Error("failed auto-detecting node IPv4 address")
+			return false, err
 		}
 		if cidr != nil {
 			// We autodetected an IPv4 address so update the value in the node.
@@ -508,27 +513,30 @@ func configureIPsAndSubnets(node *api.Node) (bool, bool, error) {
 		} else if node.Spec.BGP.IPv4Address == "" {
 			// No IPv4 address is configured, but we always require one, so exit.
 			log.Warn("Couldn't autodetect an IPv4 address. If auto-detecting, choose a different autodetection method. Otherwise provide an explicit address.")
-			return false, false, fmt.Errorf("Failed to autodetect an IPv4 address")
+			return false, fmt.Errorf("Failed to autodetect an IPv4 address")
 		} else {
 			// No IPv4 autodetected, but a previous one was configured.
 			// Tell the user we are leaving the value unchanged.  We
 			// will validate that the IP matches one on the interface.
 			log.Warnf("Autodetection of IPv4 address failed, keeping existing value: %s", node.Spec.BGP.IPv4Address)
-			if validateIP(node.Spec.BGP.IPv4Address) == ErrTerminate {
-				return false, false, ErrTerminate
+			if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
+				log.WithError(err).Error("error validating node IPv4 address")
+				return false, err
 			}
 		}
 	} else if ipv4Env == "none" && node.Spec.BGP.IPv4Address != "" {
 		log.Infof("Autodetection for IPv4 disabled, keeping existing value: %s", node.Spec.BGP.IPv4Address)
-		if validateIP(node.Spec.BGP.IPv4Address) == ErrTerminate {
-			return false, false, ErrTerminate
+		if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
+			log.WithError(err).Error("error validating node IPv4 address")
+			return false, err
 		}
 	} else if ipv4Env != "none" {
 		if ipv4Env != "" {
 			node.Spec.BGP.IPv4Address = parseIPEnvironment("IP", ipv4Env, 4)
 		}
-		if validateIP(node.Spec.BGP.IPv4Address) == ErrTerminate {
-			return false, false, ErrTerminate
+		if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
+			log.WithError(err).Error("error validating node IPv4 address")
+			return false, err
 		}
 	}
 
@@ -536,8 +544,9 @@ func configureIPsAndSubnets(node *api.Node) (bool, bool, error) {
 	if ipv6Env == "autodetect" {
 		adm := os.Getenv("IP6_AUTODETECTION_METHOD")
 		cidr, err := autoDetectCIDR(adm, 6)
-		if err == ErrTerminate {
-			return false, false, ErrTerminate
+		if err != nil {
+			log.WithError(err).Error("failed auto-detecting node IPv6 address")
+			return false, err
 		}
 		if cidr != nil {
 			// We autodetected an IPv6 address so update the value in the node.
@@ -545,46 +554,49 @@ func configureIPsAndSubnets(node *api.Node) (bool, bool, error) {
 		} else if node.Spec.BGP.IPv6Address == "" {
 			// No IPv6 address is configured, but we have requested one, so exit.
 			log.Warn("Couldn't autodetect an IPv6 address. If auto-detecting, choose a different autodetection method. Otherwise provide an explicit address.")
-			return false, false, fmt.Errorf("Failed to autodetect an IPv6 address")
+			return false, fmt.Errorf("Failed to autodetect an IPv6 address")
 		} else {
 			// No IPv6 autodetected, but a previous one was configured.
 			// Tell the user we are leaving the value unchanged.  We
 			// will validate that the IP matches one on the interface.
 			log.Warnf("Autodetection of IPv6 address failed, keeping existing value: %s", node.Spec.BGP.IPv6Address)
-			if validateIP(node.Spec.BGP.IPv6Address) == ErrTerminate {
-				return false, false, ErrTerminate
+			if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
+				log.WithError(err).Error("error validating node IPv6 address")
+				return false, err
 			}
 		}
 	} else if ipv6Env == "none" && node.Spec.BGP.IPv6Address != "" {
 		log.Infof("Autodetection for IPv6 disabled, keeping existing value: %s", node.Spec.BGP.IPv6Address)
-		if validateIP(node.Spec.BGP.IPv6Address) == ErrTerminate {
-			return false, false, ErrTerminate
+		if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
+			log.WithError(err).Error("error validating node IPv6 address")
+			return false, err
 		}
 	} else if ipv6Env != "none" {
 		if ipv6Env != "" {
 			node.Spec.BGP.IPv6Address = parseIPEnvironment("IP6", ipv6Env, 6)
 		}
-		if validateIP(node.Spec.BGP.IPv6Address) == ErrTerminate {
-			return false, false, ErrTerminate
+		if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
+			log.WithError(err).Error("error validating node IPv6 address")
+			return false, err
 		}
 	}
 
 	if ipv4Env == "none" && (ipv6Env == "" || ipv6Env == "none") && node.Spec.BGP.IPv4Address == "" && node.Spec.BGP.IPv6Address == "" {
 		log.Warn("No IP Addresses configured, and autodetection is not enabled")
-		return false, false, ErrTerminate
+		return false, ErrTerminate
 	}
 
 	// Detect if we've seen the IP address change, and flag that we need to check for conflicting Nodes
 	if node.Spec.BGP.IPv4Address != oldIpv4 {
 		log.Info("Node IPv4 changed, will check for conflicts")
-		return true, true, nil
+		return true, nil
 	}
 	if node.Spec.BGP.IPv6Address != oldIpv6 {
 		log.Info("Node IPv6 changed, will check for conflicts")
-		return true, true, nil
+		return true, nil
 	}
 
-	return false, false, nil
+	return false, nil
 }
 
 // fetchAndValidateIPAndNetwork fetches and validates the IP configuration from
