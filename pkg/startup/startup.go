@@ -17,6 +17,7 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -26,6 +27,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	kapiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/projectcalico/libcalico-go/lib/apiconfig"
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
@@ -38,13 +47,6 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/selector"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator/clients"
-	log "github.com/sirupsen/logrus"
-	kapiv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"github.com/projectcalico/node/pkg/calicoclient"
 	"github.com/projectcalico/node/pkg/startup/autodetection"
@@ -63,6 +65,8 @@ const (
 	AUTODETECTION_METHOD_SKIP_INTERFACE = "skip-interface="
 	AUTODETECTION_METHOD_CIDR           = "cidr="
 
+	DEFAULT_MONITOR_IP_POLL_INTERVAL = 60 * time.Second
+
 	// KubeadmConfigConfigMap is defined in k8s.io/kubernetes, which we can't import due to versioning issues.
 	KubeadmConfigConfigMap = "kubeadm-config"
 	// Rancher clusters store their state in this config map in the kube-system namespace.
@@ -74,6 +78,21 @@ var VERSION string
 
 // For testing purposes we define an exit function that we can override.
 var exitFunction = os.Exit
+
+// Default terminate definition warns and exits with error-code 1.
+// The following definition is used when calico-node is used to initialize the
+// node. At this point, any error should be treated as fatal and calico-node
+// must be restarted to try again.
+// Defining terminate this way allows us to use the common code between startup
+// and monitor-address without doing a hard exit.
+var terminate = func() {
+	// terminate prints a terminate message and exists with status 1.
+	log.Warn("Terminating")
+	exitFunction(1)
+}
+
+// monitor-addresses mode can't use exitFunction, we use the following error to identify
+var ErrTerminate = errors.New("irrecoverable error condition, suspending further processing")
 
 var (
 	// Default values, names for different configs.
@@ -141,63 +160,33 @@ func Run() {
 		// config map should be serious enough that we ought to stop here and return.
 		kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if kerrors.IsNotFound(err) {
 				kubeadmConfig = nil
-			} else if errors.IsUnauthorized(err) {
+			} else if kerrors.IsUnauthorized(err) {
 				kubeadmConfig = nil
 				log.WithError(err).Info("Unauthorized to query kubeadm configmap, assuming not on kubeadm. CIDR detection will not occur.")
 			} else {
 				log.WithError(err).Error("failed to query kubeadm's config map")
 				terminate()
-				return
 			}
 		}
 
 		rancherState, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(RancherStateConfigMap,
 			metav1.GetOptions{})
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if kerrors.IsNotFound(err) {
 				rancherState = nil
-			} else if errors.IsUnauthorized(err) {
+			} else if kerrors.IsUnauthorized(err) {
 				kubeadmConfig = nil
 				log.WithError(err).Info("Unauthorized to query rancher configmap, assuming not on rancher. CIDR detection will not occur.")
 			} else {
 				log.WithError(err).Error("failed to query Rancher's cluster state config map")
 				terminate()
-				return
 			}
 		}
 	}
 
-	// Configure and verify the node IP addresses and subnets.
-	checkConflicts, err := configureIPsAndSubnets(node)
-	if err != nil {
-		clearv4 := os.Getenv("IP") == "autodetect"
-		clearv6 := os.Getenv("IP6") == "autodetect"
-		if node.ResourceVersion != "" {
-			// If we're auto-detecting an IP on an existing node and hit an error, clear the previous
-			// IP addresses from the node since they are no longer valid.
-			clearNodeIPs(ctx, cli, node, clearv4, clearv6)
-		}
-		terminate()
-	}
-
-	// If we report an IP change (v4 or v6) we should verify there are no
-	// conflicts between Nodes.
-	if checkConflicts && os.Getenv("DISABLE_NODE_IP_CHECK") != "true" {
-		v4conflict, v6conflict, err := checkConflictingNodes(ctx, cli, node)
-		if err != nil {
-			// If we've auto-detected a new IP address for an existing node that now conflicts, clear the old IP address(es)
-			// from the node in the datastore. This frees the address in case it needs to be used for another node.
-			clearv4 := (os.Getenv("IP") == "autodetect") && v4conflict
-			clearv6 := (os.Getenv("IP6") == "autodetect") && v6conflict
-			if node.ResourceVersion != "" {
-				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
-			}
-
-			terminate()
-		}
-	}
+	configureAndCheckIPAddressSubnets(ctx, cli, node)
 
 	// If Calico is running in policy only mode we don't need to write BGP related details to the Node.
 	if os.Getenv("CALICO_NETWORKING_BACKEND") != "none" {
@@ -206,7 +195,7 @@ func Run() {
 
 		if clientset != nil {
 			log.Info("Setting NetworkUnavailable to False")
-			err = setNodeNetworkUnavailableFalse(*clientset, nodeName)
+			err := setNodeNetworkUnavailableFalse(*clientset, nodeName)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
 			}
@@ -243,6 +232,96 @@ func Run() {
 	if err := ensureNetworkForOS(ctx, cli, nodeName); err != nil {
 		log.WithError(err).Errorf("Unable to ensure network for os")
 		terminate()
+	}
+}
+
+func getMonitorPollInterval() time.Duration {
+	interval := DEFAULT_MONITOR_IP_POLL_INTERVAL
+
+	if intervalEnv := os.Getenv("AUTODETECT_POLL_INTERVAL"); intervalEnv != "" {
+		var err error
+		interval, err = time.ParseDuration(intervalEnv)
+		if err != nil {
+			log.WithError(err).Errorf("error parsing node IP auto-detect polling interval %s", intervalEnv)
+			interval = DEFAULT_MONITOR_IP_POLL_INTERVAL
+		}
+	}
+
+	return interval
+}
+
+func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface, node *api.Node) bool {
+	// Configure and verify the node IP addresses and subnets.
+	checkConflicts, err := configureIPsAndSubnets(node)
+	if err != nil {
+		// If this is irrecoverable error from CIDR detection or IP validation,
+		// don't process further. This condition is moot for startup code-path.
+		if err == ErrTerminate {
+			terminate()
+			return false
+		}
+
+		// If this is auto-detection error, do a cleanup before returning
+		clearv4 := os.Getenv("IP") == "autodetect"
+		clearv6 := os.Getenv("IP6") == "autodetect"
+		if node.ResourceVersion != "" {
+			// If we're auto-detecting an IP on an existing node and hit an error, clear the previous
+			// IP addresses from the node since they are no longer valid.
+			clearNodeIPs(ctx, cli, node, clearv4, clearv6)
+		}
+
+		terminate()
+		return checkConflicts
+	}
+
+	// If we report an IP change (v4 or v6) we should verify there are no
+	// conflicts between Nodes.
+	if checkConflicts && os.Getenv("DISABLE_NODE_IP_CHECK") != "true" {
+		v4conflict, v6conflict, err := checkConflictingNodes(ctx, cli, node)
+		if err != nil {
+			// If we've auto-detected a new IP address for an existing node that now conflicts, clear the old IP address(es)
+			// from the node in the datastore. This frees the address in case it needs to be used for another node.
+			clearv4 := (os.Getenv("IP") == "autodetect") && v4conflict
+			clearv6 := (os.Getenv("IP6") == "autodetect") && v6conflict
+			if node.ResourceVersion != "" {
+				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
+			}
+			terminate()
+			return checkConflicts
+		}
+	}
+
+	return checkConflicts
+}
+
+func MonitorIPAddressSubnets() {
+	ctx := context.Background()
+	_, cli := calicoclient.CreateClient()
+	nodeName := determineNodeName()
+	node := getNode(ctx, cli, nodeName)
+
+	pollInterval := getMonitorPollInterval()
+	terminate = func() {
+		log.Error("irrecoverable error")
+		//return errors.New("irrecoverable error, yielding")
+	}
+
+	for {
+		<-time.After(pollInterval)
+		log.Debugf("Checking node IP address every %v", pollInterval)
+		updated := configureAndCheckIPAddressSubnets(ctx, cli, node)
+		if updated {
+			// Apply the updated node resource.
+			// we try updating the resource up to 3 times, in case of transient issues.
+			for i := 0; i < 3; i++ {
+				_, err := CreateOrUpdate(ctx, cli, node)
+				if err == nil {
+					log.Info("Updated node IP addresses")
+					break
+				}
+				log.WithError(err).Error("Unable to set node resource configuration, retrying...")
+			}
+		}
 	}
 }
 
@@ -450,7 +529,11 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 	ipv4Env := os.Getenv("IP")
 	if ipv4Env == "autodetect" || (ipv4Env == "" && node.Spec.BGP.IPv4Address == "") {
 		adm := os.Getenv("IP_AUTODETECTION_METHOD")
-		cidr := autoDetectCIDR(adm, 4)
+		cidr, err := autoDetectCIDR(adm, 4)
+		if err != nil {
+			log.WithError(err).Error("failed auto-detecting node IPv4 address")
+			return false, err
+		}
 		if cidr != nil {
 			// We autodetected an IPv4 address so update the value in the node.
 			node.Spec.BGP.IPv4Address = cidr.String()
@@ -463,22 +546,35 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 			// Tell the user we are leaving the value unchanged.  We
 			// will validate that the IP matches one on the interface.
 			log.Warnf("Autodetection of IPv4 address failed, keeping existing value: %s", node.Spec.BGP.IPv4Address)
-			validateIP(node.Spec.BGP.IPv4Address)
+			if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
+				log.WithError(err).Error("error validating node IPv4 address")
+				return false, err
+			}
 		}
 	} else if ipv4Env == "none" && node.Spec.BGP.IPv4Address != "" {
 		log.Infof("Autodetection for IPv4 disabled, keeping existing value: %s", node.Spec.BGP.IPv4Address)
-		validateIP(node.Spec.BGP.IPv4Address)
+		if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
+			log.WithError(err).Error("error validating node IPv4 address")
+			return false, err
+		}
 	} else if ipv4Env != "none" {
 		if ipv4Env != "" {
 			node.Spec.BGP.IPv4Address = parseIPEnvironment("IP", ipv4Env, 4)
 		}
-		validateIP(node.Spec.BGP.IPv4Address)
+		if err := validateIP(node.Spec.BGP.IPv4Address); err != nil {
+			log.WithError(err).Error("error validating node IPv4 address")
+			return false, err
+		}
 	}
 
 	ipv6Env := os.Getenv("IP6")
 	if ipv6Env == "autodetect" {
 		adm := os.Getenv("IP6_AUTODETECTION_METHOD")
-		cidr := autoDetectCIDR(adm, 6)
+		cidr, err := autoDetectCIDR(adm, 6)
+		if err != nil {
+			log.WithError(err).Error("failed auto-detecting node IPv6 address")
+			return false, err
+		}
 		if cidr != nil {
 			// We autodetected an IPv6 address so update the value in the node.
 			node.Spec.BGP.IPv6Address = cidr.String()
@@ -491,16 +587,25 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 			// Tell the user we are leaving the value unchanged.  We
 			// will validate that the IP matches one on the interface.
 			log.Warnf("Autodetection of IPv6 address failed, keeping existing value: %s", node.Spec.BGP.IPv6Address)
-			validateIP(node.Spec.BGP.IPv6Address)
+			if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
+				log.WithError(err).Error("error validating node IPv6 address")
+				return false, err
+			}
 		}
 	} else if ipv6Env == "none" && node.Spec.BGP.IPv6Address != "" {
 		log.Infof("Autodetection for IPv6 disabled, keeping existing value: %s", node.Spec.BGP.IPv6Address)
-		validateIP(node.Spec.BGP.IPv6Address)
+		if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
+			log.WithError(err).Error("error validating node IPv6 address")
+			return false, err
+		}
 	} else if ipv6Env != "none" {
 		if ipv6Env != "" {
 			node.Spec.BGP.IPv6Address = parseIPEnvironment("IP6", ipv6Env, 6)
 		}
-		validateIP(node.Spec.BGP.IPv6Address)
+		if err := validateIP(node.Spec.BGP.IPv6Address); err != nil {
+			log.WithError(err).Error("error validating node IPv6 address")
+			return false, err
+		}
 	}
 
 	if ipv4Env == "none" && (ipv6Env == "" || ipv6Env == "none") && node.Spec.BGP.IPv4Address == "" && node.Spec.BGP.IPv6Address == "" {
@@ -541,16 +646,17 @@ func parseIPEnvironment(envName, envValue string, version int) string {
 
 // validateIP checks that the IP address is actually on one of the host
 // interfaces and warns if not.
-func validateIP(ipn string) {
+func validateIP(ipn string) error {
 	// No validation required if no IP address is specified.
 	if ipn == "" {
-		return
+		return nil
 	}
 
 	ipAddr, _, err := cnet.ParseCIDROrIP(ipn)
 	if err != nil {
 		log.WithError(err).Errorf("Failed to parse autodetected CIDR '%s'", ipn)
 		terminate()
+		return ErrTerminate
 	}
 
 	// Get a complete list of interfaces with their addresses and check if
@@ -559,6 +665,7 @@ func validateIP(ipn string) {
 	if err != nil {
 		log.WithError(err).Error("Unable to query host interfaces")
 		terminate()
+		return ErrTerminate
 	}
 	if len(ifaces) == 0 {
 		log.Info("No interfaces found for validating IP configuration")
@@ -568,11 +675,12 @@ func validateIP(ipn string) {
 		for _, c := range i.Cidrs {
 			if ipAddr.Equal(c.IP) {
 				log.Infof("IPv%d address %s discovered on interface %s", ipAddr.Version(), ipAddr.String(), i.Name)
-				return
+				return nil
 			}
 		}
 	}
 	log.Warnf("Unable to confirm IPv%d address %s is assigned to this host", ipAddr.Version(), ipAddr)
+	return nil
 }
 
 func parseBlockSizeEnvironment(envValue string) int {
@@ -637,17 +745,17 @@ func evaluateENVBool(envVar string, defaultValue bool) bool {
 
 // autoDetectCIDR auto-detects the IP and Network using the requested
 // detection method.
-func autoDetectCIDR(method string, version int) *cnet.IPNet {
+func autoDetectCIDR(method string, version int) (*cnet.IPNet, error) {
 	if method == "" || method == AUTODETECTION_METHOD_FIRST {
 		// Autodetect the IP by enumerating all interfaces (excluding
 		// known internal interfaces).
-		return autoDetectCIDRFirstFound(version)
+		return autoDetectCIDRFirstFound(version), nil
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_INTERFACE) {
 		// Autodetect the IP from the specified interface.
 		ifStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_INTERFACE)
 		// Regexes are passed in as a string separated by ","
 		ifRegexes := regexp.MustCompile(`\s*,\s*`).Split(ifStr, -1)
-		return autoDetectCIDRByInterface(ifRegexes, version)
+		return autoDetectCIDRByInterface(ifRegexes, version), nil
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_CIDR) {
 		// Autodetect the IP by filtering interface by its address.
 		cidrStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_CIDR)
@@ -657,15 +765,15 @@ func autoDetectCIDR(method string, version int) *cnet.IPNet {
 			_, cidr, err := cnet.ParseCIDR(r)
 			if err != nil {
 				log.Errorf("Invalid CIDR %q for IP autodetection method: %s", r, method)
-				return nil
+				return nil, nil
 			}
 			matches = append(matches, *cidr)
 		}
-		return autoDetectCIDRByCIDR(matches, version)
+		return autoDetectCIDRByCIDR(matches, version), nil
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_CAN_REACH) {
 		// Autodetect the IP by connecting a UDP socket to a supplied address.
 		destStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_CAN_REACH)
-		return autoDetectCIDRByReach(destStr, version)
+		return autoDetectCIDRByReach(destStr, version), nil
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_SKIP_INTERFACE) {
 		// Autodetect the Ip by enumerating all interfaces (excluding
 		// known internal interfaces and any interfaces whose name
@@ -673,13 +781,13 @@ func autoDetectCIDR(method string, version int) *cnet.IPNet {
 		ifStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_SKIP_INTERFACE)
 		// Regexes are passed in as a string separated by ","
 		ifRegexes := regexp.MustCompile(`\s*,\s*`).Split(ifStr, -1)
-		return autoDetectCIDRBySkipInterface(ifRegexes, version)
+		return autoDetectCIDRBySkipInterface(ifRegexes, version), nil
 	}
 
 	// The autodetection method is not recognised and is required.  Exit.
 	log.Errorf("Invalid IP autodetection method: %s", method)
 	terminate()
-	return nil
+	return nil, ErrTerminate
 }
 
 // autoDetectCIDRFirstFound auto-detects the first valid Network it finds across
@@ -1253,12 +1361,6 @@ func setNodeNetworkUnavailableFalse(clientset kubernetes.Clientset, nodeName str
 			}
 		}
 	}
-}
-
-// terminate prints a terminate message and exists with status 1.
-func terminate() {
-	log.Warn("Terminating")
-	exitFunction(1)
 }
 
 // extractKubeadmCIDRs looks through the config map and parses lines starting with 'podSubnet'.
