@@ -31,7 +31,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	kapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -76,10 +76,23 @@ const (
 // Version string, set during build.
 var VERSION string
 
-var ErrTerminate = errors.New("unrecoverable error, terminating")
-
 // For testing purposes we define an exit function that we can override.
 var exitFunction = os.Exit
+
+// Default terminate definition warns and exits with error-code 1.
+// The following definition is used when calico-node is used to initialize the
+// node. At this point, any error should be treated as fatal and calico-node
+// must be restarted to try again.
+// Defining terminate this way allows us to use the common code between startup
+// and monitor-address without doing a hard exit.
+var terminate = func() {
+	// terminate prints a terminate message and exists with status 1.
+	log.Warn("Terminating")
+	exitFunction(1)
+}
+
+// monitor-addresses mode can't use exitFunction, we use the following error to identify
+var ErrTerminate = errors.New("irrecoverable error condition, suspending further processing")
 
 var (
 	// Default values, names for different configs.
@@ -147,9 +160,9 @@ func Run() {
 		// config map should be serious enough that we ought to stop here and return.
 		kubeadmConfig, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(KubeadmConfigConfigMap, metav1.GetOptions{})
 		if err != nil {
-			if k8serrors.IsNotFound(err) {
+			if kerrors.IsNotFound(err) {
 				kubeadmConfig = nil
-			} else if k8serrors.IsUnauthorized(err) {
+			} else if kerrors.IsUnauthorized(err) {
 				kubeadmConfig = nil
 				log.WithError(err).Info("Unauthorized to query kubeadm configmap, assuming not on kubeadm. CIDR detection will not occur.")
 			} else {
@@ -161,9 +174,9 @@ func Run() {
 		rancherState, err = clientset.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(RancherStateConfigMap,
 			metav1.GetOptions{})
 		if err != nil {
-			if k8serrors.IsNotFound(err) {
+			if kerrors.IsNotFound(err) {
 				rancherState = nil
-			} else if k8serrors.IsUnauthorized(err) {
+			} else if kerrors.IsUnauthorized(err) {
 				kubeadmConfig = nil
 				log.WithError(err).Info("Unauthorized to query rancher configmap, assuming not on rancher. CIDR detection will not occur.")
 			} else {
@@ -173,11 +186,7 @@ func Run() {
 		}
 	}
 
-	_, err := configureAndCheckIPAddressSubnets(ctx, cli, node)
-	if err != nil {
-		log.WithError(err).Error("Error setting up node IP address")
-		terminate()
-	}
+	configureAndCheckIPAddressSubnets(ctx, cli, node)
 
 	// If Calico is running in policy only mode we don't need to write BGP related details to the Node.
 	if os.Getenv("CALICO_NETWORKING_BACKEND") != "none" {
@@ -186,7 +195,7 @@ func Run() {
 
 		if clientset != nil {
 			log.Info("Setting NetworkUnavailable to False")
-			err = setNodeNetworkUnavailableFalse(*clientset, nodeName)
+			err := setNodeNetworkUnavailableFalse(*clientset, nodeName)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
 			}
@@ -228,17 +237,31 @@ func Run() {
 
 func getMonitorPollInterval() time.Duration {
 	interval := DEFAULT_MONITOR_IP_POLL_INTERVAL
-	if os.Getenv("AUTODETECT_POLL_INTERVAL") != "" {
-		interval, _ = time.ParseDuration(os.Getenv("AUTODETECT_POLL_INTERVAL"))
+
+	if intervalEnv := os.Getenv("AUTODETECT_POLL_INTERVAL"); intervalEnv != "" {
+		var err error
+		interval, err = time.ParseDuration(intervalEnv)
+		if err != nil {
+			log.WithError(err).Errorf("error parsing node IP auto-detect polling interval %s", intervalEnv)
+			interval = DEFAULT_MONITOR_IP_POLL_INTERVAL
+		}
 	}
 
 	return interval
 }
 
-func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface, node *api.Node) (bool, error) {
+func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface, node *api.Node) bool {
 	// Configure and verify the node IP addresses and subnets.
 	checkConflicts, err := configureIPsAndSubnets(node)
 	if err != nil {
+		// If this is irrecoverable error from CIDR detection or IP validation,
+		// don't process further. This condition is moot for startup code-path.
+		if err == ErrTerminate {
+			terminate()
+			return false
+		}
+
+		// If this is auto-detection error, do a cleanup before returning
 		clearv4 := os.Getenv("IP") == "autodetect"
 		clearv6 := os.Getenv("IP6") == "autodetect"
 		if node.ResourceVersion != "" {
@@ -246,7 +269,9 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 			// IP addresses from the node since they are no longer valid.
 			clearNodeIPs(ctx, cli, node, clearv4, clearv6)
 		}
-		return checkConflicts, ErrTerminate
+
+		terminate()
+		return checkConflicts
 	}
 
 	// If we report an IP change (v4 or v6) we should verify there are no
@@ -261,11 +286,12 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 			if node.ResourceVersion != "" {
 				clearNodeIPs(ctx, cli, node, clearv4, clearv6)
 			}
-			return checkConflicts, ErrTerminate
+			terminate()
+			return checkConflicts
 		}
 	}
 
-	return checkConflicts, nil
+	return checkConflicts
 }
 
 func MonitorIPAddressSubnets() {
@@ -275,21 +301,22 @@ func MonitorIPAddressSubnets() {
 	node := getNode(ctx, cli, nodeName)
 
 	pollInterval := getMonitorPollInterval()
+	terminate = func() {
+		log.Error("irrecoverable error")
+		//return errors.New("irrecoverable error, yielding")
+	}
 
 	for {
 		<-time.After(pollInterval)
 		log.Debugf("Checking node IP address every %v", pollInterval)
-		updated, err := configureAndCheckIPAddressSubnets(ctx, cli, node)
-		if err != nil {
-			log.WithError(err).Error("error checking node IP address")
-			continue
-		}
+		updated := configureAndCheckIPAddressSubnets(ctx, cli, node)
 		if updated {
 			// Apply the updated node resource.
 			// we try updating the resource up to 3 times, in case of transient issues.
 			for i := 0; i < 3; i++ {
 				_, err := CreateOrUpdate(ctx, cli, node)
 				if err == nil {
+					log.Info("Updated node IP addresses")
 					break
 				}
 				log.WithError(err).Error("Unable to set node resource configuration, retrying...")
@@ -583,7 +610,7 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 
 	if ipv4Env == "none" && (ipv6Env == "" || ipv6Env == "none") && node.Spec.BGP.IPv4Address == "" && node.Spec.BGP.IPv6Address == "" {
 		log.Warn("No IP Addresses configured, and autodetection is not enabled")
-		return false, ErrTerminate
+		terminate()
 	}
 
 	// Detect if we've seen the IP address change, and flag that we need to check for conflicting Nodes
@@ -628,6 +655,7 @@ func validateIP(ipn string) error {
 	ipAddr, _, err := cnet.ParseCIDROrIP(ipn)
 	if err != nil {
 		log.WithError(err).Errorf("Failed to parse autodetected CIDR '%s'", ipn)
+		terminate()
 		return ErrTerminate
 	}
 
@@ -636,6 +664,7 @@ func validateIP(ipn string) error {
 	ifaces, err := autodetection.GetInterfaces(nil, nil, ipAddr.Version())
 	if err != nil {
 		log.WithError(err).Error("Unable to query host interfaces")
+		terminate()
 		return ErrTerminate
 	}
 	if len(ifaces) == 0 {
@@ -757,6 +786,7 @@ func autoDetectCIDR(method string, version int) (*cnet.IPNet, error) {
 
 	// The autodetection method is not recognised and is required.  Exit.
 	log.Errorf("Invalid IP autodetection method: %s", method)
+	terminate()
 	return nil, ErrTerminate
 }
 
@@ -1331,12 +1361,6 @@ func setNodeNetworkUnavailableFalse(clientset kubernetes.Clientset, nodeName str
 			}
 		}
 	}
-}
-
-// terminate prints a terminate message and exists with status 1.
-func terminate() {
-	log.Warn("Terminating")
-	exitFunction(1)
 }
 
 // extractKubeadmCIDRs looks through the config map and parses lines starting with 'podSubnet'.
