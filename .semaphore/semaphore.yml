@@ -64,6 +64,7 @@ blocks:
     jobs:
     - name: "build windows release"
       commands:
+      - go get -u github.com/tcnksm/ghr
       - export BRANCH_NAME=$SEMAPHORE_GIT_BRANCH
       - make release-windows-archive VERSION=${BRANCH_NAME}
 
