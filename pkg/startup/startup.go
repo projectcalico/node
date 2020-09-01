@@ -63,6 +63,7 @@ const (
 	AUTODETECTION_METHOD_INTERFACE      = "interface="
 	AUTODETECTION_METHOD_SKIP_INTERFACE = "skip-interface="
 	AUTODETECTION_METHOD_CIDR           = "cidr="
+	AUTODETECTION_METHOD_K8S            = "k8s"
 
 	DEFAULT_MONITOR_IP_POLL_INTERVAL = 60 * time.Second
 
@@ -170,7 +171,7 @@ func Run() {
 		}
 	}
 
-	configureAndCheckIPAddressSubnets(ctx, cli, node)
+	configureAndCheckIPAddressSubnets(ctx, cli, node, clientset)
 
 	// If Calico is running in policy only mode we don't need to write BGP related details to the Node.
 	if os.Getenv("CALICO_NETWORKING_BACKEND") != "none" {
@@ -234,9 +235,14 @@ func getMonitorPollInterval() time.Duration {
 	return interval
 }
 
-func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface, node *api.Node) bool {
+// configureAndCheckIPAddressSubnets uses k8sClient iff autodetection uses k8s
+// but is plombed through here so that an existing client can be reused. It can
+// be nil.
+func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface,
+	node *api.Node, k8sClient kubernetes.Interface) bool {
+
 	// Configure and verify the node IP addresses and subnets.
-	checkConflicts, err := configureIPsAndSubnets(node)
+	checkConflicts, err := configureIPsAndSubnets(node, k8sClient)
 	if err != nil {
 		// If this is auto-detection error, do a cleanup before returning
 		clearv4 := os.Getenv("IP") == "autodetect"
@@ -277,10 +283,32 @@ func MonitorIPAddressSubnets() {
 
 	pollInterval := getMonitorPollInterval()
 
+	var clientset *kubernetes.Clientset
+
+	// If running under kubernetes with secrets to call k8s API
+	if config, err := rest.InClusterConfig(); err == nil {
+		// default timeout is 30 seconds, which isn't appropriate for this kind of
+		// startup action because network services, like kube-proxy might not be
+		// running and we don't want to block the full 30 seconds if they are just
+		// a few seconds behind.
+		config.Timeout = 2 * time.Second
+
+		// Create the k8s clientset.
+		clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			log.WithError(err).Error("Failed to create clientset")
+			// We do not fail, because we do not know if it is needed by the
+			// autodetection method, yet. If it is needed, the process will
+			// eventually exit and restart due to terminate() deeper in the
+			// code.
+		}
+	}
+
 	for {
 		<-time.After(pollInterval)
 		log.Debugf("Checking node IP address every %v", pollInterval)
-		updated := configureAndCheckIPAddressSubnets(ctx, cli, node)
+
+		updated := configureAndCheckIPAddressSubnets(ctx, cli, node, clientset)
 		if updated {
 			// Apply the updated node resource.
 			// we try updating the resource up to 3 times, in case of transient issues.
@@ -479,7 +507,7 @@ func getNode(ctx context.Context, client client.Interface, nodeName string) *api
 
 // configureIPsAndSubnets updates the supplied node resource with IP and Subnet
 // information to use for BGP.  This returns true if we detect a change in Node IP address.
-func configureIPsAndSubnets(node *api.Node) (bool, error) {
+func configureIPsAndSubnets(node *api.Node, k8sClient kubernetes.Interface) (bool, error) {
 	// If the node resource currently has no BGP configuration, add an empty
 	// set of configuration as it makes the processing below easier, and we
 	// must end up configuring some BGP fields before we complete.
@@ -500,7 +528,7 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 	ipv4Env := os.Getenv("IP")
 	if ipv4Env == "autodetect" || (ipv4Env == "" && node.Spec.BGP.IPv4Address == "") {
 		adm := os.Getenv("IP_AUTODETECTION_METHOD")
-		cidr := autoDetectCIDR(adm, 4)
+		cidr := autoDetectCIDR(adm, 4, k8sClient, node.Name)
 		if cidr != nil {
 			// We autodetected an IPv4 address so update the value in the node.
 			node.Spec.BGP.IPv4Address = cidr.String()
@@ -528,7 +556,7 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 	ipv6Env := os.Getenv("IP6")
 	if ipv6Env == "autodetect" {
 		adm := os.Getenv("IP6_AUTODETECTION_METHOD")
-		cidr := autoDetectCIDR(adm, 6)
+		cidr := autoDetectCIDR(adm, 6, k8sClient, node.Name)
 		if cidr != nil {
 			// We autodetected an IPv6 address so update the value in the node.
 			node.Spec.BGP.IPv6Address = cidr.String()
@@ -687,11 +715,35 @@ func evaluateENVBool(envVar string, defaultValue bool) bool {
 
 // autoDetectCIDR auto-detects the IP and Network using the requested
 // detection method.
-func autoDetectCIDR(method string, version int) *cnet.IPNet {
+func autoDetectCIDR(method string, version int,
+	k8sClient kubernetes.Interface, nodeName string) *cnet.IPNet {
+	log.Infof("IP_AUTODETECTION_METHOD=%s", method)
+
 	if method == "" || method == AUTODETECTION_METHOD_FIRST {
 		// Autodetect the IP by enumerating all interfaces (excluding
 		// known internal interfaces).
 		return autoDetectCIDRFirstFound(version)
+	} else if method == AUTODETECTION_METHOD_K8S {
+		if k8sClient == nil {
+			log.Errorf("Invalid k8s client for IP autodetection method: %s", method)
+			return nil
+		}
+
+		k8sNode, err := k8sClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("Failed to get the k8s node for name %q", nodeName)
+			return nil
+		}
+
+		ips := autodetection.K8sNodeInternalIPs(k8sNode, version)
+		if len(ips) == 0 {
+			log.Errorf("No k8s internal IP version %d", version)
+			return nil
+		}
+		if len(ips) > 1 {
+			log.Warnf("More then 1 k8s internal IP version %d, picking one: %s", version, ips[0])
+		}
+		return ips[0]
 	} else if strings.HasPrefix(method, AUTODETECTION_METHOD_INTERFACE) {
 		// Autodetect the IP from the specified interface.
 		ifStr := strings.TrimPrefix(method, AUTODETECTION_METHOD_INTERFACE)
