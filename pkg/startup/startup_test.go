@@ -75,6 +75,33 @@ func makeNode(ipv4 string, ipv6 string) *api.Node {
 	return n
 }
 
+var _ = Describe("Node IP detection failure cases", func() {
+	It("startup should NOT terminate if IP is set to none and Calico is policy-only", func() {
+		os.Setenv("CALICO_NETWORKING_BACKEND", "none")
+		os.Setenv("IP", "none")
+		os.Setenv("IP6", "")
+
+		check, err := configureIPsAndSubnets(&api.Node{})
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(check).To(Equal(false))
+	})
+	It("startup should terminate if IP is set to none and Calico is used for networking", func() {
+		os.Setenv("CALICO_NETWORKING_BACKEND", "bird")
+		os.Setenv("IP", "none")
+		os.Setenv("IP6", "")
+
+		my_ec := 0
+		oldExit := exitFunction
+		exitFunction = func(ec int) { my_ec = ec }
+		defer func() { exitFunction = oldExit }()
+
+		configureIPsAndSubnets(&api.Node{})
+		Expect(my_ec).To(Equal(1))
+	})
+})
+
+
 var _ = Describe("Default IPv4 pool CIDR", func() {
 
 	It("default pool must be valid", func() {
