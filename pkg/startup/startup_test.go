@@ -96,7 +96,7 @@ var _ = Describe("Node IP detection failure cases", func() {
 		exitFunction = func(ec int) { my_ec = ec }
 		defer func() { exitFunction = oldExit }()
 
-		configureIPsAndSubnets(&api.Node{})
+		_, _ = configureIPsAndSubnets(&api.Node{})
 		Expect(my_ec).To(Equal(1))
 	})
 })
