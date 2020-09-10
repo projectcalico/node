@@ -555,7 +555,11 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 
 	if ipv4Env == "none" && (ipv6Env == "" || ipv6Env == "none") && node.Spec.BGP.IPv4Address == "" && node.Spec.BGP.IPv6Address == "" {
 		log.Warn("No IP Addresses configured, and autodetection is not enabled")
-		terminate()
+		// Unrecoverable if Calico is handling networking, terminate to restart.
+		if os.Getenv("CALICO_NETWORKING_BACKEND") != "none" {
+			terminate()
+		}
+		return false, nil
 	}
 
 	// Detect if we've seen the IP address change, and flag that we need to check for conflicting Nodes
