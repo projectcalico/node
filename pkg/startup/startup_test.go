@@ -75,31 +75,6 @@ func makeNode(ipv4 string, ipv6 string) *api.Node {
 	return n
 }
 
-var _ = DescribeTable("Node IP detection failure cases",
-	func(networkingBackend string, expectedExitCode int) {
-		os.Setenv("CALICO_NETWORKING_BACKEND", networkingBackend)
-		os.Setenv("IP", "none")
-		os.Setenv("IP6", "")
-
-		my_ec := 0
-		oldExit := exitFunction
-		exitFunction = func(ec int) { my_ec = ec }
-		defer func() { exitFunction = oldExit }()
-
-		// prologue for the main test.
-		cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-		Expect(err).NotTo(HaveOccurred())
-		c, err := client.New(*cfg)
-		Expect(err).NotTo(HaveOccurred())
-
-		_ = configureAndCheckIPAddressSubnets(context.Background(), c, &api.Node{})
-		Expect(my_ec).To(Equal(expectedExitCode))
-	},
-
-	Entry("startup should NOT terminate if IP is set to none and Calico is policy-only", "none", 0),
-	Entry("startup should terminate if IP is set to none and Calico is used for networking", "bird", 1),
-)
-
 var _ = Describe("Default IPv4 pool CIDR", func() {
 
 	It("default pool must be valid", func() {
