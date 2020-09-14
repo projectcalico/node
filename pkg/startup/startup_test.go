@@ -126,19 +126,19 @@ var _ = Describe("FV tests against a real etcd", func() {
 
 	BeforeEach(func() {
 		for _, envName := range changedEnvVars {
-			os.Unsetenv(envName)
+			_ = os.Unsetenv(envName)
 		}
 	})
 	AfterEach(func() {
 		for _, envName := range changedEnvVars {
-			os.Unsetenv(envName)
+			_ = os.Unsetenv(envName)
 		}
 	})
 
 	DescribeTable("Test IP pool env variables",
 		func(envList []EnvItem, expectedIPv4 string, expectedIPv6 string, expectIpv4IpipMode string, expectedIPV4NATOutgoing bool, expectedIPV6NATOutgoing bool, expectedIPv4BlockSize, expectedIPv6BlockSize int, expectedIPv4NodeSelector, expectedIPv6NodeSelector string) {
 			// Create a new client.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
+			cfg, err := apiconfig.LoadClientConfig("")
 			Expect(err).NotTo(HaveOccurred())
 
 			c, err := client.New(*cfg)
@@ -285,7 +285,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 
 	Describe("Test clearing of node IPs", func() {
 		Context("clearing node IPs", func() {
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
+			cfg, err := apiconfig.LoadClientConfig("")
 			It("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -335,42 +335,42 @@ var _ = Describe("FV tests against a real etcd", func() {
 	})
 
 	Describe("Test NO_DEFAULT_POOLS env variable", func() {
-		Context("Should have no pools defined", func() {
+		It("Should have no pools defined", func() {
 			// Create a new client.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-			It("should be able to load Calico client from ENV", func() {
+			cfg, err := apiconfig.LoadClientConfig("")
+			By("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			c, err := client.New(*cfg)
-			It("should be able to create a new Calico client", func() {
+			By("should be able to create a new Calico client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			be, err := backend.NewClient(*cfg)
-			It("should be able to create a new backend client", func() {
+			By("should be able to create a new backend client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			err = be.Clean()
-			It("should be able to clear the datastore", func() {
+			By("should be able to clear the datastore", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			// Set the env variables specified.
-			os.Setenv("NO_DEFAULT_POOLS", "true")
+			_ = os.Setenv("NO_DEFAULT_POOLS", "true")
 
 			// Run the UUT.
 			configureIPPools(ctx, c, kubeadmConfig)
 
 			// Get the IPPool list.
 			poolList, err := c.IPPools().List(ctx, options.ListOptions{})
-			It("should be able to access the IP pool list", func() {
+			By("should be able to access the IP pool list", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 			log.Println("Get pool list returns: ", poolList.Items)
 
-			It("should have no IP pools", func() {
+			By("should have no IP pools", func() {
 				Expect(poolList.Items).To(BeEmpty(), "Environment %#v", os.Environ())
 			})
 		})
@@ -384,7 +384,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 			defer func() { exitFunction = oldExit }()
 
 			// Create a new client.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
+			cfg, err := apiconfig.LoadClientConfig("")
 			Expect(err).NotTo(HaveOccurred())
 
 			c, err := client.New(*cfg)
@@ -436,25 +436,25 @@ var _ = Describe("FV tests against a real etcd", func() {
 		Entry("CALICO_IPV6POOL_BLOCK_SIZE set too large (129)", []EnvItem{{"CALICO_IPV6POOL_BLOCK_SIZE", "129"}}),
 	)
 
-	Describe("Test we properly wait for the etcd datastore", func() {
+	It("should properly wait for the etcd datastore", func() {
 		// Create a new client.
-		cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-		It("should be able to load Calico client from ENV", func() {
+		cfg, err := apiconfig.LoadClientConfig("")
+		By("should be able to load Calico client from ENV", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		c, err := client.New(*cfg)
-		It("should be able to create a new Calico client", func() {
+		By("should be able to create a new Calico client", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		be, err := backend.NewClient(*cfg)
-		It("should be able to create a new backend client", func() {
+		By("should be able to create a new backend client", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		err = be.Clean()
-		It("should be able to clear the datastore", func() {
+		By("should be able to clear the datastore", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -488,25 +488,25 @@ var _ = Describe("FV tests against a real etcd", func() {
 	})
 
 	Describe("Test CLUSTER_TYPE env variable", func() {
-		Context("With no env var, Cluster Type should be empty string", func() {
+		It("With no env var, Cluster Type should be empty string", func() {
 			// Create a new client.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-			It("should be able to load Calico client from ENV", func() {
+			cfg, err := apiconfig.LoadClientConfig("")
+			By("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			c, err := client.New(*cfg)
-			It("should be able to create a new Calico client", func() {
+			By("should be able to create a new Calico client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			be, err := backend.NewClient(*cfg)
-			It("should be able to create a new backend client", func() {
+			By("should be able to create a new backend client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			err = be.Clean()
-			It("should be able to clear the datastore", func() {
+			By("should be able to clear the datastore", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -514,39 +514,39 @@ var _ = Describe("FV tests against a real etcd", func() {
 			node := getNode(ctx, c, nodeName)
 
 			err = ensureDefaultConfig(ctx, cfg, c, node, nil, nil)
-			It("should be able to ensureDefaultConfig", func() {
+			By("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			clusterInfo, err := c.ClusterInformation().Get(ctx, "default", options.GetOptions{})
-			It("should be able to access the ClusterType", func() {
+			By("should be able to access the ClusterType", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should be empty", func() {
+			By("should be empty", func() {
 				Expect(clusterInfo.Spec.ClusterType).To(Equal(""))
 			})
 
 		})
-		Context("With env var set, Cluster Type should have that value", func() {
+		It("With env var set, Cluster Type should have that value", func() {
 			// Create a new client.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-			It("should be able to load Calico client from ENV", func() {
+			cfg, err := apiconfig.LoadClientConfig("")
+			By("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			c, err := client.New(*cfg)
-			It("should be able to create a new Calico client", func() {
+			By("should be able to create a new Calico client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			be, err := backend.NewClient(*cfg)
-			It("should be able to create a new backend client", func() {
+			By("should be able to create a new backend client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			err = be.Clean()
-			It("should be able to clear the datastore", func() {
+			By("should be able to clear the datastore", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -557,38 +557,38 @@ var _ = Describe("FV tests against a real etcd", func() {
 
 			localRancherState := &v1.ConfigMap{Data: map[string]string{"foo": "bar"}}
 			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, localRancherState)
-			It("should be able to ensureDefaultConfig", func() {
+			By("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			clusterInfo, err := c.ClusterInformation().Get(ctx, "default", options.GetOptions{})
-			It("should be able to access the ClusterType", func() {
+			By("should be able to access the ClusterType", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should have the set value", func() {
+			By("should have the set value", func() {
 				Expect(clusterInfo.Spec.ClusterType).To(Equal("theType,kubeadm,rancher"))
 			})
 		})
-		Context("With env var and Cluster Type prepopulated, Cluster Type should have both", func() {
+		It("With env var and Cluster Type prepopulated, Cluster Type should have both", func() {
 			// Create a new client.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-			It("should be able to load Calico client from ENV", func() {
+			cfg, err := apiconfig.LoadClientConfig("")
+			By("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			c, err := client.New(*cfg)
-			It("should be able to create a new Calico client", func() {
+			By("should be able to create a new Calico client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			be, err := backend.NewClient(*cfg)
-			It("should be able to create a new backend client", func() {
+			By("should be able to create a new backend client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			err = be.Clean()
-			It("should be able to clear the datastore", func() {
+			By("should be able to clear the datastore", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -604,27 +604,27 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("CLUSTER_TYPE", "theType")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
-			It("should be able to ensureDefaultConfig", func() {
+			By("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			clusterInfo, err = c.ClusterInformation().Get(ctx, "default", options.GetOptions{})
-			It("should be able to access the ClusterType", func() {
+			By("should be able to access the ClusterType", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should have the set value", func() {
+			By("should have the set value", func() {
 				Expect(clusterInfo.Spec.ClusterType).To(ContainSubstring("theType"))
 			})
-			It("should have the prepopulated value", func() {
+			By("should have the prepopulated value", func() {
 				Expect(clusterInfo.Spec.ClusterType).To(ContainSubstring("prePopulated"))
 			})
 		})
 
-		Context("for KDD backend, with env var and Cluster Type prepopulated, Cluster Type should have 'kdd' appended", func() {
+		It("for KDD backend, with env var and Cluster Type prepopulated, Cluster Type should have 'kdd' appended", func() {
 			// Create Calico client with k8s backend.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-			It("should be able to load Calico client from ENV", func() {
+			cfg, err := apiconfig.LoadClientConfig("")
+			By("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -637,17 +637,17 @@ var _ = Describe("FV tests against a real etcd", func() {
 			}
 
 			c, err := client.New(*cfg)
-			It("should be able to create a new Calico client", func() {
+			By("should be able to create a new Calico client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			be, err := backend.NewClient(*cfg)
-			It("should be able to create a new backend client", func() {
+			By("should be able to create a new backend client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			err = be.Clean()
-			It("should be able to clear the datastore", func() {
+			By("should be able to clear the datastore", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -663,30 +663,30 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("CLUSTER_TYPE", "theType")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
-			It("should be able to ensureDefaultConfig", func() {
+			By("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			clusterInfo, err = c.ClusterInformation().Get(ctx, "default", options.GetOptions{})
-			It("should be able to access the ClusterType", func() {
+			By("should be able to access the ClusterType", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should have the set value", func() {
+			By("should have the set value", func() {
 				Expect(clusterInfo.Spec.ClusterType).To(ContainSubstring("theType"))
 			})
-			It("should have the prepopulated value", func() {
+			By("should have the prepopulated value", func() {
 				Expect(clusterInfo.Spec.ClusterType).To(ContainSubstring("prePopulated"))
 			})
-			It("should have 'kdd' appended at the end", func() {
+			By("should have 'kdd' appended at the end", func() {
 				Expect(strings.HasSuffix(clusterInfo.Spec.ClusterType, ",kdd")).To(BeTrue())
 			})
 		})
 
-		Context("for KDD backend, with no env var and Cluster Type not prepopulated, Cluster Type should only have 'kdd'", func() {
+		It("for KDD backend, with no env var and Cluster Type not prepopulated, Cluster Type should only have 'kdd'", func() {
 			// Create Calico client with k8s backend.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-			It("should be able to load Calico client from ENV", func() {
+			cfg, err := apiconfig.LoadClientConfig("")
+			By("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -699,17 +699,17 @@ var _ = Describe("FV tests against a real etcd", func() {
 			}
 
 			c, err := client.New(*cfg)
-			It("should be able to create a new Calico client", func() {
+			By("should be able to create a new Calico client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			be, err := backend.NewClient(*cfg)
-			It("should be able to create a new backend client", func() {
+			By("should be able to create a new backend client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			err = be.Clean()
-			It("should be able to clear the datastore", func() {
+			By("should be able to clear the datastore", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -724,39 +724,39 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("CLUSTER_TYPE", "")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
-			It("should be able to ensureDefaultConfig", func() {
+			By("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			clusterInfo, err = c.ClusterInformation().Get(ctx, "default", options.GetOptions{})
-			It("should be able to access the ClusterType", func() {
+			By("should be able to access the ClusterType", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should only have 'kdd' set", func() {
+			By("should only have 'kdd' set", func() {
 				Expect(clusterInfo.Spec.ClusterType).Should(Equal("kubeadm,kdd"))
 			})
 		})
 
-		Context("With the same entries in both sources", func() {
+		It("With the same entries in both sources", func() {
 			// Create a new client.
-			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
-			It("should be able to load Calico client from ENV", func() {
+			cfg, err := apiconfig.LoadClientConfig("")
+			By("should be able to load Calico client from ENV", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			c, err := client.New(*cfg)
-			It("should be able to create a new Calico client", func() {
+			By("should be able to create a new Calico client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			be, err := backend.NewClient(*cfg)
-			It("should be able to create a new backend client", func() {
+			By("should be able to create a new backend client", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			err = be.Clean()
-			It("should be able to clear the datastore", func() {
+			By("should be able to clear the datastore", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -772,19 +772,19 @@ var _ = Describe("FV tests against a real etcd", func() {
 			os.Setenv("CLUSTER_TYPE", "type1,type1")
 
 			err = ensureDefaultConfig(ctx, cfg, c, node, kubeadmConfig, rancherState)
-			It("should be able to ensureDefaultConfig", func() {
+			By("should be able to ensureDefaultConfig", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			clusterInfo, err = c.ClusterInformation().Get(ctx, "default", options.GetOptions{})
-			It("should be able to access the ClusterType", func() {
+			By("should be able to access the ClusterType", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should have only one instance of the expected value", func() {
+			By("should have only one instance of the expected value", func() {
 				Expect(strings.Count(clusterInfo.Spec.ClusterType, "type1")).To(Equal(1), "Should only have one instance of type1, read '%s", clusterInfo.Spec.ClusterType)
 			})
-			It("should have only one instance of the expected value", func() {
+			By("should have only one instance of the expected value", func() {
 				Expect(strings.Count(clusterInfo.Spec.ClusterType, "type2")).To(Equal(1), "Should only have one instance of type1, read '%s", clusterInfo.Spec.ClusterType)
 			})
 		})
@@ -884,7 +884,7 @@ var _ = Describe("FV tests against K8s API server.", func() {
 		}
 
 		// Create Calico client with k8s backend.
-		cfg, err := apiconfig.LoadClientConfigFromEnvironment()
+		cfg, err := apiconfig.LoadClientConfig("")
 		Expect(err).NotTo(HaveOccurred())
 
 		cfg.Spec = apiconfig.CalicoAPIConfigSpec{

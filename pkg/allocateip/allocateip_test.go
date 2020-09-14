@@ -158,7 +158,7 @@ var _ = Describe("FV tests", func() {
 	log.AddHook(&logutils.ContextHook{})
 
 	ctx := context.Background()
-	cfg, _ := apiconfig.LoadClientConfigFromEnvironment()
+	cfg, _ := apiconfig.LoadClientConfig("")
 
 	var c client.Interface
 	BeforeEach(func() {
@@ -362,7 +362,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{ipam.AttributeTyp
 	log.AddHook(&logutils.ContextHook{})
 
 	ctx := context.Background()
-	cfg, _ := apiconfig.LoadClientConfigFromEnvironment()
+	cfg, _ := apiconfig.LoadClientConfig("")
 
 	wepAttr := map[string]string{}
 
@@ -571,7 +571,7 @@ var _ = allocateIPDescribe("removeHostTunnelAddress", []string{ipam.AttributeTyp
 	log.AddHook(&logutils.ContextHook{})
 
 	ctx := context.Background()
-	cfg, _ := apiconfig.LoadClientConfigFromEnvironment()
+	cfg, _ := apiconfig.LoadClientConfig("")
 
 	var c client.Interface
 	BeforeEach(func() {
@@ -704,7 +704,7 @@ var _ = Describe("Running as daemon", func() {
 	log.AddHook(&logutils.ContextHook{})
 
 	ctx := context.Background()
-	cfg, _ := apiconfig.LoadClientConfigFromEnvironment()
+	cfg, _ := apiconfig.LoadClientConfig("")
 
 	var c client.Interface
 	var pool *api.IPPool
