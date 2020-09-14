@@ -256,7 +256,7 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 			// Unrecoverable error, terminate to restart.
 			terminate()
 		} else {
-			log.Warn("No IPv4 or IPv6 addresses configured, and autodetection is not enabled. Some features may not work properly.")
+			log.Warn("No IPv4 or IPv6 addresses configured or detected. Some features may not work properly.")
 			// Bail here setting BGPSpec to nil (if empty) to pass validation.
 			if reflect.DeepEqual(node.Spec.BGP, &api.NodeBGPSpec{}) {
 				node.Spec.BGP = nil
