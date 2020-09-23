@@ -243,6 +243,10 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 		logCtx.WithError(err).Fatalf("Unable to retrieve tunnel address. Error getting node '%s'", nodename)
 	}
 
+	// UID is used in the IPAM allocation attributes to tie the allocation to this particular
+	// node instance.
+	uid := fmt.Sprintf("%s", node.GetUID())
+
 	// Get the address and ipam attribute string
 	var addr string
 	switch attrType {
@@ -307,7 +311,7 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 					// reassign the same address, but now with metadata. It's possible that someone
 					// else takes the address while we do this, in which case we'll just
 					// need to assign a new address.
-					if err := correctAllocationWithHandle(ctx, c, addr, nodename, attrType); err != nil {
+					if err := correctAllocationWithHandle(ctx, c, addr, nodename, attrType, uid); err != nil {
 						if _, ok := err.(cerrors.ErrorResourceAlreadyExists); !ok {
 							// Unknown error attempting to allocate the address. Exit.
 							logCtx.WithError(err).Fatal("Error correcting tunnel IP allocation")
@@ -341,7 +345,7 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 
 	if release {
 		logCtx.WithField("IP", addr).Info("Release any old tunnel addresses")
-		handle, _ := generateHandleAndAttributes(nodename, attrType)
+		handle, _ := generateHandleAndAttributes(nodename, attrType, uid)
 		if err := c.IPAM().ReleaseByHandle(ctx, handle); err != nil {
 			if _, ok := err.(cerrors.ErrorResourceDoesNotExist); !ok {
 				logCtx.WithError(err).Fatal("Failed to release old addresses")
@@ -352,11 +356,11 @@ func ensureHostTunnelAddress(ctx context.Context, c client.Interface, nodename s
 
 	if assign {
 		logCtx.WithField("IP", addr).Info("Assign new tunnel address")
-		assignHostTunnelAddr(ctx, c, nodename, cidrs, attrType)
+		assignHostTunnelAddr(ctx, c, nodename, cidrs, attrType, uid)
 	}
 }
 
-func correctAllocationWithHandle(ctx context.Context, c client.Interface, addr, nodename string, attrType string) error {
+func correctAllocationWithHandle(ctx context.Context, c client.Interface, addr, nodename, attrType, uid string) error {
 	ipAddr := net.ParseIP(addr)
 	if ipAddr == nil {
 		log.Fatalf("Failed to parse node tunnel address '%s'", addr)
@@ -371,7 +375,7 @@ func correctAllocationWithHandle(ctx context.Context, c client.Interface, addr, 
 	}
 
 	// Attempt to re-assign the same address, but with a handle this time.
-	handle, attrs := generateHandleAndAttributes(nodename, attrType)
+	handle, attrs := generateHandleAndAttributes(nodename, attrType, uid)
 	args := ipam.AssignIPArgs{
 		IP:       *ipAddr,
 		HandleID: &handle,
@@ -384,7 +388,7 @@ func correctAllocationWithHandle(ctx context.Context, c client.Interface, addr, 
 	return c.IPAM().AssignIP(ctx, args)
 }
 
-func generateHandleAndAttributes(nodename string, attrType string) (string, map[string]string) {
+func generateHandleAndAttributes(nodename, attrType, uid string) (string, map[string]string) {
 	attrs := map[string]string{ipam.AttributeNode: nodename}
 	var handle string
 	switch attrType {
@@ -396,15 +400,16 @@ func generateHandleAndAttributes(nodename string, attrType string) (string, map[
 		handle = fmt.Sprintf("wireguard-tunnel-addr-%s", nodename)
 	}
 	attrs[ipam.AttributeType] = attrType
+	attrs[ipam.AttributeTypeUID] = uid
 	return handle, attrs
 }
 
 // assignHostTunnelAddr claims an IP address from the first pool
 // with some space. Stores the result in the host's config as its tunnel
 // address. It will assign a VXLAN address if vxlan is true, otherwise an IPIP address.
-func assignHostTunnelAddr(ctx context.Context, c client.Interface, nodename string, cidrs []net.IPNet, attrType string) {
+func assignHostTunnelAddr(ctx context.Context, c client.Interface, nodename string, cidrs []net.IPNet, attrType string, uid string) {
 	// Build attributes and handle for this allocation.
-	handle, attrs := generateHandleAndAttributes(nodename, attrType)
+	handle, attrs := generateHandleAndAttributes(nodename, attrType, uid)
 	logCtx := getLogger(attrType)
 
 	args := ipam.AutoAssignArgs{
@@ -526,8 +531,9 @@ func removeHostTunnelAddr(ctx context.Context, c client.Interface, nodename stri
 			ipAddr = net.ParseIP(ipAddrStr)
 		}
 
-		// Release tunnel IP address(es) for the node.
-		handle, _ := generateHandleAndAttributes(nodename, attrType)
+		// Release tunnel IP address(es) for the node. We don't need to pass the real UID,
+		// since we don't use the attributes.
+		handle, _ := generateHandleAndAttributes(nodename, attrType, "")
 		if err := c.IPAM().ReleaseByHandle(ctx, handle); err != nil {
 			if _, ok := err.(cerrors.ErrorResourceDoesNotExist); !ok {
 				// Unknown error releasing the address.
