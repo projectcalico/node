@@ -6,13 +6,17 @@ The scripts assume that:
 - kube-proxy.exe and kubelet.exe are installed to c:\k\.
 - The HNS network name is "Calico".
 
-The install-kube-services script:
+The install-kubelet script:
 
-- Install kubelet and kube-proxy service.
+- Installs the kubelet service.
+
+The install-kube-proxy script:
+
+- Installs the kube-proxy service.
 
 The uninstall-kube-services script:
 
-- Uninstall kubelet and kube-proxy service.
+- Uninstalls the kubelet and kube-proxy services.
 
 The kubelet-service script:
 

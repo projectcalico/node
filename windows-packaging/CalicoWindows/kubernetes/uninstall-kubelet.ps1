@@ -17,10 +17,8 @@ $NSSMPath = "$baseDir\nssm-2.24\win64\nssm.exe"
 
 $ErrorActionPreference = 'SilentlyContinue'
 
-Write-Host "Stopping kubelet kube-proxy service if it is running..."
+Write-Host "Stopping kubelet service if it is running..."
 Stop-Service kubelet
-Stop-Service kube-proxy
 
-& $NSSMPath remove kube-proxy confirm
 & $NSSMPath remove kubelet confirm
 Write-Host "Done"
