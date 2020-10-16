@@ -535,7 +535,12 @@ func configureIPsAndSubnets(node *api.Node) (bool, error) {
 		validateIP(node.Spec.BGP.IPv4Address)
 	} else if ipv4Env != "none" {
 		if ipv4Env != "" {
-			node.Spec.BGP.IPv4Address = parseIPEnvironment("IP", ipv4Env, 4)
+			// Attempt to get the local cidr of ipv4Env
+			ipv4CidrOrIP, err := getLocalCidr(ipv4Env, 4)
+			if err != nil {
+				log.Warnf("Attempt to get the local cidr of %v failed, %s",ipv4Env,err)
+			}
+			node.Spec.BGP.IPv4Address = parseIPEnvironment("IP", ipv4CidrOrIP, 4)
 		}
 		validateIP(node.Spec.BGP.IPv4Address)
 	}
@@ -1364,4 +1369,55 @@ func extractKubeadmCIDRs(kubeadmConfig *v1.ConfigMap) (string, string, error) {
 	}
 
 	return v4, v6, err
+}
+
+// Check if the string is cidr
+// Since: internal/bytealg/indexbyte_generic.go
+func indexByteString(s string, c byte) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
+// return the cidr of the dest on local
+func getLocalCidr(ip string, version int) (string, error) {
+	i := indexByteString(ip, '/')
+	if i >= 0 {
+		log.Infof("%s is already cidr", ip)
+		return ip, nil
+	}
+	log.Infof("Auto-detecting IPv%d CIDR of %s", version, ip)
+
+	// Get a full list of interface and IPs and find the CIDR matching the
+	// found IP.
+	ifaces, err := autodetection.GetInterfaces(nil, nil, version)
+	if err != nil {
+		return ip, err
+	}
+	for _, iface := range ifaces {
+		log.WithField("Name", iface.Name).Info("Checking interface CIDRs")
+		for _, cidr := range iface.Cidrs {
+			log.WithField("CIDR", cidr.String()).Info("Checking CIDR")
+			var destCidr net.IP
+			if version == 4 {
+				destCidr = net.ParseIP(ip).To4()
+			} else {
+				destCidr = net.ParseIP(ip).To16()
+			}
+			if destCidr == nil {
+				return ip, fmt.Errorf("%s is unreasonable not a reasonable ip str", ip)
+			}
+			if cidr.IP.Equal(destCidr) {
+				log.WithField("CIDR", cidr.String()).Info("Found local CIDR ")
+				return cidr.String(), nil
+			}
+		}
+	}
+
+	// Even if no cidr is found, it doesn't think it needs to throw an exception
+	log.Warnf("Unable to confirm IPv%d CIDR of %s", version, ip)
+	return ip, nil
 }

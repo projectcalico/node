@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -1109,5 +1110,38 @@ var _ = Describe("UTs for monitor-addresses option", func() {
 	It("poll-interval handles valid values", func() {
 		os.Setenv("AUTODETECT_POLL_INTERVAL", "30m")
 		Expect(getMonitorPollInterval()).To(Equal(30 * time.Minute))
+	})
+})
+
+var _ = Describe("UTs for env IP", func() {
+	Context("env IP is defined", func() {
+		It("get the local cidr", func() {
+
+			cmd := exec.Command("ip", "addr", "add", "1.2.3.4/24", "dev", "lo")
+			if err := cmd.Run(); err != nil {
+				Skip("ip addr add failed:" + err.Error())
+			}
+
+			ipv4Env := "1.2.3.4"
+			ipv4CidrOrIP, _ := getLocalCidr(ipv4Env, 4)
+			Expect(ipv4CidrOrIP).To(Equal("1.2.3.4/24"))
+
+			cmd = exec.Command("ip", "addr", "del", "1.2.3.4/24", "dev", "lo")
+			if err := cmd.Run(); err != nil {
+				Fail("ip addr del failed:" + err.Error())
+			}
+		})
+
+		It("get original cidr", func() {
+			ipv4Env := "4.3.2.1/24"
+			ipv4CidrOrIP, _ := getLocalCidr(ipv4Env, 4)
+			Expect(ipv4CidrOrIP).To(Equal("4.3.2.1/24"))
+		})
+
+		It("get original ip", func() {
+			ipv4Env := "4.3.2.1"
+			ipv4CidrOrIP, _ := getLocalCidr(ipv4Env, 4)
+			Expect(ipv4CidrOrIP).To(Equal("4.3.2.1"))
+		})
 	})
 })
