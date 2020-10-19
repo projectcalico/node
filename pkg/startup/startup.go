@@ -621,13 +621,13 @@ func validateIP(ipn string) {
 		terminate()
 	}
 	if len(ifaces) == 0 {
-		log.Info("No interfaces found for validating IP configuration")
+		log.Debug("No interfaces found for validating IP configuration")
 	}
 
 	for _, i := range ifaces {
 		for _, c := range i.Cidrs {
 			if ipAddr.Equal(c.IP) {
-				log.Infof("IPv%d address %s discovered on interface %s", ipAddr.Version(), ipAddr.String(), i.Name)
+				log.Debugf("IPv%d address %s discovered on interface %s", ipAddr.Version(), ipAddr.String(), i.Name)
 				return
 			}
 		}
