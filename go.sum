@@ -178,6 +178,8 @@ github.com/fasaxc/felix v0.0.0-20201030114545-3be2c2826c95 h1:zb3UYW7/MGRo1VajiX
 github.com/fasaxc/felix v0.0.0-20201030114545-3be2c2826c95/go.mod h1:pvwX9VfJqQTfHuyYwiLsI8uOT0UO4UbcuNb9ZSZhcLY=
 github.com/fasaxc/felix v0.0.0-20201030120006-76a50f970fa4 h1:tSg3kubZOLQw0HhfeI46TOvP9UPNjLDMW8PwH4mOPgM=
 github.com/fasaxc/felix v0.0.0-20201030120006-76a50f970fa4/go.mod h1:pvwX9VfJqQTfHuyYwiLsI8uOT0UO4UbcuNb9ZSZhcLY=
+github.com/fasaxc/felix v0.0.0-20201102115851-00314faad4c0 h1:NO6xPvu51C4i+1DVobAgtauyVptwI4RD4uk8i7/17ig=
+github.com/fasaxc/felix v0.0.0-20201102115851-00314faad4c0/go.mod h1:pvwX9VfJqQTfHuyYwiLsI8uOT0UO4UbcuNb9ZSZhcLY=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fatih/color v1.6.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=

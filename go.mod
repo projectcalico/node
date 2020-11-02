@@ -51,4 +51,4 @@ replace (
 
 )
 
-replace github.com/projectcalico/felix => github.com/fasaxc/felix v0.0.0-20201030120006-76a50f970fa4
+replace github.com/projectcalico/felix => github.com/fasaxc/felix v0.0.0-20201102115851-00314faad4c0
