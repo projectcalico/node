@@ -572,8 +572,8 @@ github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021/go.mod h1:prY
 github.com/pquerna/ffjson v0.0.0-20180717144149-af8b230fcd20/go.mod h1:YARuvh7BUWHNhzDq2OM5tzR2RiCcN2D7sapiKyCel/M=
 github.com/projectcalico/cni-plugin v1.11.1-0.20201214212451-4c5b55ac1d83 h1:u0GliOLToQPSNq5oL3+6rwRCbVSdUYI09mmYKo+MT18=
 github.com/projectcalico/cni-plugin v1.11.1-0.20201214212451-4c5b55ac1d83/go.mod h1:Mf5mcjQZ8LBVedmF1HNzbUeYJuqp4WpxpcBv+3JU40c=
-github.com/projectcalico/confd v1.0.1-0.20201215003119-6d93c4198679 h1:eYZbhh6vvZoK5yHZ6Qmw3HtIsxEk4ovSnQzir94Y59U=
-github.com/projectcalico/confd v1.0.1-0.20201215003119-6d93c4198679/go.mod h1:aPZ4N8PB66QUMQCd+hsN3vxJ3X2SuLvs1jXT0oujgkc=
+github.com/projectcalico/confd v1.0.1-0.20201215094446-b1855ca725a9 h1:Y/7FV2eN1mXShbLFKsaA/lkcrejY4CrkfDdIpHQVRdA=
+github.com/projectcalico/confd v1.0.1-0.20201215094446-b1855ca725a9/go.mod h1:aPZ4N8PB66QUMQCd+hsN3vxJ3X2SuLvs1jXT0oujgkc=
 github.com/projectcalico/felix v0.0.0-20201215010955-286a4b22a5be h1:PPGrUVlV1d+H4NMTU2/sUbNpgHV7mTkCPSAdpKMZxH0=
 github.com/projectcalico/felix v0.0.0-20201215010955-286a4b22a5be/go.mod h1:OBTvhdNsDT3KL1+jJA5yjvw8JzCi5QHWRcOn9Hyr6Rc=
 github.com/projectcalico/go-json v0.0.0-20161128004156-6219dc7339ba h1:aaF2byUCZhzszHsfPEr2M3qcU4ibtD/yk/il2R7T1PU=
