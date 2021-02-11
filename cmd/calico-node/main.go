@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	felix "github.com/projectcalico/felix/daemon"
+	bpfcmd "github.com/projectcalico/felix/cmd/calico-bpf/commands"
 	"github.com/projectcalico/libcalico-go/lib/logutils"
 
 	"github.com/projectcalico/node/buildinfo"
@@ -40,6 +41,7 @@ var flagSet = flag.NewFlagSet("Calico", flag.ContinueOnError)
 // Build the set of supported flags.
 var version = flagSet.Bool("v", false, "Display version")
 var runFelix = flagSet.Bool("felix", false, "Run Felix")
+var runBPF = flagSet.Bool("bpf", false, "Run BPF debug tool")
 var runStartup = flagSet.Bool("startup", false, "Initialize a new node")
 var monitorAddrs = flagSet.Bool("monitor-addresses", false, "Monitor change in node IP addresses")
 var runAllocateTunnelAddrs = flagSet.Bool("allocate-tunnel-addrs", false, "Configure tunnel addresses for this node")
@@ -108,6 +110,9 @@ func main() {
 	} else if *runFelix {
 		logrus.SetFormatter(&logutils.Formatter{Component: "felix"})
 		felix.Run("/etc/calico/felix.cfg", buildinfo.GitVersion, buildinfo.BuildDate, buildinfo.GitRevision)
+	} else if *runBPF {
+		os.Args = filterOutArg(os.Args, "-bpf")
+		bpfcmd.Execute()
 	} else if *runStartup {
 		logrus.SetFormatter(&logutils.Formatter{Component: "startup"})
 		startup.Run()
@@ -140,4 +145,15 @@ func main() {
 		flagSet.PrintDefaults()
 		os.Exit(1)
 	}
+}
+
+func filterOutArg(args []string, arg string) []string {
+	var filtered []string
+	for _, s := range args {
+		if s == arg {
+			continue
+		}
+		filtered = append(filtered, s)
+	}
+	return filtered
 }
