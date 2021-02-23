@@ -17,12 +17,12 @@ ARG BIRD_IMAGE=calico/bird:latest
 FROM ${QEMU_IMAGE} as qemu
 FROM ${BIRD_IMAGE} as bird
 
-FROM calico/bpftool:v5.3-armhf as bpftool
+FROM calico/bpftool:v5.3-armv7 as bpftool
 
 FROM arm32v7/alpine:3.12 as base
 MAINTAINER Marc Crébassa <aalaesar@gmail.com>
 
-ARG ARCH=armhf
+ARG ARCH=armv7
 
 # Enable non-native builds of this image on an amd64 hosts.
 # This must be the first RUN command in this file!
