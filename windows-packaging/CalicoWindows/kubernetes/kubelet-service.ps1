@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Tigera, Inc. All rights reserved.
+# Copyright (c) 2020-2021 Tigera, Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,5 +54,25 @@ $argList = @(`
     "--kubeconfig=""c:\k\config"""`
 )
 
-Write-Host "Start to run c:\k\kubelet.exe"
+# Configure kubelet for containerd if specified. We also need to start the
+# containerd service if it's not already running.
+if ($env:CONTAINER_RUNTIME -EQ "containerd")
+{
+    $argList += "--container-runtime=remote"
+    $argList += "--container-runtime-endpoint=npipe:////.//pipe//containerd-containerd"
+
+    if ((Get-Service | where Name -EQ 'containerd') -EQ $null) {
+        throw "CONTAINER_RUNTIME set to containerd but containerd service is not installed"
+    }
+    # Start containerd service if it's not already running.
+    if ((Get-Service | where Name -EQ 'containerd' | where Status -NE Running) -NE $null) {
+        Start-Service containerd  
+    }
+    while ((Get-Service | where Name -EQ 'containerd' | where Status -NE Running) -NE $null) {
+        Write-Host "Waiting for the containerd service to be running..."
+        Start-Sleep 1
+    }
+}
+
+Write-Host "Start c:\k\kubelet.exe"
 c:\k\kubelet.exe  $argList
