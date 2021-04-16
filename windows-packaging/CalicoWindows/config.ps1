@@ -1,4 +1,9 @@
 
+## Container runtime configuration:
+# Set this to "containerd" to enable containerd, otherwise docker will be
+# enabled.
+$env:CONTAINER_RUNTIME = "<your container runtime>"
+
 ## Cluster configuration:
 
 # KUBE_NETWORK should be set to a regular expression that matches the HNS network(s) used for pods.
@@ -39,6 +44,15 @@ $env:ETCD_CA_CERT_FILE = "<your etcd ca cert>"
 $env:CNI_BIN_DIR = "c:\k\cni"
 # Place to install the CNI config to.  Should be located in kubelet's --cni-conf-dir.
 $env:CNI_CONF_DIR = "c:\k\cni\config"
+
+if ($env:CONTAINER_RUNTIME -EQ "containerd")
+{
+    # Place to install the CNI plugin to.  Should match kubelet's --cni-bin-dir.
+    $env:CNI_BIN_DIR = "$Env:ProgramFiles\containerd\cni\bin"
+    # Place to install the CNI config to.  Should be located in kubelet's --cni-conf-dir.
+    $env:CNI_CONF_DIR = "$Env:ProgramFiles\containerd\cni\conf"
+}
+
 $env:CNI_CONF_FILENAME = "10-calico.conf"
 # IPAM type to use with Calico's CNI plugin.  One of "calico-ipam" or "host-local".
 $env:CNI_IPAM_TYPE = "calico-ipam"
