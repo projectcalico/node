@@ -94,7 +94,7 @@ function Test-CalicoConfiguration()
 
 function Install-CNIPlugin()
 {
-    Write-Host "Copying CNI binaries into place."
+    Write-Host "Copying CNI binaries to $env:CNI_BIN_DIR"
     cp "$baseDir\cni\*.exe" "$env:CNI_BIN_DIR"
 
     $cniConfFile = $env:CNI_CONF_DIR + "\" + $env:CNI_CONF_FILENAME
@@ -411,6 +411,47 @@ function Set-MetaDataServerRoute($mgmtIP)
             Write-Host "Warning! Failed to restore metadata server route."
         }
     }
+}
+
+function Get-ContainerdCniBinDir()
+{
+    $config = getContainerdConfig
+    return $config['plugins."io.containerd.grpc.v1.cri".cni']['bin_dir']
+}
+
+function Get-ContainerdCniConfDir()
+{
+    $config = getContainerdConfig
+    return $config['plugins."io.containerd.grpc.v1.cri".cni']['conf_dir']
+}
+
+function getContainerdService()
+{
+    # Don't use get-wmiobject since that is not available in Powershell 7.
+    return Get-CimInstance -Query "SELECT * from Win32_Service WHERE name = 'containerd'"
+}
+
+function getContainerdConfig()
+{
+    if (!(Get-InstalledModule PsIni))
+    {
+        Write-Host "Dependency PsIni not installed, installing..."
+        Install-module PsIni -Confirm:$False -Force
+    }
+
+    # Get the containerd service pathname. Don't use get-wmiobject since that is not available in Powershell 7.
+    $containerdPathName = getContainerdService | Select-Object -ExpandProperty PathName
+
+    # Get the path only, and remove any extra quotes left over.
+    $containerdPathName = (Split-Path -Path $containerdPathname) -replace '"', ""
+
+    $containerdConfigPath = "$containerdPathName\config.toml"
+    return Get-IniContent $containerdConfigPath
+}
+
+function Get-IsContainerdRunning()
+{
+    return (getContainerdService | Select-Object -ExpandProperty State) -EQ "Running"
 }
 
 Export-ModuleMember -Function 'Test-*'
