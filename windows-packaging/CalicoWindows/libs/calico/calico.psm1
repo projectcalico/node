@@ -413,16 +413,18 @@ function Set-MetaDataServerRoute($mgmtIP)
     }
 }
 
+# Assume same relative path for containerd CNI bin/conf dir
+# By default, containerd is installed in c:\Program Files\containerd, and CNI bin/conf is in
+# c:\Program Files\containerd\cni\bin and c:\Program Files\containerd\cni\conf.
 function Get-ContainerdCniBinDir()
 {
-    $config = getContainerdConfig
-    return $config['plugins."io.containerd.grpc.v1.cri".cni']['bin_dir']
+    $path = getContainerdPath
+    return "$path\cni\bin"
 }
-
 function Get-ContainerdCniConfDir()
 {
-    $config = getContainerdConfig
-    return $config['plugins."io.containerd.grpc.v1.cri".cni']['conf_dir']
+    $path = getContainerdPath
+    return "$path\cni\conf"
 }
 
 function getContainerdService()
@@ -431,22 +433,13 @@ function getContainerdService()
     return Get-CimInstance -Query "SELECT * from Win32_Service WHERE name = 'containerd'"
 }
 
-function getContainerdConfig()
+function getContainerdPath()
 {
-    if (!(Get-InstalledModule PsIni))
-    {
-        Write-Host "Dependency PsIni not installed, installing..."
-        Install-module PsIni -Confirm:$False -Force
-    }
-
-    # Get the containerd service pathname. Don't use get-wmiobject since that is not available in Powershell 7.
+    # Get the containerd service pathname.
     $containerdPathName = getContainerdService | Select-Object -ExpandProperty PathName
 
     # Get the path only, and remove any extra quotes left over.
-    $containerdPathName = (Split-Path -Path $containerdPathname) -replace '"', ""
-
-    $containerdConfigPath = "$containerdPathName\config.toml"
-    return Get-IniContent $containerdConfigPath
+    return (Split-Path -Path $containerdPathname) -replace '"', ""
 }
 
 function Get-IsContainerdRunning()
