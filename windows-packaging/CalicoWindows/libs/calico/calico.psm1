@@ -116,6 +116,13 @@ function Install-CNIPlugin()
     }
     $dnsIPList=($ipList -join ",").TrimEnd(',')
 
+    # HNS v1 and v2 have different string values for the ROUTE endpoint policy type.
+    $routeType = "ROUTE"
+    if (Get-IsContainerdRunning)
+    {
+        $routeType = "SDNROUTE"
+    }
+
     (Get-Content "$baseDir\cni.conf.template") | ForEach-Object {
         $_.replace('__NODENAME_FILE__', $nodeNameFile).
                 replace('__KUBECONFIG__', $kubeconfigFile).
@@ -129,7 +136,8 @@ function Install-CNIPlugin()
                 replace('__IPAM_TYPE__', $env:CNI_IPAM_TYPE).
                 replace('__MODE__', $mode).
                 replace('__VNI__', $env:VXLAN_VNI).
-                replace('__MAC_PREFIX__', $env:VXLAN_MAC_PREFIX)
+                replace('__MAC_PREFIX__', $env:VXLAN_MAC_PREFIX).
+                replace('__ROUTE_TYPE__', $routeType)
     } | Set-Content "$cniConfFile"
     Write-Host "Wrote CNI configuration."
 }
