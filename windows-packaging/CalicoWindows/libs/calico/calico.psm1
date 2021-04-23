@@ -123,6 +123,12 @@ function Install-CNIPlugin()
         $routeType = "SDNROUTE"
     }
 
+    # HNS v1 and v2 have different keys for OutBoundNAT endpoint policy "exceptions" list.
+    $exceptions = "ExceptionList"
+    if (Get-IsContainerdRunning)
+    {
+        $exceptions = "Exceptions"
+    }
     (Get-Content "$baseDir\cni.conf.template") | ForEach-Object {
         $_.replace('__NODENAME_FILE__', $nodeNameFile).
                 replace('__KUBECONFIG__', $kubeconfigFile).
@@ -137,7 +143,8 @@ function Install-CNIPlugin()
                 replace('__MODE__', $mode).
                 replace('__VNI__', $env:VXLAN_VNI).
                 replace('__MAC_PREFIX__', $env:VXLAN_MAC_PREFIX).
-                replace('__ROUTE_TYPE__', $routeType)
+                replace('__ROUTE_TYPE__', $routeType).
+                replace('__EXCEPTION_LIST__', $routeType)
     } | Set-Content "$cniConfFile"
     Write-Host "Wrote CNI configuration."
 }
