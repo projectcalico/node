@@ -1,4 +1,4 @@
-// Copyright (c) 2016,2020 Tigera, Inc. All rights reserved.
+// Copyright (c) 2016,2021 Tigera, Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@ import (
 	api "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
 	cerrors "github.com/projectcalico/libcalico-go/lib/errors"
-	"github.com/projectcalico/libcalico-go/lib/names"
 	cnet "github.com/projectcalico/libcalico-go/lib/net"
 	"github.com/projectcalico/libcalico-go/lib/numorstring"
 	"github.com/projectcalico/libcalico-go/lib/options"
@@ -47,9 +46,9 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator/clients"
 
-	"github.com/projectcalico/node/pkg/calicoclient"
-	"github.com/projectcalico/node/pkg/startup/autodetection"
-	"github.com/projectcalico/node/pkg/startup/autodetection/ipv4"
+	"github.com/projectcalico/node/pkg/lifecycle/startup/autodetection"
+	"github.com/projectcalico/node/pkg/lifecycle/startup/autodetection/ipv4"
+	"github.com/projectcalico/node/pkg/lifecycle/utils"
 )
 
 const (
@@ -99,11 +98,11 @@ func Run() {
 	ConfigureLogging()
 
 	// Determine the name for this node.
-	nodeName := determineNodeName()
+	nodeName := utils.DetermineNodeName()
 	log.Infof("Starting node %s with version %s", nodeName, VERSION)
 
 	// Create the Calico API cli.
-	cfg, cli := calicoclient.CreateClient()
+	cfg, cli := utils.CreateCalicoClient()
 
 	ctx := context.Background()
 
@@ -192,8 +191,7 @@ func Run() {
 				k8sNodeName = nodeRef
 			}
 
-			log.Info("Setting NetworkUnavailable to False")
-			err := setNodeNetworkUnavailableFalse(*clientset, k8sNodeName)
+			err := utils.SetNodeNetworkUnavailableCondition(*clientset, k8sNodeName, false, 30*time.Second)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to False")
 			}
@@ -231,6 +229,10 @@ func Run() {
 		log.WithError(err).Errorf("Unable to ensure network for os")
 		terminate()
 	}
+
+	// Remove shutdownTS file when everything is done.
+	// This indicates Calico node started successfully.
+	utils.RemoveShutdownTimestampFile()
 }
 
 func getMonitorPollInterval() time.Duration {
@@ -300,8 +302,8 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 
 func MonitorIPAddressSubnets() {
 	ctx := context.Background()
-	_, cli := calicoclient.CreateClient()
-	nodeName := determineNodeName()
+	_, cli := utils.CreateCalicoClient()
+	nodeName := utils.DetermineNodeName()
 	node := getNode(ctx, cli, nodeName)
 
 	pollInterval := getMonitorPollInterval()
@@ -388,61 +390,6 @@ func ConfigureLogging() {
 
 	log.SetLevel(logLevel)
 	log.Infof("Early log level set to %v", logLevel)
-}
-
-// determineNodeName is called to determine the node name to use for this instance
-// of calico/node.
-func determineNodeName() string {
-	var nodeName string
-	var err error
-
-	// Determine the name of this node.  Precedence is:
-	// -  NODENAME
-	// -  Value stored in our nodename file.
-	// -  HOSTNAME (lowercase)
-	// -  os.Hostname (lowercase).
-	// We use the names.Hostname which lowercases and trims the name.
-	if nodeName = strings.TrimSpace(os.Getenv("NODENAME")); nodeName != "" {
-		log.Infof("Using NODENAME environment for node name %s", nodeName)
-	} else if nodeName = nodenameFromFile(); nodeName != "" {
-		log.Infof("Using stored node name %s from %s", nodeName, nodenameFileName())
-	} else if nodeName = strings.ToLower(strings.TrimSpace(os.Getenv("HOSTNAME"))); nodeName != "" {
-		log.Infof("Using HOSTNAME environment (lowercase) for node name %s", nodeName)
-	} else if nodeName, err = names.Hostname(); err != nil {
-		log.WithError(err).Error("Unable to determine hostname")
-		terminate()
-	} else {
-		log.Warn("Using auto-detected node name. It is recommended that an explicit value is supplied using " +
-			"the NODENAME environment variable.")
-	}
-	log.Infof("Determined node name: %s", nodeName)
-
-	return nodeName
-}
-
-func nodenameFileName() string {
-	fn := os.Getenv("CALICO_NODENAME_FILE")
-	if fn == "" {
-		return defaultNodenameFile
-	}
-	return fn
-}
-
-// nodenameFromFile reads the nodename file if it exists and
-// returns the nodename within.
-func nodenameFromFile() string {
-	filename := nodenameFileName()
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// File doesn't exist, return empty string.
-			log.Debug("File does not exist: " + filename)
-			return ""
-		}
-		log.WithError(err).Error("Failed to read " + filename)
-		terminate()
-	}
-	return string(data)
 }
 
 // waitForConnection waits for the datastore to become accessible.
