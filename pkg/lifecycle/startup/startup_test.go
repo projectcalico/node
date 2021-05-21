@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Tigera, Inc. All rights reserved.
+// Copyright (c) 2016,2021 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,8 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/names"
 	"github.com/projectcalico/libcalico-go/lib/net"
 	"github.com/projectcalico/libcalico-go/lib/options"
-	"github.com/projectcalico/node/pkg/startup/autodetection"
+	"github.com/projectcalico/node/pkg/lifecycle/startup/autodetection"
+	"github.com/projectcalico/node/pkg/lifecycle/utils"
 )
 
 var exitCode int
@@ -83,9 +84,9 @@ var _ = DescribeTable("Node IP detection failure cases",
 		os.Setenv("IP6", "")
 
 		my_ec := 0
-		oldExit := exitFunction
+		oldExit := utils.GetExitFunction()
 		exitFunction = func(ec int) { my_ec = ec }
-		defer func() { exitFunction = oldExit }()
+		defer utils.SetExitFunction(oldExit)
 
 		// prologue for the main test.
 		cfg, err := apiconfig.LoadClientConfigFromEnvironment()
@@ -122,9 +123,9 @@ var _ = Describe("Non-etcd related tests", func() {
 	Describe("Termination tests", func() {
 		exitCode = 0
 		Context("Test termination", func() {
-			oldExit := exitFunction
+			oldExit := utils.GetExitFunction()
 			exitFunction = fakeExitFunction
-			defer func() { exitFunction = oldExit }()
+			defer utils.SetExitFunction(oldExit)
 			terminate()
 			It("should have terminated", func() {
 				Expect(exitCode).To(Equal(1))
@@ -413,9 +414,9 @@ var _ = Describe("FV tests against a real etcd", func() {
 	DescribeTable("Test IP pool env variables that cause exit",
 		func(envList []EnvItem) {
 			my_ec := 0
-			oldExit := exitFunction
+			oldExit := utils.GetExitFunction()
 			exitFunction = func(ec int) { my_ec = ec }
-			defer func() { exitFunction = oldExit }()
+			defer utils.SetExitFunction(oldExit)
 
 			// Create a new client.
 			cfg, err := apiconfig.LoadClientConfigFromEnvironment()
@@ -1117,7 +1118,7 @@ var _ = Describe("UT for IP and IP6", func() {
 	DescribeTable("env IP is defined", func(ipv4Env string, version int, exceptValue string) {
 		ipv4MockInterfaces := func([]string, []string, int) ([]autodetection.Interface, error) {
 			return []autodetection.Interface{
-				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1.2.3.4/24")},}}, nil
+				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1.2.3.4/24")}}}, nil
 		}
 		ipv4CIDROrIP, _ := getLocalCIDR(ipv4Env, version, ipv4MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
@@ -1125,13 +1126,12 @@ var _ = Describe("UT for IP and IP6", func() {
 		Entry("get the local cidr", "1.2.3.4", 4, "1.2.3.4/24"),
 		Entry("get the original cidr", "4.3.2.1/25", 4, "4.3.2.1/25"),
 		Entry("get the original ip(v4)", "1.2.3.5", 4, "1.2.3.5"),
-
 	)
 
 	var _ = DescribeTable("env IP6 is defined", func(ipv6Env string, version int, exceptValue string) {
 		ipv6MockInterfaces := func([]string, []string, int) ([]autodetection.Interface, error) {
 			return []autodetection.Interface{
-				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1:2:3:4::5/120")},}}, nil
+				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1:2:3:4::5/120")}}}, nil
 		}
 		ipv4CIDROrIP, _ := getLocalCIDR(ipv6Env, version, ipv6MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
