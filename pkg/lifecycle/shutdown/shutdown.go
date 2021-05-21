@@ -29,6 +29,11 @@ import (
 // -  Save time stamp to shutdown file.
 // -  Set node condition to "networkUnavailable=true"
 func Run() {
+	// Save shutdown timestamp immediately.
+	// Depends on how we configure termination grace period,
+	// the shutdown process can be killed at any given time.
+	utils.SaveShutdownTimestamp()
+
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()
 	log.Infof("Shutting down node %s", nodeName)
@@ -61,6 +66,9 @@ func Run() {
 				k8sNodeName = nodeRef
 			}
 
+			// Set node condition, the timeout value is 5 seconds.
+			// Depends on how we configure termination grace period, this operation
+			// may not be successful if it takes too long to update node condition.
 			err := utils.SetNodeNetworkUnavailableCondition(*clientset, k8sNodeName, true, 5*time.Second)
 			if err != nil {
 				log.WithError(err).Error("Unable to set NetworkUnavailable to true")
@@ -68,7 +76,4 @@ func Run() {
 			}
 		}
 	}
-
-	// Save shutdown timestamp when Calico shutdown successfully.
-	utils.SaveShutdownTimestamp()
 }
