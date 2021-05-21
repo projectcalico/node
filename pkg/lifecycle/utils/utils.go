@@ -41,6 +41,25 @@ const (
 	defaultNodenameFileWindows          = `c:\CalicoWindows\nodename`
 )
 
+// For testing purposes we define an exit function that we can override.
+var exitFunction = os.Exit
+
+// Terminate prints a terminate message and exists with status 1.
+func Terminate() {
+	log.Warn("Terminating")
+	exitFunction(1)
+}
+
+// GetExitFunction return current exit function.
+func GetExitFunction() func(int) {
+	return exitFunction
+}
+
+// SetExitFunction set exitFunction to be called.
+func SetExitFunction(exitFunc func(int)) {
+	exitFunction = exitFunc
+}
+
 // CreateCalicoClient loads the client config from environments and creates the
 // Calico client.
 func CreateCalicoClient() (*apiconfig.CalicoAPIConfig, client.Interface) {
@@ -59,6 +78,7 @@ func CreateCalicoClient() (*apiconfig.CalicoAPIConfig, client.Interface) {
 	return cfg, c
 }
 
+// shutdownTimestampFileName returns file name used for saving shutdown timestamp.
 func shutdownTimestampFileName() string {
 	fn := os.Getenv("CALICO_SHUTDOWN_TIMESTAMP_FILE")
 	if fn == "" {
@@ -71,6 +91,7 @@ func shutdownTimestampFileName() string {
 	return fn
 }
 
+// RemoveShutdownTimestampFile removes shutdown timestamp file.
 func RemoveShutdownTimestampFile() error {
 	filename := shutdownTimestampFileName()
 	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
@@ -80,6 +101,7 @@ func RemoveShutdownTimestampFile() error {
 	return nil
 }
 
+// SaveShutdownTimestamp saves timestamp to shutdown timestamp file.
 func SaveShutdownTimestamp() error {
 	ts := time.Now().UTC().Format(time.RFC3339)
 	filename := shutdownTimestampFileName()

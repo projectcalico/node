@@ -77,9 +77,6 @@ const (
 // Version string, set during build.
 var VERSION string
 
-// For testing purposes we define an exit function that we can override.
-var exitFunction = os.Exit
-
 var (
 	// Default values, names for different configs.
 	defaultLogSeverity        = "Info"
@@ -1289,12 +1286,6 @@ func setNodeNetworkUnavailableFalse(clientset kubernetes.Clientset, nodeName str
 	}
 }
 
-// terminate prints a terminate message and exists with status 1.
-func terminate() {
-	log.Warn("Terminating")
-	exitFunction(1)
-}
-
 // extractKubeadmCIDRs looks through the config map and parses lines starting with 'podSubnet'.
 func extractKubeadmCIDRs(kubeadmConfig *v1.ConfigMap) (string, string, error) {
 	var v4, v6 string
@@ -1383,4 +1374,8 @@ func getLocalCIDR(ip string, version int, getInterfaces func([]string, []string,
 	// Even if no CIDR is found, it doesn't think it needs to throw an exception
 	log.Warnf("Unable to find matching host interface for IP %s", ip)
 	return ip, nil
+}
+
+func terminate() {
+	utils.Terminate()
 }
