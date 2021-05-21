@@ -16,7 +16,6 @@ package startup
 import (
 	"context"
 	cryptorand "crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -28,7 +27,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	kapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1251,40 +1249,6 @@ func ensureKDDMigrated(cfg *apiconfig.CalicoAPIConfig, cv3 client.Interface) err
 	}
 
 	return nil
-}
-
-// Set Kubernetes NodeNetworkUnavailable to false when starting
-// https://kubernetes.io/docs/concepts/architecture/nodes/#condition
-func setNodeNetworkUnavailableFalse(clientset kubernetes.Clientset, nodeName string) error {
-	condition := kapiv1.NodeCondition{
-		Type:               kapiv1.NodeNetworkUnavailable,
-		Status:             kapiv1.ConditionFalse,
-		Reason:             "CalicoIsUp",
-		Message:            "Calico is running on this node",
-		LastTransitionTime: metav1.Now(),
-		LastHeartbeatTime:  metav1.Now(),
-	}
-	raw, err := json.Marshal(&[]kapiv1.NodeCondition{condition})
-	if err != nil {
-		return err
-	}
-	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
-	to := time.After(30 * time.Second)
-	for {
-		select {
-		case <-to:
-			err = fmt.Errorf("timed out patching node, last error was: %s", err.Error())
-			return err
-		default:
-			_, err = clientset.CoreV1().Nodes().PatchStatus(context.Background(), nodeName, patch)
-			if err != nil {
-				log.WithError(err).Warnf("Failed to set NetworkUnavailable to False; will retry")
-			} else {
-				// Success!
-				return nil
-			}
-		}
-	}
 }
 
 // extractKubeadmCIDRs looks through the config map and parses lines starting with 'podSubnet'.
