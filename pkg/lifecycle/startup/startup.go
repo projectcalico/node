@@ -216,7 +216,7 @@ func Run() {
 	}
 
 	// Write config files now that we are ready to start other components.
-	writeNodeConfig(nodeName)
+	utils.WriteNodeConfig(nodeName)
 
 	// Tell the user what the name of the node is.
 	log.Infof("Using node name: %s", nodeName)
@@ -298,7 +298,7 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 
 func MonitorIPAddressSubnets() {
 	ctx := context.Background()
-	_, cli := utils.CreateCalicoClient()
+	_, cli := calicoclient.CreateClient()
 	nodeName := utils.DetermineNodeName()
 	node := getNode(ctx, cli, nodeName)
 
@@ -415,18 +415,6 @@ func waitForConnection(ctx context.Context, c client.Interface) {
 		break
 	}
 	log.Info("Datastore connection verified")
-}
-
-// writeNodeConfig writes out the this node's configuration to disk for use by other components.
-// Specifically, it creates:
-// - nodenameFileName() - used to persist the determined node name to disk for future use.
-func writeNodeConfig(nodeName string) {
-	filename := nodenameFileName()
-	log.Debugf("Writing %s to "+filename, nodeName)
-	if err := ioutil.WriteFile(filename, []byte(nodeName), 0644); err != nil {
-		log.WithError(err).Error("Unable to write to " + filename)
-		terminate()
-	}
 }
 
 // getNode returns the current node configuration. If this node has not yet

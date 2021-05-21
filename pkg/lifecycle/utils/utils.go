@@ -153,6 +153,18 @@ func nodenameFromFile() string {
 	return string(data)
 }
 
+// writeNodeConfig writes out the this node's configuration to disk for use by other components.
+// Specifically, it creates:
+// - nodenameFileName() - used to persist the determined node name to disk for future use.
+func WriteNodeConfig(nodeName string) {
+	filename := utils.()
+	log.Debugf("Writing %s to "+filename, nodeName)
+	if err := ioutil.WriteFile(filename, []byte(nodeName), 0644); err != nil {
+		log.WithError(err).Error("Unable to write to " + filename)
+		terminate()
+	}
+}
+
 // Set Kubernetes NodeNetworkUnavailable to false when starting
 // https://kubernetes.io/docs/concepts/architecture/nodes/#condition
 func SetNodeNetworkUnavailableCondition(clientset kubernetes.Clientset,
