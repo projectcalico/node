@@ -17,7 +17,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"reflect"
