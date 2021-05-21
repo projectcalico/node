@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	kapiv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/projectcalico/libcalico-go/lib/names"
@@ -112,7 +113,7 @@ func DetermineNodeName() string {
 		log.Infof("Using HOSTNAME environment (lowercase) for node name %s", nodeName)
 	} else if nodeName, err = names.Hostname(); err != nil {
 		log.WithError(err).Error("Unable to determine hostname")
-		terminate()
+		Terminate()
 	} else {
 		log.Warn("Using auto-detected node name. It is recommended that an explicit value is supplied using " +
 			"the NODENAME environment variable.")
@@ -146,7 +147,7 @@ func nodenameFromFile() string {
 			return ""
 		}
 		log.WithError(err).Error("Failed to read " + filename)
-		terminate()
+		Terminate()
 	}
 	return string(data)
 }
