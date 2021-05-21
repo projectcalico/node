@@ -157,11 +157,11 @@ func nodenameFromFile() string {
 // Specifically, it creates:
 // - nodenameFileName() - used to persist the determined node name to disk for future use.
 func WriteNodeConfig(nodeName string) {
-	filename := utils.()
+	filename := nodenameFileName()
 	log.Debugf("Writing %s to "+filename, nodeName)
 	if err := ioutil.WriteFile(filename, []byte(nodeName), 0644); err != nil {
 		log.WithError(err).Error("Unable to write to " + filename)
-		terminate()
+		Terminate()
 	}
 }
 
