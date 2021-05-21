@@ -26,9 +26,6 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/projectcalico/libcalico-go/lib/apiconfig"
-	client "github.com/projectcalico/libcalico-go/lib/clientv3"
-
 	"github.com/projectcalico/libcalico-go/lib/names"
 
 	log "github.com/sirupsen/logrus"
@@ -58,24 +55,6 @@ func GetExitFunction() func(int) {
 // SetExitFunction set exitFunction to be called.
 func SetExitFunction(exitFunc func(int)) {
 	exitFunction = exitFunc
-}
-
-// CreateCalicoClient loads the client config from environments and creates the
-// Calico client.
-func CreateCalicoClient() (*apiconfig.CalicoAPIConfig, client.Interface) {
-	// Load the client config from environment.
-	cfg, err := apiconfig.LoadClientConfig("")
-	if err != nil {
-		fmt.Printf("ERROR: Error loading datastore config: %s", err)
-		os.Exit(1)
-	}
-	c, err := client.New(*cfg)
-	if err != nil {
-		fmt.Printf("ERROR: Error accessing the Calico datastore: %s", err)
-		os.Exit(1)
-	}
-
-	return cfg, c
 }
 
 // shutdownTimestampFileName returns file name used for saving shutdown timestamp.

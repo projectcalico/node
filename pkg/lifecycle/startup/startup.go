@@ -46,6 +46,7 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator"
 	"github.com/projectcalico/libcalico-go/lib/upgrade/migrator/clients"
 
+	"github.com/projectcalico/node/pkg/calicoclient"
 	"github.com/projectcalico/node/pkg/lifecycle/startup/autodetection"
 	"github.com/projectcalico/node/pkg/lifecycle/startup/autodetection/ipv4"
 	"github.com/projectcalico/node/pkg/lifecycle/utils"
@@ -99,7 +100,7 @@ func Run() {
 	log.Infof("Starting node %s with version %s", nodeName, VERSION)
 
 	// Create the Calico API cli.
-	cfg, cli := utils.CreateCalicoClient()
+	cfg, cli := calicoclient.CreateClient()
 
 	ctx := context.Background()
 
