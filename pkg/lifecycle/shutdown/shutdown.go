@@ -32,7 +32,7 @@ func Run() {
 	// Save shutdown timestamp immediately.
 	// Depends on how we configure termination grace period,
 	// the shutdown process can be killed at any given time.
-	utils.SaveShutdownTimestamp()
+	_ = utils.SaveShutdownTimestamp()
 
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()

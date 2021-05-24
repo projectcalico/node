@@ -227,7 +227,7 @@ func Run() {
 
 	// Remove shutdownTS file when everything is done.
 	// This indicates Calico node started successfully.
-	utils.RemoveShutdownTimestampFile()
+	_ = utils.RemoveShutdownTimestampFile()
 }
 
 func getMonitorPollInterval() time.Duration {
