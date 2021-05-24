@@ -85,7 +85,8 @@ var _ = DescribeTable("Node IP detection failure cases",
 
 		my_ec := 0
 		oldExit := utils.GetExitFunction()
-		exitFunction = func(ec int) { my_ec = ec }
+		exitFunction := func(ec int) { my_ec = ec }
+		utils.SetExitFunction(exitFunction)
 		defer utils.SetExitFunction(oldExit)
 
 		// prologue for the main test.
@@ -124,7 +125,7 @@ var _ = Describe("Non-etcd related tests", func() {
 		exitCode = 0
 		Context("Test termination", func() {
 			oldExit := utils.GetExitFunction()
-			exitFunction = fakeExitFunction
+			utils.SetExitFunction(fakeExitFunction)
 			defer utils.SetExitFunction(oldExit)
 			terminate()
 			It("should have terminated", func() {
@@ -415,7 +416,8 @@ var _ = Describe("FV tests against a real etcd", func() {
 		func(envList []EnvItem) {
 			my_ec := 0
 			oldExit := utils.GetExitFunction()
-			exitFunction = func(ec int) { my_ec = ec }
+			exitFunction := func(ec int) { my_ec = ec }
+			utils.SetExitFunction(exitFunction)
 			defer utils.SetExitFunction(oldExit)
 
 			// Create a new client.
@@ -545,7 +547,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := determineNodeName()
+			nodeName := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			err = ensureDefaultConfig(ctx, cfg, c, node, OSTypeLinux, nil, nil)
@@ -585,7 +587,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := determineNodeName()
+			nodeName := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			os.Setenv("CLUSTER_TYPE", "theType")
@@ -627,7 +629,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := determineNodeName()
+			nodeName := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -686,7 +688,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := determineNodeName()
+			nodeName := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -748,7 +750,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := determineNodeName()
+			nodeName := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -795,7 +797,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := determineNodeName()
+			nodeName := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -992,7 +994,7 @@ var _ = Describe("UT for node name determination", func() {
 			} else {
 				os.Unsetenv("HOSTNAME")
 			}
-			nodeName := determineNodeName()
+			nodeName := utils.DetermineNodeName()
 			os.Unsetenv("NODENAME")
 			os.Unsetenv("HOSTNAME")
 			Expect(nodeName).To(Equal(expectedNodeName))
