@@ -38,6 +38,34 @@ $env:ETCD_CA_CERT_FILE = "<your etcd ca cert>"
 ## CNI configuration, only used for the "vxlan" networking backends.
 
 # Place to install the CNI plugin to.  Should match kubelet's --cni-bin-dir.
+Write-Output "Checking CNI_BIN_DIR variable [ $env:CNI_BIN_DIR ] "
+
+if (-not (Test-Path env:CNI_BIN_DIR)) { 
+    Write-Output "Defaulting CNI_BIN_DIR..."
+
+    if (Get-IsContainerdRunning)
+    {
+        $env:CNI_BIN_DIR = Get-ContainerdCniBinDir
+    } else {
+        $env:CNI_BIN_DIR = "c:\k\cni" 
+    }
+}
+
+Write-Output "Checking CNI_CONF_DIR variable [ $env:CNI_CONF_DIR ] "
+
+if (-not (Test-Path env:CNI_CONF_DIR)) {
+    Write-Output "Defaulting CNI_CONF_DIR..."
+    if (Get-IsContainerdRunning)
+    {
+        $env:CNI_CONF_DIR = Get-ContainerdCniConfDir
+    } else {
+        $env:CNI_CONF_DIR = "c:\k\cni\config" 
+    }
+}
+
+Write-Output "CNI_BIN_DIR -> $env:CNI_BIN_DIR"
+Write-Output "CNI_CONF_DIR -> $env:CNI_CONF_DIR"
+
 $env:CNI_BIN_DIR = "c:\k\cni"
 # Place to install the CNI config to.  Should be located in kubelet's --cni-conf-dir.
 $env:CNI_CONF_DIR = "c:\k\cni\config"
