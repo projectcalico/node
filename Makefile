@@ -479,7 +479,7 @@ st: image-all remote-deps dist/calicoctl busybox.tar calico-node.tar workload.ta
 # CI/CD
 ###############################################################################
 .PHONY: ci
-ci: mod-download static-checks fv image-all build-windows-archive st
+ci: mod-download fv image-all build-windows-archive st
 
 ## Deploys images to registry
 cd: cd-common
