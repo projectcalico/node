@@ -90,6 +90,9 @@ func ensureNetworkForOS(ctx context.Context, c client.Interface, nodeName string
 				return err
 			}
 			_, err = windows.SetupVxlanNetwork(networkName, subnet, uint64(vni), logrus.WithField("subnet", subnet.String()))
+			if err != nil {
+				return err
+			}
 			for attempts := 3; attempts > 0; attempts-- {
 				err = windows.EnsureVXLANTunnelAddr(ctx, c, nodeName, subnet, networkName)
 				if err != nil {
