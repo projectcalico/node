@@ -8,12 +8,12 @@ require (
 	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.9.1
 	github.com/projectcalico/api v0.0.0-20210727230154-ae822ba06c23
-	github.com/projectcalico/cni-plugin v1.11.1-0.20210730214552-1e82825771ad
+	github.com/projectcalico/cni-plugin v1.11.1-0.20210802101442-d72181ed51a1
 	github.com/projectcalico/felix v0.0.0-20210731010612-f044030386cf
 	github.com/projectcalico/libcalico-go v1.7.2-0.20210727232737-a62724233980
 	github.com/projectcalico/typha v0.7.3-0.20210730161412-c5c253a34511
 	github.com/sirupsen/logrus v1.7.0
-	github.com/vishvananda/netlink v1.1.0
+	github.com/vishvananda/netlink v1.1.1-0.20210703095558-21f2c55a7727
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
 	k8s.io/api v0.21.0-rc.0
