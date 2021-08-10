@@ -44,7 +44,9 @@ RUN dnf install -y 'dnf-command(config-manager)' && \
     # Need these to build runit.
     yum install -y wget glibc-static gcc && \
     # Ensure security updates are installed.
-    yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical
+    yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical && \
+    # Update systemd related packages due to CVEs (advisories RHSA-2021:2717 and RHSA-2021:1611)
+    yum -y update-minimal --advisory=RHSA-2021:2717 --advisory=RHSA-2021:1611
 
 # In order to rebuild the iptables RPM, we first need to rebuild the libnftnl RPM because building
 # iptables requires libnftnl-devel but libnftnl-devel is not available on ubi or CentOS repos.
