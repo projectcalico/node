@@ -19,7 +19,7 @@ ARG RUNIT_VER=2.1.2
 # Required in order to pull arm64 ubi image from redhat repo.
 ARG UBI_DIGEST=sha256:231d86e11434aeace9f879006fbba111ce4cf03db6441fd43e172e4c7212606c
 
-ARG QEMU_IMAGE=calico/go-build:latest-arm64
+ARG QEMU_IMAGE=calico/go-build:master-arm64
 ARG BIRD_IMAGE=calico/bird:latest
 
 FROM calico/bpftool:v5.0-arm64 as bpftool
@@ -28,7 +28,7 @@ FROM ${BIRD_IMAGE} as bird
 
 FROM arm64v8/centos:8 as centos
 
-MAINTAINER Casey Davenport <casey@tigera.io>
+MAINTAINER Reza Ramezanpour <reza@projectcalico.org>
 # Enable non-native builds of this image on an amd64 hosts.
 # This must be the first RUN command in this file!
 COPY --from=qemu /usr/bin/qemu-*-static /usr/bin/
@@ -216,7 +216,7 @@ LABEL name="Calico node" \
       release="1" \
       summary="Calico node handles networking and policy for Calico" \
       description="Calico node handles networking and policy for Calico" \
-      maintainer="laurence@tigera.io"
+      maintainer="reza@tigera.io"
 
 # Tell sv where to find the services.
 ENV SVDIR=/etc/service/enabled
