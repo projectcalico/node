@@ -57,7 +57,7 @@ class TestSpoof(TestBase):
         kubectl("run --generator=run-pod/v1 "
                 "scapy "
                 "-n %s "
-                "--image ehlers/scapy "
+                "--image calico/scapy:v2.4.0 "
                 "--overrides='{\"spec\": {\"nodeName\":\"%s\"}}' "
                 "--command /bin/sleep -- 3600" % (self.ns_name, nodes[2]))
 
