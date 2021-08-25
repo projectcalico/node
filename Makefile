@@ -204,9 +204,14 @@ remote-deps: mod-download
 		cp bin/bpf/bpf-apache/bin/* filesystem/usr/lib/calico/bpf/; \
 		chmod -R +w filesystem/etc/calico/confd/ config/ filesystem/usr/lib/calico/bpf/'
 
+TARGET_PLATFORM=${ARCH}
 # We need CGO when compiling in Felix for BPF support.  However, the cross-compile doesn't support CGO yet.
 ifeq ($(ARCH), amd64)
 CGO_ENABLED=1
+else ifeq ($(ARCH), arm64)
+# eBPF cross-complie for arm64/aarch64.
+CGO_ENABLED=1
+TARGET_PLATFORM=arm64/v8
 else
 CGO_ENABLED=0
 endif
@@ -260,7 +265,8 @@ endif
 	docker run --rm -v $(CURDIR)/dist/bin:/go/bin:rw $(CALICO_BUILD) /bin/sh -c "\
 	  echo; echo calico-node-$(ARCH) -v;	 /go/bin/calico-node-$(ARCH) -v; \
 	"
-	docker build --pull -t $(NODE_IMAGE):latest-$(ARCH) . --build-arg BIRD_IMAGE=$(BIRD_IMAGE) --build-arg QEMU_IMAGE=$(CALICO_BUILD) --build-arg GIT_VERSION=$(GIT_VERSION) -f ./Dockerfile.$(ARCH)
+## --platform fixes an issue where FROM SCRATCH imports an amd64 layer causing an architecture problem in cross compiling.
+	docker build --pull -t $(NODE_IMAGE):latest-$(ARCH) --platform=linux/$(TARGET_PLATFORM) . --build-arg BIRD_IMAGE=$(BIRD_IMAGE) --build-arg QEMU_IMAGE=$(CALICO_BUILD) --build-arg GIT_VERSION=$(GIT_VERSION) -f ./Dockerfile.$(ARCH)
 	touch $@
 
 # download BIRD source to include in image.
