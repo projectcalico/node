@@ -120,6 +120,9 @@ bin_allow_list_patterns=(
   '/find$'
   '/ldd$'
   '/ldconfig$'
+
+    # Required for cross compiling, will be removed in the dockerfile.
+  qemu
 )
 
 # Convert the binary allow list into arguments for grep.
