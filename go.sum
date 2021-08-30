@@ -118,8 +118,8 @@ github.com/buger/jsonparser v0.0.0-20180808090653-f4dd9f5a6b44/go.mod h1:bbYlZJ7
 github.com/buger/jsonparser v1.0.0 h1:etJTGF5ESxjI0Ic2UaLQs2LQQpa8G9ykQScukbh4L8A=
 github.com/buger/jsonparser v1.0.0/go.mod h1:tgcrVJ81GPSF0mz+0nu1Xaz0fazGPrmmJfJtxjbHhUQ=
 github.com/caddyserver/caddy v1.0.3/go.mod h1:G+ouvOY32gENkJC+jhgl62TyhvqEsFaDiZ4uw0RzP1E=
-github.com/caseydavenport/libcalico-go v0.0.0-20210830215437-891a7f821e51 h1:Gq+1GBgolGu7ACjMX3XMnKkCUEP9kBVTuT6wc75WyPY=
-github.com/caseydavenport/libcalico-go v0.0.0-20210830215437-891a7f821e51/go.mod h1:SlnU6Vxgy022G1lfJ5mTQsxSo8qHU3jlrYjzlc+wXTk=
+github.com/caseydavenport/libcalico-go v0.0.0-20210830221732-7c4891c24f1d h1:iVyWaDwZUFCD+8RwcLp9uM+ey6kBAqhUjyoftkzZAC4=
+github.com/caseydavenport/libcalico-go v0.0.0-20210830221732-7c4891c24f1d/go.mod h1:SlnU6Vxgy022G1lfJ5mTQsxSo8qHU3jlrYjzlc+wXTk=
 github.com/cenkalti/backoff v2.1.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=

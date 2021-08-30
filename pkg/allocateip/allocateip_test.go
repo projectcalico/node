@@ -499,7 +499,7 @@ var _ = allocateIPDescribe("ensureHostTunnelAddress", []string{ipam.AttributeTyp
 
 		// Now we have a wep IP allocated at 172.16.0.0 and tunnel ip allocated at 172.16.0.1.
 		// Release wep IP and call ensureHostTunnelAddress again. Tunnel ip should not be changed.
-		err = c.IPAM().ReleaseByHandle(ctx, "myhandle")
+		_, err = c.IPAM().ReleaseIPs(ctx, []net.IP{{IP: ip4net.IP}})
 		Expect(err).NotTo(HaveOccurred())
 
 		ensureHostTunnelAddress(ctx, c, node.Name, []net.IPNet{*ip4net}, tunnelType)
