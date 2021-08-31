@@ -118,8 +118,10 @@ github.com/buger/jsonparser v0.0.0-20180808090653-f4dd9f5a6b44/go.mod h1:bbYlZJ7
 github.com/buger/jsonparser v1.0.0 h1:etJTGF5ESxjI0Ic2UaLQs2LQQpa8G9ykQScukbh4L8A=
 github.com/buger/jsonparser v1.0.0/go.mod h1:tgcrVJ81GPSF0mz+0nu1Xaz0fazGPrmmJfJtxjbHhUQ=
 github.com/caddyserver/caddy v1.0.3/go.mod h1:G+ouvOY32gENkJC+jhgl62TyhvqEsFaDiZ4uw0RzP1E=
-github.com/caseydavenport/libcalico-go v0.0.0-20210830221732-7c4891c24f1d h1:iVyWaDwZUFCD+8RwcLp9uM+ey6kBAqhUjyoftkzZAC4=
-github.com/caseydavenport/libcalico-go v0.0.0-20210830221732-7c4891c24f1d/go.mod h1:SlnU6Vxgy022G1lfJ5mTQsxSo8qHU3jlrYjzlc+wXTk=
+github.com/caseydavenport/cni-plugin v0.2.1-0.20210830235925-b42f7f17162f h1:6+UL5MW8O4E/92D+Ztc3pVBrE+2Q/6BZB0JoFCh/dMU=
+github.com/caseydavenport/cni-plugin v0.2.1-0.20210830235925-b42f7f17162f/go.mod h1:+MVZR1VVh7+KbEY8qquJVYRN97z2m2/V6C7YVOYmzaw=
+github.com/caseydavenport/libcalico-go v0.0.0-20210830234933-05d78e2b6318 h1:fpLaM+KY4JzwyuCmtoLSJeot5zSh0Nlr+ejvpgVmBok=
+github.com/caseydavenport/libcalico-go v0.0.0-20210830234933-05d78e2b6318/go.mod h1:SlnU6Vxgy022G1lfJ5mTQsxSo8qHU3jlrYjzlc+wXTk=
 github.com/cenkalti/backoff v2.1.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
@@ -639,8 +641,6 @@ github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndr
 github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021/go.mod h1:prYjPmNq4d1NPVmpShWobRqXY3q7Vp+80DqgxxUrUIA=
 github.com/projectcalico/api v0.0.0-20210818175712-59320232f526 h1:9ZY8BrIo86YU6egGkBTbAc0sYtAvCZnWqDj43KTUmT4=
 github.com/projectcalico/api v0.0.0-20210818175712-59320232f526/go.mod h1:8raLpE2oURN0I33JpEniA3LmAs5uPZ1kGnW/YunYEB0=
-github.com/projectcalico/cni-plugin v1.11.1-0.20210820173408-4a0b3ef56d8d h1:fsBUT1Rv8xZtm4iarfw+Y8bDkXjpurI53/WgtUVeA5k=
-github.com/projectcalico/cni-plugin v1.11.1-0.20210820173408-4a0b3ef56d8d/go.mod h1:q2eDAqMK1ygQdscMBguglHUpjUqyxiFnfTqT+kOJEzA=
 github.com/projectcalico/confd v1.0.1-0.20210820172640-b8724bf0726d h1:zpy/RVvgnAKxq/y9F6OuzBcNiokoHJ1i9ZgcWi6xJDk=
 github.com/projectcalico/confd v1.0.1-0.20210820172640-b8724bf0726d/go.mod h1:BwQil4v8TzTLIk9bNSABZn6XOF8sMoQd2FkvmZ/zYD8=
 github.com/projectcalico/felix v0.0.0-20210825081841-2ac79567b8fd h1:nnzgx6XXBZHvXU6rWpSB77wVNm+tzlQRq+h6NBBvMKE=
