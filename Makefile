@@ -273,6 +273,14 @@ endif
 	docker build --pull -t $(NODE_IMAGE):latest-$(ARCH) $(TARGET_PLATFORM) . --build-arg BIRD_IMAGE=$(BIRD_IMAGE) --build-arg QEMU_IMAGE=$(CALICO_BUILD) --build-arg GIT_VERSION=$(GIT_VERSION) -f ./Dockerfile.$(ARCH)
 	touch $@
 
+image-windows: clean-windows build 
+	docker buildx create --name img-builder --use --platform windows/amd64 
+	docker buildx build --platform windows/amd64 --output=type=registry --pull -t $(NODE_IMAGE):latest-$(ARCH)-windows --build-arg GIT_VERSION=$(GIT_VERSION) -f Dockerfile-windows .
+	docker buildx rm img-builder 
+
+clean-windows:
+	docker buildx rm img-builder || true
+
 # download BIRD source to include in image.
 $(BIRD_SOURCE): go.mod
 	mkdir -p filesystem/included-source/

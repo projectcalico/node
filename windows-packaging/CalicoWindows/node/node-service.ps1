@@ -13,8 +13,6 @@
 # limitations under the License.
 
 # This script is run from the main Calico folder.
-. .\config.ps1
-
 ipmo .\libs\calico\calico.psm1
 ipmo .\libs\hns\hns.psm1
 
