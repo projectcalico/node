@@ -160,6 +160,7 @@ while ($True)
                     # At this point, we can run new CalicoExec service if it is not running already.
                     if (!(Get-ExecService)) {
                         Install-ExecService
+                        Start-Service CalicoExec
                     }
                     break
                 }

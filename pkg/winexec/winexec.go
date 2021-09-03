@@ -53,7 +53,7 @@ const (
 func Run() {
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()
-	log.Info("Starting CalicoExec service on node %s ", nodeName)
+	log.Infof("Starting CalicoExec service on node %s ", nodeName)
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
@@ -95,11 +95,9 @@ func Run() {
 		syscall.SIGQUIT,
 	)
 
-	select {
-	case <-sigCh:
-		cancel()
-		log.Print("Received system signal...Done.")
-	}
+	<-sigCh
+	cancel()
+	log.Info("Received system signal...Done.")
 }
 
 func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName string) {
@@ -132,7 +130,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 		case <-ticker.C:
 			script, err := getScript()
 			if err != nil {
-				log.Printf("CalicoExec scripts are not available yet.")
+				log.Info("CalicoExec scripts are not available yet.")
 				// Use fast ticker
 				ticker.Stop()
 				ticker = time.NewTicker(3 * time.Second)
@@ -146,7 +144,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 
 					err = uninstall(shell)
 					if err != nil {
-						log.Printf("Uninstall failed with err: %v", err)
+						log.Info("Uninstall failed with err: %v", err)
 						break
 					}
 
@@ -156,11 +154,11 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 						panic(err)
 					}
 
-					log.Printf("All done.")
+					log.Info("All done.")
 					return
 				}
 				// No EX label yet, continue
-				log.Printf("node EX label does not exist\n")
+				log.Info("node EX label does not exist\n")
 			}
 		}
 	}
@@ -170,7 +168,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 func baseDir() string {
 	dir := filepath.Dir(os.Args[0])
 	parent := "c:\\" + filepath.Base(dir)
-	log.Printf("CalicoExec service base directory: %s\n", parent)
+	log.Infof("CalicoExec service base directory: %s\n", parent)
 
 	return parent
 }
@@ -182,7 +180,7 @@ func kubeConfigFile() string {
 
 func uninstall(shell ps.Shell) error {
 	path := filepath.Join(baseDir(), "uninstall-calico.ps1")
-	log.Printf("Start uninstall script %s\n", path)
+	log.Infof("Start uninstall script %s\n", path)
 	stdout, stderr, err := shell.Execute(path)
 	if err != nil {
 		return err
@@ -192,7 +190,7 @@ func uninstall(shell ps.Shell) error {
 }
 
 func execScript(shell ps.Shell, script string) error {
-	log.Printf("Start exec script %s\n", script)
+	log.Infof("Start exec script %s\n", script)
 	stdout, stderr, err := shell.Execute(script)
 	if err != nil {
 		return err
@@ -234,7 +232,7 @@ func VerifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, 
 		}
 
 		container := pod.Spec.Containers[0]
-		log.Printf("container image is %v\n", container.Image)
+		log.Infof("container image is %v\n", container.Image)
 
 		if !strings.HasPrefix(container.Image, imagePrefix) {
 			return "", fmt.Errorf("Pod with hostpath volume has invalid image %s, prefix %s", container.Image, imagePrefix)
