@@ -23,6 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/projectcalico/node/pkg/lifecycle/startup"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -43,7 +45,15 @@ const (
 	CalicoBaseDir        = "c:\\CalicoWindows"
 	CalientBaseDir       = "c:\\TigeraCalico"
 	CalicoEXLabel        = "projectcalico.org/CalicoExecScript"
+	CalicoVersionLabel   = "projectcalico.org/CalicoExecVersion"
 )
+
+func getVersionString() string {
+	if runningCalient() {
+		return "Cailent-" + startup.VERSION
+	}
+	return "Cailco-" + startup.VERSION
+}
 
 // This file contains the winexec processing for the calico/node.  This
 // includes:
@@ -82,6 +92,17 @@ func Run() {
 
 	fmt.Println(stdout, stderr)
 
+	// Configure node labels.
+	// Remove EX label if there is any from upgrade process.
+	// Set Version Label so fluentd-windows pod can run.
+	node := k8snode(nodeName)
+	err = node.addRemoveNodeLabels(clientSet,
+		map[string]string{CalicoVersionLabel: getVersionString()},
+		[]string{CalicoEXLabel})
+	if err != nil {
+		log.WithError(err).Fatal("failed to configure node labels")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go loop(ctx, clientSet, shell, nodeName)
@@ -106,7 +127,10 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 	getScript := func() (string, error) {
 		node, err := cs.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 		if err != nil {
-			log.Fatal(err)
+			// Treat error as the label does not exist.
+			// Will retry by outer loop.
+			log.WithError(err).Error("Unable to get node resources")
+			return "", nil
 		}
 
 		fileName, ok := node.Labels[CalicoEXLabel]
@@ -144,7 +168,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 
 					err = uninstall(shell)
 					if err != nil {
-						log.Info("Uninstall failed with err: %v", err)
+						log.WithError(err).Error("Uninstall failed")
 						break
 					}
 
@@ -171,6 +195,11 @@ func baseDir() string {
 	log.Infof("CalicoExec service base directory: %s\n", parent)
 
 	return parent
+}
+
+// Return if the exec service is running as part of Calient installation.
+func runningCalient() bool {
+	return baseDir() == CalientBaseDir
 }
 
 // Return kubeconfig file path for Calico
