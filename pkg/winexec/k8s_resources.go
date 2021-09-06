@@ -26,11 +26,11 @@ import (
 // k8snode holds a collection of helper functions for Kubernetes node.
 type k8snode string
 
-// Add and remove node labels to node. Perform Get/Check/Update so that it always working on latest version.
+// Add / remove node annotations to node. Perform Get/Check/Update so that it always working on latest version.
 // If node labels has been set already, do nothing.
-func (n k8snode) addRemoveNodeLabels(k8sClientset *kubernetes.Clientset,
-	labelMapsToAdd map[string]string,
-	labelKeyToRemove []string) error {
+func (n k8snode) addRemoveNodeAnnotations(k8sClientset *kubernetes.Clientset,
+	toAdd map[string]string,
+	toRemove []string) error {
 	nodeName := string(n)
 	return wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
 		node, err := k8sClientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
@@ -39,23 +39,23 @@ func (n k8snode) addRemoveNodeLabels(k8sClientset *kubernetes.Clientset,
 		}
 
 		needUpdate := false
-		for k, v := range labelMapsToAdd {
-			if currentVal, ok := node.Labels[k]; ok && currentVal == v {
+		for k, v := range toAdd {
+			if currentVal, ok := node.Annotations[k]; ok && currentVal == v {
 				continue
 			}
-			node.Labels[k] = v
+			node.Annotations[k] = v
 			needUpdate = true
 		}
 
-		for _, k := range labelKeyToRemove {
-			if _, ok := node.Labels[k]; ok {
-				delete(node.Labels, k)
+		for _, k := range toRemove {
+			if _, ok := node.Annotations[k]; ok {
+				delete(node.Annotations, k)
 				needUpdate = true
 			}
 		}
 
 		if needUpdate {
-			_, err := k8sClientset.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
+			_, err := k8sClientset.CoreV1().Nodes().UpdateStatus(context.Background(), node, metav1.UpdateOptions{})
 			if err == nil {
 				return true, nil
 			}

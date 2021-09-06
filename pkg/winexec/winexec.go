@@ -39,13 +39,13 @@ import (
 )
 
 const (
-	TigeraImagePrefix    = "songtjiang/exec:"
-	CalicoKubeConfigFile = "calico-kube-config"
-	CalicoUpdateExecDir  = "c:\\CalicoUpdateExec"
-	CalicoBaseDir        = "c:\\CalicoWindows"
-	CalientBaseDir       = "c:\\TigeraCalico"
-	CalicoEXLabel        = "projectcalico.org/CalicoExecScript"
-	CalicoVersionLabel   = "projectcalico.org/CalicoExecVersion"
+	TigeraImagePrefix       = "songtjiang/exec:"
+	CalicoKubeConfigFile    = "calico-kube-config"
+	CalicoUpdateExecDir     = "c:\\CalicoUpdateExec"
+	CalicoBaseDir           = "c:\\CalicoWindows"
+	CalientBaseDir          = "c:\\TigeraCalico"
+	CalicoEXLabel           = "projectcalico.org/CalicoExecScript"
+	CalicoVersionAnnotation = "projectcalico.org/CalicoExecVersion"
 )
 
 func getVersionString() string {
@@ -93,12 +93,11 @@ func Run() {
 	fmt.Println(stdout, stderr)
 
 	// Configure node labels.
-	// Remove EX label if there is any from upgrade process.
-	// Set Version Label so fluentd-windows pod can run.
+	// Set Version annotation to indicate what is running on this node.
 	node := k8snode(nodeName)
-	err = node.addRemoveNodeLabels(clientSet,
-		map[string]string{CalicoVersionLabel: getVersionString()},
-		[]string{CalicoEXLabel})
+	err = node.addRemoveNodeAnnotations(clientSet,
+		map[string]string{CalicoVersionAnnotation: getVersionString()},
+		[]string{})
 	if err != nil {
 		log.WithError(err).Fatal("failed to configure node labels")
 	}
