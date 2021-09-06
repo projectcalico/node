@@ -67,11 +67,11 @@ func Run() {
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
-		panic(err)
+		log.WithError(err).Fatal("failed to build Kubernetes client config")
 	}
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err)
+		log.WithError(err).Fatal("failed to create Kubernetes client")
 	}
 
 	// choose a backend
@@ -80,14 +80,14 @@ func Run() {
 	// start a local powershell process
 	shell, err := ps.New(back)
 	if err != nil {
-		panic(err)
+		log.WithError(err).Fatal("failed to create a local powershell process")
 	}
 	defer shell.Exit()
 
 	// ... and interact with it
 	stdout, stderr, err := shell.Execute("Get-ComputerInfo  | select WindowsVersion, OsBuildNumber, OsHardwareAbstractionLayer")
 	if err != nil {
-		panic(err)
+		log.WithError(err).Fatal("failed to interact with powershell")
 	}
 
 	fmt.Println(stdout, stderr)
@@ -163,7 +163,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 					// Before execute the script, verify host path volume mount.
 					_, err := VerifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpdateExecDir, TigeraImagePrefix)
 					if err != nil {
-						panic(err)
+						log.WithError(err).Fatal("failed to verify CalicoExecWindows pod image")
 					}
 
 					err = uninstall(shell)
@@ -175,7 +175,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 					time.Sleep(3 * time.Second)
 					err = execScript(shell, script)
 					if err != nil {
-						panic(err)
+						log.WithError(err).Fatal("failed to upgrade to new version")
 					}
 
 					log.Info("All done.")
@@ -234,7 +234,7 @@ func VerifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, 
 		FieldSelector: "spec.nodeName=" + nodeName,
 	})
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	hasHostPathVolume := func(pod v1.Pod, hostPath string) bool {
