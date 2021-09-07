@@ -3,6 +3,7 @@ module github.com/projectcalico/node
 go 1.15
 
 require (
+	github.com/bhendo/go-powershell v0.0.0-20190719160123-219e7fb4e41e
 	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.1

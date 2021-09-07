@@ -292,6 +292,54 @@ function Remove-ConfdService() {
     & $NSSMPath remove CalicoConfd confirm
 }
 
+function Install-ExecService()
+{
+    Write-Host "Installing exec startup service..."
+
+    ensureRegistryKey
+
+    # Ensure our service file can run.
+    Unblock-File $baseDir\exec\exec-service.ps1
+
+    & $NSSMPath install CalicoExec $powerShellPath
+    & $NSSMPath set CalicoExec AppParameters $baseDir\exec\exec-service.ps1
+    & $NSSMPath set CalicoExec AppDirectory $baseDir
+    & $NSSMPath set CalicoExec DisplayName "Calico Windows Exec"
+    & $NSSMPath set CalicoExec Description "Calico Windows Exec, configures Calico datamodel resources for this exec."
+
+    # Configure it to auto-start by default.
+    & $NSSMPath set CalicoExec Start SERVICE_AUTO_START
+    & $NSSMPath set CalicoExec ObjectName LocalSystem
+    & $NSSMPath set CalicoExec Type SERVICE_WIN32_OWN_PROCESS
+
+    # Throttle process restarts if Felix restarts in under 1500ms.
+    & $NSSMPath set CalicoExec AppThrottle 1500
+
+    # Create the log directory if needed.
+    if (-Not(Test-Path "$env:CALICO_LOG_DIR"))
+    {
+        write "Creating log directory."
+        md -Path "$env:CALICO_LOG_DIR"
+    }
+    & $NSSMPath set CalicoExec AppStdout $env:CALICO_LOG_DIR\calico-exec.log
+    & $NSSMPath set CalicoExec AppStderr $env:CALICO_LOG_DIR\calico-exec.err.log
+
+    # Configure online file rotation.
+    & $NSSMPath set CalicoExec AppRotateFiles 1
+    & $NSSMPath set CalicoExec AppRotateOnline 1
+    # Rotate once per day.
+    & $NSSMPath set CalicoExec AppRotateSeconds 86400
+    # Rotate after 10MB.
+    & $NSSMPath set CalicoExec AppRotateBytes 10485760
+
+    Write-Host "Done installing exec service."
+}
+
+function Remove-ExecService()
+{
+    & $NSSMPath remove CalicoExec confirm
+}
+
 function Wait-ForManagementIP($NetworkName)
 {
     while ((Get-HnsNetwork | ? Name -EQ $NetworkName).ManagementIP -EQ $null)
@@ -419,6 +467,12 @@ function Set-MetaDataServerRoute($mgmtIP)
             Write-Host "Warning! Failed to restore metadata server route."
         }
     }
+}
+
+function Get-ExecService()
+{
+    # Don't use get-wmiobject since that is not available in Powershell 7.
+    return Get-CimInstance -Query "SELECT * from Win32_Service WHERE name = 'CalicoExec'"
 }
 
 # Assume same relative path for containerd CNI bin/conf dir
