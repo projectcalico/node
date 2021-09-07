@@ -50,9 +50,18 @@ blocks:
             - make ut
             - make fv
 
+  - name: "Build amd64 Image"
+    dependencies: []
+    task:
+      jobs:
+        - name: "Build amd64 Image"
+          execution_time_limit:
+            minutes: 120
+          commands:
+            - make image
 
   - name: "System Tests"
-    dependencies: []
+    dependencies: ["Build amd64 Image"]
     task:
       prologue:
         commands:
