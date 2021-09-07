@@ -94,13 +94,15 @@ func Run() {
 
 	// Configure node labels.
 	// Set Version annotation to indicate what is running on this node.
+	version := getVersionString()
 	node := k8snode(nodeName)
 	err = node.addRemoveNodeAnnotations(clientSet,
-		map[string]string{CalicoVersionAnnotation: getVersionString()},
+		map[string]string{CalicoVersionAnnotation: version},
 		[]string{})
 	if err != nil {
 		log.WithError(err).Fatal("failed to configure node labels")
 	}
+	log.Infof("CalicoExec service setting version annotation on node %s", version)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
