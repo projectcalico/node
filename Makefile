@@ -255,18 +255,17 @@ image: remote-deps $(NODE_IMAGE)
 image-all: $(addprefix sub-image-,$(VALIDARCHES))
 sub-image-%:
 	$(MAKE) image ARCH=$*
+ifeq ($(TEST_IMAGE_BUILD),true)
+	# If testing image builds, clean sub-image afterwards to free disk space (for Semaphore CI)
+	$(MAKE) clean-sub-image-$*
+endif
 
-## Test building images for all supported ARCHes
-test-image-all: $(addprefix test-sub-image-,$(VALIDARCHES))
-## Test building image. Clean before to make sure image is built, clean after to free disk space (for Semaphore CI)
-test-sub-image-%:
-	$(MAKE) clean-sub-image-$*
-	$(MAKE) image ARCH=$*
-	$(MAKE) clean-sub-image-$*
-## Remove image from docker and $(NODE_CONTAINER_CREATED) file
+## Remove images for all supported ARCHes
+clean-image-all: $(addprefix clean-sub-image-,$(VALIDARCHES))
+## Remove sub-image from docker and delete $(NODE_CONTAINER_CREATED) file
 clean-sub-image-%:
 	rm -f .calico_node.created-$*
-	docker rmi $(NODE_IMAGE):latest-$(ARCH) || true
+	docker rmi $(NODE_IMAGE):latest-$* || true
 
 $(NODE_IMAGE): $(NODE_CONTAINER_CREATED)
 $(NODE_CONTAINER_CREATED): register ./Dockerfile.$(ARCH) $(NODE_CONTAINER_FILES) $(NODE_CONTAINER_BINARY) $(INCLUDED_SOURCE) remote-deps

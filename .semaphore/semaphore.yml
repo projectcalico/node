@@ -36,7 +36,7 @@ blocks:
           execution_time_limit:
             minutes: 120
           commands:
-            - make image-all
+            - TEST_IMAGE_BUILD=true make image-all
 
   - name: "General Tests"
     dependencies: []
