@@ -50,9 +50,9 @@ const (
 
 func getVersionString() string {
 	if runningCalient() {
-		return "Cailent-" + startup.VERSION
+		return "Calient-" + startup.VERSION
 	}
-	return "Cailco-" + startup.VERSION
+	return "Calico-" + startup.VERSION
 }
 
 // This file contains the winexec processing for the calico/node.  This
