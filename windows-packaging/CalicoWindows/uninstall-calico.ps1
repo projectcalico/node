@@ -28,7 +28,11 @@ if ($env:CALICO_NETWORKING_BACKEND -EQ "windows-bgp")
     Remove-ConfdService
 }
 
-Remove-CNIPlugin
+if ($env:CALICO_NETWORKING_BACKEND -NE "none")
+{
+    Remove-CNIPlugin
+}
+
 Remove-NodeService
 Remove-FelixService
 
