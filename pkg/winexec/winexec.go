@@ -14,9 +14,11 @@
 package winexec
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -29,9 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-
-	ps "github.com/bhendo/go-powershell"
-	"github.com/bhendo/go-powershell/backend"
 
 	"github.com/projectcalico/node/pkg/lifecycle/utils"
 
@@ -74,18 +73,8 @@ func Run() {
 		log.WithError(err).Fatal("failed to create Kubernetes client")
 	}
 
-	// choose a backend
-	back := &backend.Local{}
-
-	// start a local powershell process
-	shell, err := ps.New(back)
-	if err != nil {
-		log.WithError(err).Fatal("failed to create a local powershell process")
-	}
-	defer shell.Exit()
-
-	// ... and interact with it
-	stdout, stderr, err := shell.Execute("Get-ComputerInfo | select WindowsVersion, OsBuildNumber, OsHardwareAbstractionLayer")
+	stdout, stderr, err := Powershell("Get-ComputerInfo | select WindowsVersion, OsBuildNumber, OsHardwareAbstractionLayer")
+	fmt.Println(stdout, stderr)
 	if err != nil {
 		log.WithError(err).Fatal("failed to interact with powershell")
 	}
@@ -106,7 +95,7 @@ func Run() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	go loop(ctx, clientSet, shell, nodeName)
+	go loop(ctx, clientSet, nodeName)
 
 	// Trap cancellation on Windows. https://golang.org/pkg/os/signal/
 	sigCh := make(chan os.Signal, 1)
@@ -122,7 +111,7 @@ func Run() {
 	log.Info("Received system signal...Done.")
 }
 
-func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName string) {
+func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 	ticker := time.NewTicker(10 * time.Second)
 
 	getScript := func() (string, error) {
@@ -167,14 +156,14 @@ func loop(ctx context.Context, cs kubernetes.Interface, shell ps.Shell, nodeName
 						log.WithError(err).Fatal("failed to verify CalicoExecWindows pod image")
 					}
 
-					err = uninstall(shell)
+					err = uninstall()
 					if err != nil {
 						log.WithError(err).Error("Uninstall failed")
 						break
 					}
 
 					time.Sleep(3 * time.Second)
-					err = execScript(shell, script)
+					err = execScript(script)
 					if err != nil {
 						log.WithError(err).Fatal("failed to upgrade to new version")
 					}
@@ -208,20 +197,20 @@ func kubeConfigFile() string {
 	return baseDir() + "\\" + CalicoKubeConfigFile
 }
 
-func uninstall(shell ps.Shell) error {
+func uninstall() error {
 	path := filepath.Join(baseDir(), "uninstall-calico.ps1")
 	log.Infof("Start uninstall script %s\n", path)
-	stdout, stderr, err := shell.Execute(path)
+	stdout, stderr, err := Powershell(path)
+	fmt.Println(stdout, stderr)
 	if err != nil {
 		return err
 	}
-	fmt.Println(stdout, stderr)
 	return nil
 }
 
-func execScript(shell ps.Shell, script string) error {
+func execScript(script string) error {
 	log.Infof("Start exec script %s\n", script)
-	stdout, stderr, err := shell.Execute(script)
+	stdout, stderr, err := Powershell(script)
 	if err != nil {
 		return err
 	}
@@ -272,4 +261,26 @@ func VerifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, 
 	}
 
 	return "", fmt.Errorf("Failed to find CalicoExecPod")
+}
+
+func Powershell(args ...string) (string, string, error) {
+	ps, err := exec.LookPath("powershell.exe")
+	if err != nil {
+		return "", "", err
+	}
+
+	args = append([]string{"-NoProfile", "-NonInteractive"}, args...)
+	cmd := exec.Command(ps, args...)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		return "", "", err
+	}
+
+	return stdout.String(), stderr.String(), err
 }
