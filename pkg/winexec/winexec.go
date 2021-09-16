@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	TigeraImagePrefix       = "songtjiang/exec:"
+	TigeraImagePrefix       = "laurenceman/calico-upgrade:"
 	CalicoKubeConfigFile    = "calico-kube-config"
 	CalicoUpdateExecDir     = "c:\\CalicoUpdateExec"
 	CalicoBaseDir           = "c:\\CalicoWindows"
@@ -85,7 +85,7 @@ func Run() {
 	defer shell.Exit()
 
 	// ... and interact with it
-	stdout, stderr, err := shell.Execute("Get-ComputerInfo  | select WindowsVersion, OsBuildNumber, OsHardwareAbstractionLayer")
+	stdout, stderr, err := shell.Execute("Get-ComputerInfo | select WindowsVersion, OsBuildNumber, OsHardwareAbstractionLayer")
 	if err != nil {
 		log.WithError(err).Fatal("failed to interact with powershell")
 	}
