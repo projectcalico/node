@@ -38,7 +38,9 @@ import (
 )
 
 const (
-	TigeraImagePrefix       = "laurenceman/calico-upgrade:"
+	// TODO: address private registry use case too and remove hard-coded
+	// registry.
+	TigeraImagePrefix       = "quay.io/tigera/calico-windows-upgrade:"
 	CalicoKubeConfigFile    = "calico-kube-config"
 	CalicoUpdateExecDir     = "c:\\CalicoUpdateExec"
 	CalicoBaseDir           = "c:\\CalicoWindows"
