@@ -337,6 +337,7 @@ function Install-ExecService()
 
 function Remove-ExecService()
 {
+    & $NSSMPath stop CalicoExec confirm
     & $NSSMPath remove CalicoExec confirm
 }
 
