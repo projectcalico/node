@@ -15,4 +15,4 @@
 # This script is run from the main Calico folder.
 . .\config.ps1
 
-.\calico-node.exe -winexec
+.\calico-node.exe -monitor-windows
