@@ -28,3 +28,4 @@ kubectl
 /tests/k8st/kind
 filesystem/included-source
 config/
+kubeconfig.yaml
