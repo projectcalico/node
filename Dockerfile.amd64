@@ -157,11 +157,24 @@ RUN rm /etc/yum.repos.d/ubi.repo && \
 # This can be removed once we update to ubi:8.1
 RUN systemctl disable systemd-resolved
 
+# Try to change the group to make ipsets available
+#RUN chgrp -R 0 /usr/sbin && \
+#    chmod -R g=u /usr/sbin
+# Set the suid bit on ipset and iptables to allow our user to execute them with root permissions.
+RUN chmod u+s /usr/sbin/ipset
+RUN chmod u+s /usr/sbin/iptables
+
 # Copy our bird binaries in
 COPY --from=bird /bird* /bin/
+# Set the suid bit on bird to allow our user to execute them with root permissions.
+RUN chmod u+s /bin/bird
 
 # Copy in the filesystem - this contains felix, calico-bgp-daemon, licenses, etc...
 COPY filesystem/ /
+
+# Change the group to make confd templates and output available in /etc/calico
+RUN chgrp -R 0 /etc/calico && \
+    chmod -R g=u /etc/calico
 
 # On UBI, /sbin/ is a symlink so the above copy clobbers it; restore /sbin as symlinks (some binaries and
 # scripts hard-code /sbin/xyz, for example.
