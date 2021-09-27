@@ -157,11 +157,21 @@ RUN rm /etc/yum.repos.d/ubi.repo && \
 # This can be removed once we update to ubi:8.1
 RUN systemctl disable systemd-resolved
 
+# Set the suid bit on ipset and iptables to allow our user to execute them with root permissions.
+RUN chmod u+s /usr/sbin/ipset
+RUN chmod u+s /usr/sbin/iptables
+
 # Copy our bird binaries in
 COPY --from=bird /bird* /bin/
+# Set the suid bit on bird to allow our user to execute them with root permissions.
+RUN chmod u+s /bin/bird
 
 # Copy in the filesystem - this contains felix, calico-bgp-daemon, licenses, etc...
 COPY filesystem/ /
+
+# Change the group to make confd templates and output available in /etc/calico
+RUN chgrp -R 0 /etc/calico && \
+    chmod -R g=u /etc/calico
 
 # On UBI, /sbin/ is a symlink so the above copy clobbers it; restore /sbin as symlinks (some binaries and
 # scripts hard-code /sbin/xyz, for example.
@@ -171,6 +181,9 @@ COPY --from=bpftool /bpftool /bin
 
 # Copy in the calico-node binary
 COPY dist/bin/calico-node-amd64 /bin/calico-node
+
+# Set the suid bit on calico-node
+RUN chmod u+s /bin/calico-node
 
 # Clean out as many files as we can from the filesystem.  We no longer need dnf or the platform python install
 # or any of its dependencies.
