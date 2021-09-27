@@ -161,7 +161,7 @@ class TestBase(TestCase):
         if cluster_ip:
           service.spec["clusterIP"] = cluster_ip
         if ipv6:
-          service.spec["ipFamily"] = "IPv6"
+          service.spec["ipFamilies"] = ["IPv6"]
 
         api_response = self.cluster.create_namespaced_service(
             body=service,
@@ -172,7 +172,7 @@ class TestBase(TestCase):
     def check_calico_version(self):
         config.load_kube_config(os.environ.get('KUBECONFIG'))
         api = client.AppsV1Api(client.ApiClient())
-        node_ds = api.read_namespaced_daemon_set("calico-node", "kube-system", exact=True, export=True)
+        node_ds = api.read_namespaced_daemon_set("calico-node", "kube-system", exact=True, export=False)
         for container in node_ds.spec.template.spec.containers:
             if container.name == "calico-node":
                 if container.image != "calico/node:latest-amd64":
@@ -211,7 +211,7 @@ class TestBase(TestCase):
     def update_ds_env(self, ds, ns, env_vars):
         config.load_kube_config(os.environ.get('KUBECONFIG'))
         api = client.AppsV1Api(client.ApiClient())
-        node_ds = api.read_namespaced_daemon_set(ds, ns, exact=True, export=True)
+        node_ds = api.read_namespaced_daemon_set(ds, ns, exact=True, export=False)
         for container in node_ds.spec.template.spec.containers:
             if container.name == ds:
                 for k, v in env_vars.items():

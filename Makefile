@@ -1,5 +1,5 @@
 PACKAGE_NAME?=github.com/projectcalico/node
-GO_BUILD_VER?=v0.55
+GO_BUILD_VER?=v0.56
 
 ORGANIZATION=projectcalico
 SEMAPHORE_PROJECT_ID?=$(SEMAPHORE_NODE_PROJECT_ID)
@@ -157,6 +157,8 @@ LDFLAGS=-ldflags "\
 
 SRC_FILES=$(shell find ./pkg -name '*.go')
 
+BINDIR?=bin
+
 ## Clean enough that a new release build will be clean
 clean:
 	find . -name '*.created' -exec rm -f {} +
@@ -309,6 +311,41 @@ fv: run-k8s-apiserver
 	-w /go/src/$(PACKAGE_NAME) \
 	$(CALICO_BUILD) ginkgo -cover -r -skipPackage vendor pkg/lifecycle/startup pkg/allocateip $(GINKGO_ARGS)
 
+## Create a local kind dual stack cluster.
+KUBECONFIG?=kubeconfig.yaml
+cluster-create: $(BINDIR)/kubectl $(BINDIR)/kind
+	# First make sure any previous cluster is deleted
+	make cluster-destroy
+	
+	# Create a kind cluster.
+	$(BINDIR)/kind create cluster \
+	        --config ./tests/kind-config.yaml \
+	        --kubeconfig $(KUBECONFIG) \
+	        --image kindest/node:$(K8S_VERSION)
+	
+	# Deploy resources needed in test env.
+	$(MAKE) deploy-test-resources
+	
+	# Wait for controller manager to be running and healthy.
+	while ! KUBECONFIG=$(KUBECONFIG) $(BINDIR)/kubectl get serviceaccount default; do echo "Waiting for default serviceaccount to be created..."; sleep 2; done
+
+## Deploy resources on the kind cluster that are needed for tests
+deploy-test-resources: $(BINDIR)/kubectl calico-node.tar
+	KUBECONFIG=$(KUBECONFIG) ./tests/k8st/create_kind_cluster.sh # TODO: Rename this, since all it does now in configure calico.
+
+## Destroy local kind cluster
+cluster-destroy: $(BINDIR)/kind
+	-$(BINDIR)/kind delete cluster
+	rm -f $(KUBECONFIG)
+
+$(BINDIR)/kind:
+	$(DOCKER_GO_BUILD) sh -c "GOBIN=/go/src/$(PACKAGE_NAME)/$(BINDIR) go install sigs.k8s.io/kind"
+
+$(BINDIR)/kubectl:
+	mkdir -p $(BINDIR)
+	curl -L https://storage.googleapis.com/kubernetes-release/release/v1.22.0/bin/linux/amd64/kubectl -o $@
+	chmod +x $(BINDIR)/kubectl
+
 # etcd is used by the STs
 .PHONY: run-etcd
 run-etcd:
@@ -435,18 +472,15 @@ k8s-test:
 	$(MAKE) kind-k8st-cleanup
 
 .PHONY: kind-k8st-setup
-kind-k8st-setup: calico-node.tar
-	curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.17.0/bin/linux/amd64/kubectl
-	chmod +x ./kubectl
-	tests/k8st/create_kind_cluster.sh
+kind-k8st-setup: calico-node.tar cluster-create
 
 .PHONY: kind-k8st-run-test
 kind-k8st-run-test: calico_test.created
 	docker run -t --rm \
 	    -v $(CURDIR):/code \
 	    -v /var/run/docker.sock:/var/run/docker.sock \
-	    -v ${HOME}/.kube/kind-config-kind:/root/.kube/config \
-	    -v $(CURDIR)/kubectl:/bin/kubectl \
+	    -v $(CURDIR)/$(KUBECONFIG):/root/.kube/config \
+	    -v $(CURDIR)/$(BINDIR)/kubectl:/bin/kubectl \
 	    -e ROUTER_IMAGE=$(BIRD_IMAGE) \
 	    --privileged \
 	    --net host \
@@ -455,9 +489,7 @@ kind-k8st-run-test: calico_test.created
 	     cd /code/tests/k8st && nosetests $(K8ST_TO_RUN) -v --with-xunit --xunit-file="/code/report/k8s-tests.xml" --with-timer'
 
 .PHONY: kind-k8st-cleanup
-kind-k8st-cleanup:
-	tests/k8st/delete_kind_cluster.sh
-	rm -f ./kubectl
+kind-k8st-cleanup: cluster-delete
 
 # Needed for Semaphore CI (where disk space is a real issue during k8s-test)
 .PHONY: remove-go-build-image
