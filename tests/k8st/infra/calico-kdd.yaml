@@ -3739,7 +3739,7 @@ spec:
         # It can be deleted if this is a fresh installation, or if you have already
         # upgraded to use calico-ipam.
         - name: upgrade-ipam
-          image: calico/cni:master
+          image: quay.io/calico/cni:master
           command: ["/opt/cni/bin/calico-ipam", "-upgrade"]
           envFrom:
           - configMapRef:
@@ -3766,7 +3766,7 @@ spec:
         # This container installs the CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: calico/cni:master
+          image: quay.io/calico/cni:master
           command: ["/opt/cni/bin/install"]
           envFrom:
           - configMapRef:
@@ -3807,7 +3807,7 @@ spec:
         # Adds a Flex Volume Driver that creates a per-pod Unix Domain Socket to allow Dikastes
         # to communicate with Felix over the Policy Sync API.
         - name: flexvol-driver
-          image: calico/pod2daemon-flexvol:master
+          image: quay.io/calico/pod2daemon-flexvol:master
           volumeMounts:
           - name: flexvol-driver-host
             mountPath: /host/driver
@@ -4031,7 +4031,7 @@ spec:
       priorityClassName: system-cluster-critical
       containers:
         - name: calico-kube-controllers
-          image: calico/kube-controllers:master
+          image: quay.io/calico/kube-controllers:master
           env:
             # Choose which controllers to run.
             - name: ENABLED_CONTROLLERS

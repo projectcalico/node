@@ -161,7 +161,7 @@ class TestBase(TestCase):
         if cluster_ip:
           service.spec["clusterIP"] = cluster_ip
         if ipv6:
-          service.spec["ipFamily"] = "IPv6"
+          service.spec["ipFamilies"] = ["IPv6"]
 
         api_response = self.cluster.create_namespaced_service(
             body=service,
