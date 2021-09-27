@@ -156,9 +156,6 @@ RUN rm /etc/yum.repos.d/ubi.repo && \
 # This can be removed once we update to ubi:8.1
 RUN systemctl disable systemd-resolved
 
-# Try to change the group to make ipsets available
-#RUN chgrp -R 0 /usr/sbin && \
-#    chmod -R g=u /usr/sbin
 # Set the suid bit on ipset and iptables to allow our user to execute them with root permissions.
 RUN chmod u+s /usr/sbin/ipset
 RUN chmod u+s /usr/sbin/iptables
