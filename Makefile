@@ -336,6 +336,7 @@ deploy-test-resources: $(BINDIR)/kubectl calico-node.tar
 ## Destroy local kind cluster
 cluster-destroy: $(BINDIR)/kind
 	-$(BINDIR)/kind delete cluster
+	rm -f ./tests/k8st/infra/calico.yaml.tmp
 	rm -f $(KUBECONFIG)
 
 $(BINDIR)/kind:

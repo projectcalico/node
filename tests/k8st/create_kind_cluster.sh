@@ -67,9 +67,9 @@ load_image kind-worker2
 load_image kind-worker3
 
 echo "Install Calico and Calicoctl for dualstack"
-cp $TEST_DIR/infra/calico-kdd.yaml $TEST_DIR/infra/calico.yaml
-enable_dual_stack $TEST_DIR/infra/calico.yaml
-${kubectl} apply -f $TEST_DIR/infra/calico.yaml
+cp $TEST_DIR/infra/calico-kdd.yaml $TEST_DIR/infra/calico.yaml.tmp
+enable_dual_stack $TEST_DIR/infra/calico.yaml.tmp
+${kubectl} apply -f $TEST_DIR/infra/calico.yaml.tmp
 ${kubectl} apply -f $TEST_DIR/infra/calicoctl.yaml
 echo
 
