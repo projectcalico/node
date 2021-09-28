@@ -3538,6 +3538,14 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: calico-node
 rules:
+  # The tests require that node has access to secrets for BGP peering.
+  - apiGroups: [""]
+    resources:
+    - secrets
+    verbs:
+    - get 
+    - list
+    - watch
   # The CNI plugin needs to get pods, nodes, and namespaces.
   - apiGroups: [""]
     resources:
