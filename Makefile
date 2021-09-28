@@ -83,7 +83,8 @@ ifneq ($(BUILDARCH),amd64)
 	ETCD_IMAGE=$(ETCD_IMAGE)-$(ARCH)
 endif
 
-HYPERKUBE_IMAGE?=gcr.io/google_containers/hyperkube-$(ARCH):$(K8S_VERSION)
+# TODO: Update this to use newer version of Kubernetes.
+HYPERKUBE_IMAGE?=gcr.io/google_containers/hyperkube-$(ARCH):v1.17.0
 TEST_CONTAINER_FILES=$(shell find tests/ -type f ! -name '*.created')
 
 # Variables controlling the image
