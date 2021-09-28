@@ -57,7 +57,7 @@ def start_external_node_with_bgp(name, bird_peer_config=None, bird6_peer_config=
     run("df -h")
 
     # Setup external node: use privileged mode for setting routes.
-    run("docker run -d --privileged --name %s %s" % (name, ROUTER_IMAGE))
+    run("docker run -d --privileged --net=kind --name %s %s" % (name, ROUTER_IMAGE))
 
     # Check how much space there is inside the container.  We may need
     # to retry this, as it may take a while for the image to download
