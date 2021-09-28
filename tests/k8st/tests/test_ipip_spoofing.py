@@ -106,7 +106,7 @@ class TestSpoof(TestBase):
 
             def send_and_check_ipip_spoof():
                 self.send_spoofed_ipip_packet(self.ns_name, "scapy", "10.192.0.3", remote_pod_ip, "ipip-spoofed")
-                kubectl("exec -t -n %s access grep -- ipip-spoofed /root/snoop.txt" % self.ns_name)
+                kubectl("exec -t -n %s access -- grep ipip-spoofed /root/snoop.txt" % self.ns_name)
 
             def assert_cannot_spoof_ipip():
                 failed = True
@@ -147,7 +147,7 @@ class TestSpoof(TestBase):
 
             def send_and_check_vxlan_spoof():
                 self.send_spoofed_vxlan_packet(self.ns_name, "scapy", "10.192.0.3", remote_pod_ip, "vxlan-spoofed")
-                kubectl("exec -t -n %s access grep -- vxlan-spoofed /root/snoop.txt" % self.ns_name)
+                kubectl("exec -t -n %s access -- grep vxlan-spoofed /root/snoop.txt" % self.ns_name)
 
             def assert_cannot_spoof_vxlan():
                 failed = True
@@ -164,7 +164,7 @@ class TestSpoof(TestBase):
 
     def send_and_check(self, payload, remote_pod_ip):
         self.send_packet(self.ns_name, "scapy", remote_pod_ip, payload)
-        kubectl("exec -t -n %s access grep -- %s /root/snoop.txt" % (self.ns_name, payload))
+        kubectl("exec -t -n %s access -- grep %s /root/snoop.txt" % (self.ns_name, payload))
 
     @staticmethod
     def clear_conntrack():
