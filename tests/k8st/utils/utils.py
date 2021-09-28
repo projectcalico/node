@@ -227,7 +227,7 @@ def generate_unique_id(length, prefix=""):
 # We have to define and use this static map, from each node name to
 # its IPv6 address, because Kubernetes does not yet allow for an IPv6
 # address field in its host resource.  The mappings here must match
-# the code in tests/k8st/create_kind_cluster.sh that assigns an IPv6
+# the code in tests/k8st/deploy_resources_on_kind_cluster.sh that assigns an IPv6
 # address to each node.
 ipv6_map = {
     "kind-control-plane": "2001:20::8",

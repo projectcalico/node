@@ -331,7 +331,7 @@ cluster-create: $(BINDIR)/kubectl $(BINDIR)/kind
 
 ## Deploy resources on the kind cluster that are needed for tests
 deploy-test-resources: $(BINDIR)/kubectl calico-node.tar
-	KUBECONFIG=$(KUBECONFIG) ./tests/k8st/create_kind_cluster.sh # TODO: Rename this, since all it does now in configure calico.
+	KUBECONFIG=$(KUBECONFIG) ./tests/k8st/deploy_resources_on_kind_cluster.sh
 
 ## Destroy local kind cluster
 cluster-destroy: $(BINDIR)/kind
