@@ -516,7 +516,8 @@ metadata:
     app: nginx
     run: nginx-rr
 spec:
-  ipFamily: IPv6
+  ipFamilies:
+  - IPv6
   externalIPs:
   - fd5f:1234:175:200::1
   ports:
