@@ -48,13 +48,13 @@ class TestSpoof(TestBase):
         # Calico routing and policy to be set up correctly for a newly
         # created pod.
         nodes, _, _ = node_info()
-        kubectl("run --generator=run-pod/v1 "
+        kubectl("run "
                 "access "
                 "-n %s "
                 "--image busybox "
                 "--overrides='{\"spec\": {\"nodeName\":\"%s\"}}' "
                 "--command /bin/sh -- -c \"nc -l -u -p 5000 &> /root/snoop.txt\"" % (self.ns_name, nodes[1]))
-        kubectl("run --generator=run-pod/v1 "
+        kubectl("run "
                 "scapy "
                 "-n %s "
                 "--image calico/scapy:v2.4.0 "
@@ -175,7 +175,7 @@ class TestSpoof(TestBase):
         # Flush conntrack in every calico-node pod
         for entry in node_dict["items"]:
             node = entry["metadata"]["name"]
-            kubectl("exec -n kube-system %s conntrack -- -F" % node)
+            kubectl("exec -n kube-system %s -- conntrack -F" % node)
 
     @staticmethod
     def send_packet(ns_name, name, remote_pod_ip, message):
