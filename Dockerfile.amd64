@@ -156,12 +156,17 @@ RUN rm /etc/yum.repos.d/ubi.repo && \
 # This can be removed once we update to ubi:8.1
 RUN systemctl disable systemd-resolved
 
-# Set the suid bit on ipset and iptables to allow our user to execute them with root permissions.
-RUN chmod u+s /usr/sbin/ipset
-RUN chmod u+s /usr/sbin/iptables
+# Set the group access for ipset
+RUN chgrp 0 /usr/sbin/ipset && \
+    chmod g=u /usr/sbin/ipset
+
+# Set the group access for iptables
+RUN chgrp 0 /usr/sbin/iptables && \
+    chmod g=u /usr/sbin/iptables
 
 # Copy our bird binaries in
 COPY --from=bird /bird* /bin/
+
 # Set the suid bit on bird to allow our user to execute them with root permissions.
 RUN chmod u+s /bin/bird
 
