@@ -335,7 +335,8 @@ deploy-test-resources: $(BINDIR)/kubectl calico-node.tar
 	KUBECONFIG=$(KUBECONFIG) ./tests/k8st/deploy_resources_on_kind_cluster.sh
 
 ## Destroy local kind cluster
-cluster-destroy: $(BINDIR)/kind
+cluster-destroy: $(BINDIR)/kubectl $(BINDIR)/kind
+	-$(BINDIR)/kubectl --kubeconfig=$(KUBECONFIG) drain kind-control-plane kind-worker kind-worker2 kind-worker3 --ignore-daemonsets --force
 	-$(BINDIR)/kind delete cluster
 	rm -f ./tests/k8st/infra/calico.yaml.tmp
 	rm -f $(KUBECONFIG)
@@ -345,7 +346,7 @@ $(BINDIR)/kind:
 
 $(BINDIR)/kubectl:
 	mkdir -p $(BINDIR)
-	curl -L https://storage.googleapis.com/kubernetes-release/release/v1.22.0/bin/linux/amd64/kubectl -o $@
+	curl -L https://storage.googleapis.com/kubernetes-release/release/v1.22.0/bin/linux/$(ARCH)/kubectl -o $@
 	chmod +x $(BINDIR)/kubectl
 
 # etcd is used by the STs
@@ -491,7 +492,7 @@ kind-k8st-run-test: calico_test.created $(KUBECONFIG)
 	     cd /code/tests/k8st && nosetests $(K8ST_TO_RUN) -v --with-xunit --xunit-file="/code/report/k8s-tests.xml" --with-timer'
 
 .PHONY: kind-k8st-cleanup
-kind-k8st-cleanup: cluster-delete
+kind-k8st-cleanup: cluster-destroy
 
 # Needed for Semaphore CI (where disk space is a real issue during k8s-test)
 .PHONY: remove-go-build-image
