@@ -256,6 +256,8 @@ EOF
             retry_until_success(lambda: self.assertNotIn(cluster_svc_ip, self.get_routes()))
 
             # Create a network policy that only accepts traffic from the external node.
+            # Applying this policy asserts that traffic is not being SNAT'd by kube-proxy
+            # when it reaches the destination node.
             kubectl("""apply -f - << EOF
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

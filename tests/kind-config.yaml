@@ -5,7 +5,6 @@ networking:
   podSubnet: "192.168.0.0/16,fd00:10:244::/64"
   ipFamily: dual
 nodes:
-# the control plane node
 - role: control-plane
 - role: worker
 - role: worker
@@ -18,9 +17,6 @@ kubeadmConfigPatches:
     name: config
   featureGates:
     IPv6DualStack: true
-  controllerManager:
-    extraArgs:
-      cluster-cidr: "192.168.0.0/16"
 - |
   apiVersion: kubeproxy.config.k8s.io/v1alpha1
   kind: KubeProxyConfiguration
@@ -29,4 +25,3 @@ kubeadmConfigPatches:
   mode: ipvs
   conntrack:
     maxPerCore: 0
-

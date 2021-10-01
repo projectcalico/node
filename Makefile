@@ -477,7 +477,7 @@ k8s-test:
 kind-k8st-setup: calico-node.tar cluster-create
 
 .PHONY: kind-k8st-run-test
-kind-k8st-run-test: calico_test.created
+kind-k8st-run-test: calico_test.created $(KUBECONFIG)
 	docker run -t --rm \
 	    -v $(CURDIR):/code \
 	    -v /var/run/docker.sock:/var/run/docker.sock \

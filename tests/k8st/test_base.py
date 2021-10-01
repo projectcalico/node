@@ -112,6 +112,19 @@ class TestBase(TestCase):
         Creates a deployment and corresponding service with the given
         parameters.
         """
+        # Use a pod anti-affinity so that the scheduler prefers deploying the
+        # pods on different nodes. This makes our tests more reliable, since
+        # some tests expect pods to be scheduled to different nodes.
+        selector = {'matchLabels': {'app': name}}
+        terms = [client.V1WeightedPodAffinityTerm(
+            pod_affinity_term=client.V1PodAffinityTerm(
+                label_selector=selector,
+                topology_key="kubernetes.io/hostname"),
+            weight=100,
+            )]
+        anti_aff = client.V1PodAntiAffinity(
+                preferred_during_scheduling_ignored_during_execution=terms)
+
         # Run a deployment with <replicas> copies of <image>, with the
         # pods labelled with "app": <name>.
         deployment = client.V1Deployment(
@@ -120,14 +133,18 @@ class TestBase(TestCase):
             metadata=client.V1ObjectMeta(name=name),
             spec=client.V1DeploymentSpec(
                 replicas=replicas,
-                selector={'matchLabels': {'app': name}},
+                selector=selector,
                 template=client.V1PodTemplateSpec(
                     metadata=client.V1ObjectMeta(labels={"app": name}),
-                    spec=client.V1PodSpec(containers=[
-                        client.V1Container(name=name,
-                                           image=image,
-                                           ports=[client.V1ContainerPort(container_port=port)]),
+                    spec=client.V1PodSpec(
+                        affinity=client.V1Affinity(pod_anti_affinity=anti_aff),
+                        containers=[
+                          client.V1Container(name=name,
+                                             image=image,
+                                             ports=[client.V1ContainerPort(container_port=port)]),
                     ]))))
+
+        # Create the deployment.
         api_response = client.AppsV1Api().create_namespaced_deployment(
             body=deployment,
             namespace=ns)
