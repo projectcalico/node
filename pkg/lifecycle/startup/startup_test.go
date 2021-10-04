@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -50,6 +51,27 @@ var exitCode int
 
 func fakeExitFunction(ec int) {
 	exitCode = ec
+}
+
+func getDefaultInterfacesToExclude() []string {
+	if runtime.GOOS == "windows" {
+		return []string{
+			".*cbr.*",
+			".*[Dd]ocker.*",
+			".*\\(nat\\).*",
+			".*Calico.*_ep", // Exclude our management endpoint.
+			"Loopback.*",
+		}
+	}
+
+	if runtime.GOOS == "linux" {
+		return []string{
+			"docker.*", "cbr.*", "dummy.*",
+			"virbr.*", "lxcbr.*", "veth.*", "lo",
+			"cali.*", "tunl.*", "flannel.*", "kube-ipvs.*", "cni.*",
+		}
+	}
+	return nil
 }
 
 // makeNode creates an libapi.Node with some BGPSpec info populated.
@@ -100,7 +122,10 @@ var _ = DescribeTable("Node IP detection failure cases",
 		if rrCId != "" {
 			node.Spec.BGP = &libapi.NodeBGPSpec{RouteReflectorClusterID: rrCId}
 		}
-		_ = configureAndCheckIPAddressSubnets(context.Background(), c, &node)
+
+		k8sNode := v1.Node{}
+
+		_ = configureAndCheckIPAddressSubnets(context.Background(), c, &node, &k8sNode, getDefaultInterfacesToExclude())
 		Expect(my_ec).To(Equal(expectedExitCode))
 		if rrCId != "" {
 			Expect(node.Spec.BGP).NotTo(BeNil())
@@ -873,19 +898,19 @@ var _ = Describe("FV tests against a real etcd", func() {
 var _ = Describe("UT for Node IP assignment and conflict checking.", func() {
 
 	DescribeTable("Test variations on how IPs are detected.",
-		func(node *libapi.Node, items []EnvItem, expected bool) {
+		func(node *libapi.Node, k8sNode *v1.Node, items []EnvItem, expected bool) {
 
 			for _, item := range items {
 				os.Setenv(item.key, item.value)
 			}
 
-			check, err := configureIPsAndSubnets(node)
+			check, err := configureIPsAndSubnets(node, k8sNode, getDefaultInterfacesToExclude())
 
 			Expect(check).To(Equal(expected))
 			Expect(err).NotTo(HaveOccurred())
 		},
 
-		Entry("Test with no \"IP\" env var set", &libapi.Node{}, []EnvItem{{"IP", ""}}, true),
+		Entry("Test with no \"IP\" env var set", &libapi.Node{}, &v1.Node{}, []EnvItem{{"IP", ""}}, true),
 		Entry("Test with \"IP\" env var set to IP", &libapi.Node{}, []EnvItem{{"IP", "192.168.1.10/24"}}, true),
 		Entry("Test with \"IP\" env var set to IP and BGP spec populated with same IP", makeNode("192.168.1.10/24", ""), []EnvItem{{"IP", "192.168.1.10/24"}}, false),
 		Entry("Test with \"IP\" env var set to IP and BGP spec populated with different IP", makeNode("192.168.1.10/24", ""), []EnvItem{{"IP", "192.168.1.11/24"}}, true),
@@ -1123,7 +1148,7 @@ var _ = Describe("UT for IP and IP6", func() {
 			return []autodetection.Interface{
 				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1.2.3.4/24")}}}, nil
 		}
-		ipv4CIDROrIP, _ := getLocalCIDR(ipv4Env, version, ipv4MockInterfaces)
+		ipv4CIDROrIP, _ := autodetection.GetLocalCIDR(ipv4Env, version, ipv4MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
 	},
 		Entry("get the local cidr", "1.2.3.4", 4, "1.2.3.4/24"),
@@ -1136,7 +1161,7 @@ var _ = Describe("UT for IP and IP6", func() {
 			return []autodetection.Interface{
 				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1:2:3:4::5/120")}}}, nil
 		}
-		ipv4CIDROrIP, _ := getLocalCIDR(ipv6Env, version, ipv6MockInterfaces)
+		ipv4CIDROrIP, _ := autodetection.GetLocalCIDR(ipv6Env, version, ipv6MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
 	},
 		Entry("get the local cidr", "1:2:3:4::5", 6, "1:2:3:4::5/120"),
