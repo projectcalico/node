@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package populator
 
 import (
 	"bufio"
@@ -49,6 +49,7 @@ var birdExpectedHeadings = []string{"name", "proto", "table", "state", "since", 
 
 // bgpPeer is a structure containing details about a BGP peer.
 type bgpPeer struct {
+	session  string
 	peerIP   string
 	peerType string
 	state    string
@@ -57,18 +58,22 @@ type bgpPeer struct {
 	info     string
 }
 
-func (b *bgpPeer) toNodeStatusAPI() apiv3.CalicoNodePeer {
-	info := b.bgpState
-	if b.info != "" {
-		info += " " + b.info
-	}
+var birdStateToBGPState map[string]apiv3.BGPSessionState = map[string]apiv3.BGPSessionState{
+	"Idle":        apiv3.BGPSessionStateIdle,
+	"Connect":     apiv3.BGPSessionStateConnect,
+	"Active":      apiv3.BGPSessionStateActive,
+	"OpenSent":    apiv3.BGPSessionStateOpenSent,
+	"OpenConfirm": apiv3.BGPSessionStateOpenConfirm,
+	"Established": apiv3.BGPSessionStateEstablished,
+	"Close":       apiv3.BGPSessionStateClose,
+}
 
+func (b *bgpPeer) toNodeStatusAPI() apiv3.CalicoNodePeer {
 	return apiv3.CalicoNodePeer{
 		PeerIP: b.peerIP,
 		Type:   bgpTypeMap[b.peerType],
-		State:  b.state,
+		State:  birdStateToBGPState[b.bgpState],
 		Since:  b.since,
-		Reason: info,
 	}
 }
 
@@ -82,13 +87,14 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 	//
 	// Peer names will be of the format described by bgpPeerRegex.
 	log.Debugf("Parsing line: %s", line)
+
 	columns := strings.Fields(line)
 	if len(columns) < 6 {
-		log.Debugf("Not a valid line: fewer than 6 columns")
+		log.Debug("Not a valid line: fewer than 6 columns.")
 		return false
 	}
 	if columns[1] != "BGP" {
-		log.Debugf("Not a valid line: protocol is not BGP")
+		log.Debug("Not a valid line(%s): protocol is not BGP")
 		return false
 	}
 
@@ -98,21 +104,23 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 	// -  An IP address (with _ separating the octets)
 	sm := bgpPeerRegex.FindStringSubmatch(columns[0])
 	if len(sm) != 3 {
-		log.Debugf("Not a valid line: peer name '%s' is not correct format", columns[0])
+		log.Warnf("Not a valid line(%s): peer name '%s' is not correct format", line, columns[0])
 		return false
 	}
+
 	var ok bool
-	b.peerIP = strings.Replace(sm[2], "_", ipSep, -1)
 	if _, ok = bgpTypeMap[sm[1]]; !ok {
-		log.Debugf("Not a valid line: peer type '%s' is not recognized", sm[1])
+		log.Warnf("Not a valid line(%s): peer type '%s' is not recognized", line, sm[1])
 		return false
 	}
+
+	// All good, set the session name
+	b.session = columns[0]
 	b.peerType = sm[1]
 
 	// Store remaining columns (piecing back together the info string)
 	b.state = columns[3]
 	b.since = columns[4]
-	b.bgpState = columns[5]
 	if len(columns) > 6 {
 		b.info = strings.Join(columns[6:], " ")
 	}
@@ -120,8 +128,84 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 	return true
 }
 
+// Complete reads detailed information for a BGP session and fill in bgpPeer structure.
+// Currently we only set BGP state and PeerIP but could extend to other fields later.
+func (b *bgpPeer) complete(bc *birdConn) error {
+	// Send the request.
+	cmd := fmt.Sprintf("show protocols all %s\n", b.session)
+
+	// bird&gt; show protocols all neighbor_v4_1
+	//name     proto    table    state  since       info
+	//neighbor_v4_1 BGP      master   up     15:20:31    Established
+	//  Preference:     100
+	//  Input filter:   ACCEPT
+	//  Output filter:  packet_bgp
+	//  Routes:         0 imported, 1 exported, 0 preferred
+	//  Route change stats:     received   rejected   filtered    ignored   accepted
+	//    Import updates:              0          0          0          0          0
+	//    Import withdraws:            0          0        ---          0          0
+	//    Export updates:              1          0          0        ---          1
+	//    Export withdraws:            0        ---        ---        ---          0
+	//  BGP state:          Established
+	//    Neighbor address: 10.99.182.128
+	//    Neighbor AS:      65530
+	//    Neighbor ID:      147.75.36.73
+	//    Neighbor caps:    refresh restart-aware AS4
+	//    Session:          external AS4
+	//    Source address:   10.99.182.129
+	//    Hold timer:       66/90
+	//    Keepalive timer:  18/30
+
+	// getValue parses a string with the format of "  key: value " and returns value.
+	// It also returns if the format is valid or not.
+	getValue := func(str, key string) (string, bool) {
+		if strings.Contains(str, key) {
+			return strings.TrimSpace(strings.ReplaceAll(str, key, " ")), true
+		}
+		return "", false
+	}
+
+	conn := bc.conn
+	_, err := conn.Write([]byte(cmd))
+	if err != nil {
+		return fmt.Errorf("Error executing command: unable to write to BIRD socket: %s", err)
+	}
+
+	scanner := bufio.NewScanner(conn)
+
+	// Set a time-out for reading from the socket connection.
+	err = conn.SetReadDeadline(time.Now().Add(birdTimeOut))
+	if err != nil {
+		return errors.New("failed to set time-out")
+	}
+
+	for scanner.Scan() {
+		// Process the next line that has been read by the scanner.
+		str := scanner.Text()
+		log.Debugf("Read: %s\n", str)
+
+		if strings.HasPrefix(str, "0000") {
+			// "0000" means end of data
+			break
+		} else if state, ok := getValue(str, "BGP state:"); ok {
+			b.bgpState = state
+		} else if ip, ok := getValue(str, "Neighbor address:"); ok {
+			b.peerIP = ip
+		}
+
+		// Before reading the next line, adjust the time-out for
+		// reading from the socket connection.
+		err = conn.SetReadDeadline(time.Now().Add(birdTimeOut))
+		if err != nil {
+			return errors.New("failed to adjust time-out")
+		}
+	}
+
+	return scanner.Err()
+}
+
 // readBIRDPeers queries BIRD and return BGP peer info.
-func readBIRDPeers(bc *birdConn) ([]bgpPeer, error) {
+func readBIRDPeers(bc *birdConn) ([]*bgpPeer, error) {
 	c := bc.conn
 	ipv := bc.ipv
 	log.Debugf("Getting BGP peers for IPv%s", ipv)
@@ -137,7 +221,7 @@ func readBIRDPeers(bc *birdConn) ([]bgpPeer, error) {
 	}
 
 	// Scan the output and collect parsed BGP peers
-	log.Debugln("Reading output from BIRD")
+	log.Debugln("Reading output from BIRD for BGP peers summary")
 	peers, err := scanBIRDPeers(ipv, c)
 	if err != nil {
 		return nil, fmt.Errorf("Error executing command: %v", err)
@@ -149,6 +233,11 @@ func readBIRDPeers(bc *birdConn) ([]bgpPeer, error) {
 		return peers, nil
 	}
 
+	log.Debugln("Reading output for BGP peer details")
+	for _, peer := range peers {
+		peer.complete(bc)
+	}
+
 	return peers, nil
 }
 
@@ -157,7 +246,7 @@ func readBIRDPeers(bc *birdConn) ([]bgpPeer, error) {
 //
 // We split this out from the main printBIRDPeers() function to allow us to
 // test this processing in isolation.
-func scanBIRDPeers(ipv BirdConnType, conn net.Conn) ([]bgpPeer, error) {
+func scanBIRDPeers(ipv IPFamily, conn net.Conn) ([]*bgpPeer, error) {
 	// Determine the separator to use for an IP address, based on the
 	// IP version.
 	ipSep := ipv.Separator()
@@ -172,7 +261,7 @@ func scanBIRDPeers(ipv BirdConnType, conn net.Conn) ([]bgpPeer, error) {
 	//  	 Mesh_172_17_8_102 BGP      master   up     2016-11-21  Established
 	// 	0000
 	scanner := bufio.NewScanner(conn)
-	peers := []bgpPeer{}
+	peers := []*bgpPeer{}
 
 	// Set a time-out for reading from the socket connection.
 	err := conn.SetReadDeadline(time.Now().Add(birdTimeOut))
@@ -200,17 +289,17 @@ func scanBIRDPeers(ipv BirdConnType, conn net.Conn) ([]bgpPeer, error) {
 			// "1002" code means first row of data.
 			peer := bgpPeer{}
 			if peer.unmarshalBIRD(str[5:], ipSep) {
-				peers = append(peers, peer)
+				peers = append(peers, &peer)
 			}
 		} else if strings.HasPrefix(str, " ") {
 			// Row starting with a " " is another row of data.
 			peer := bgpPeer{}
 			if peer.unmarshalBIRD(str[1:], ipSep) {
-				peers = append(peers, peer)
+				peers = append(peers, &peer)
 			}
 		} else {
 			// Format of row is unexpected.
-			return nil, errors.New("unexpected output line from BIRD")
+			return nil, fmt.Errorf("unexpected output line from BIRD: %s", str)
 		}
 
 		// Before reading the next line, adjust the time-out for
@@ -224,7 +313,7 @@ func scanBIRDPeers(ipv BirdConnType, conn net.Conn) ([]bgpPeer, error) {
 	return peers, scanner.Err()
 }
 
-func getBGPPeers(ipv BirdConnType) ([]bgpPeer, error) {
+func getBGPPeers(ipv IPFamily) ([]*bgpPeer, error) {
 	bc, err := getBirdConn(ipv)
 	if err != nil {
 		return nil, err
@@ -233,26 +322,33 @@ func getBGPPeers(ipv BirdConnType) ([]bgpPeer, error) {
 
 	peers, err := readBIRDPeers(bc)
 	if err != nil {
+		log.WithError(err).Errorf("failed to get bird BGP peers")
 		return nil, err
 	}
 
 	return peers, nil
 }
 
-// BirdBGPPeers implement statusPopulator interface.
+// BirdBGPPeers implement populator interface.
 type BirdBGPPeers struct {
-	ipv BirdConnType
+	ipv IPFamily
+}
+
+func NewBirdBGPPeers(ipv IPFamily) BirdBGPPeers {
+	return BirdBGPPeers{ipv: ipv}
 }
 
 func (b BirdBGPPeers) Populate(status *apiv3.CalicoNodeStatus) error {
 	peers, err := getBGPPeers(b.ipv)
 	if err != nil {
+		log.WithError(err).Errorf("failed to get bird BGP peers")
 		return err
 	}
-	numEstablished := 0
-	numNonEstablished := 0
 
-	convert := func(peers []bgpPeer) []apiv3.CalicoNodePeer {
+	convert := func(peers []*bgpPeer) ([]apiv3.CalicoNodePeer, int, int) {
+		numEstablished := 0
+		numNonEstablished := 0
+
 		result := []apiv3.CalicoNodePeer{}
 		for _, p := range peers {
 			if p.state == "up" {
@@ -262,16 +358,15 @@ func (b BirdBGPPeers) Populate(status *apiv3.CalicoNodeStatus) error {
 			}
 			result = append(result, p.toNodeStatusAPI())
 		}
-		return result
+		return result, numEstablished, numNonEstablished
 	}
 
-	if b.ipv == BirdConnTypeV4 {
-		status.Status.BGP.V4Peers = convert(peers)
+	bgp := &status.Status.BGP
+	if b.ipv == IPFamilyV4 {
+		bgp.PeersV4, bgp.NumberEstablishedV4, bgp.NumberNotEstablishedV4 = convert(peers)
 	} else {
-		status.Status.BGP.V6Peers = convert(peers)
+		bgp.PeersV6, bgp.NumberEstablishedV6, bgp.NumberNotEstablishedV6 = convert(peers)
 	}
-	status.Status.BGP.NumEstablished = numEstablished
-	status.Status.BGP.NumNotEstablished = numNonEstablished
 
 	return nil
 }
@@ -289,21 +384,17 @@ func (b BirdBGPPeers) Show() {
 }
 
 // printPeers prints out the slice of peers in table format.
-func printPeers(peers []bgpPeer) {
+func printPeers(peers []*bgpPeer) {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Peer address", "Peer type", "State", "Since", "Info"})
+	table.SetHeader([]string{"Peer address", "Peer type", "State", "Since", "BGPState"})
 
 	for _, peer := range peers {
-		info := peer.bgpState
-		if peer.info != "" {
-			info += " " + peer.info
-		}
 		row := []string{
 			peer.peerIP,
 			peer.peerType,
 			peer.state,
 			peer.since,
-			info,
+			peer.bgpState,
 		}
 		table.Append(row)
 	}
