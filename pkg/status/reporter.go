@@ -16,9 +16,12 @@ package status
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"time"
+
+	cerrors "github.com/projectcalico/libcalico-go/lib/errors"
+
+	populator "github.com/projectcalico/node/pkg/status/populators"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -30,12 +33,6 @@ import (
 
 	client "github.com/projectcalico/libcalico-go/lib/clientv3"
 )
-
-// Interface for a component to populate its status to node status resource.
-type statusPopulator interface {
-	Populate(status *apiv3.CalicoNodeStatus) error
-	Show()
-}
 
 // reporter contains all the data/method about reporting back node status based on a single node status resource.
 // Each reporter has a goroutine which constantly reads node status and updates node status resource.
@@ -57,7 +54,7 @@ type reporter struct {
 	ticker   *time.Ticker
 
 	// populators
-	populators map[BirdConnType]map[apiv3.NodeStatusClassType]statusPopulator
+	populators populatorRegistry
 
 	// channel to indicate this reporter is not needed anymore.
 	// It should start termination process.
@@ -65,19 +62,32 @@ type reporter struct {
 
 	// channel to indicate this reporter is terminated.
 	term chan struct{}
+
+	// New log entry.
+	logCtx *log.Entry
 }
 
 // newReporter creates a reporter and start running a goroutine handling resource update.
-func newReporter(name string, client client.Interface, intervalInSeconds int, populators map[BirdConnType]map[apiv3.NodeStatusClassType]statusPopulator) *reporter {
+// A new reporter is created when there is a new object.
+func newReporter(name string,
+	client client.Interface,
+	populators populatorRegistry,
+	request *apiv3.CalicoNodeStatus) *reporter {
+	if request == nil {
+		// Should not happen.
+		log.Fatal("Trying to create a new reporter on a nil object")
+	}
 	r := &reporter{
 		name:       name,
 		client:     client,
 		ch:         make(chan *apiv3.CalicoNodeStatus, 10),
+		status:     request,
 		populators: populators,
 		done:       make(chan struct{}),
+		logCtx:     log.WithField("object", name),
 	}
 
-	r.checkAndUpdateTicker(intervalInSeconds)
+	r.checkAndUpdateTicker(request.Spec.UpdateIntervalInSeconds)
 
 	go r.run()
 	return r
@@ -85,16 +95,33 @@ func newReporter(name string, client client.Interface, intervalInSeconds int, po
 
 // Check and set new ticker for the reporter.
 // Make sure stop the old one first to GC old ticker.
-func (r reporter) checkAndUpdateTicker(interval int) {
+func (r reporter) checkAndUpdateTicker(pInterval *int) {
+	var interval int
+	if pInterval == nil {
+		interval = DefaultIntervalInSeconds
+	} else {
+		interval = *pInterval
+	}
+
 	if r.interval == interval {
 		// no update needed.
 		return
 	}
+
+	// Update ticker based on new interval value.
+	// Stop ticker first.
 	if r.ticker != nil {
 		r.ticker.Stop()
 	}
 	r.interval = interval
-	r.ticker = time.NewTicker(time.Duration(interval) * time.Second)
+
+	if interval == 0 {
+		// Disable further updates.
+		r.logCtx.Info("Node status periodical update disabled")
+	} else {
+		r.logCtx.Infof("Node status update interval updated")
+		r.ticker = time.NewTicker(time.Duration(interval) * time.Second)
+	}
 }
 
 // Cleanup resources owned by this reporter.
@@ -116,6 +143,8 @@ func (r reporter) RequestUpdate(request *apiv3.CalicoNodeStatus) {
 
 // run is the main reporting loop, it loops until done.
 func (r reporter) run() {
+	r.logCtx.Debug("Start new goroutine to report node status")
+
 	runImmediately := make(chan struct{})
 
 	for {
@@ -123,20 +152,19 @@ func (r reporter) run() {
 		case latest := <-r.ch:
 			// Received an update of node status resource.
 			if latest.Name != r.name {
-				log.Warningf("node status reporter (%s) receive request with different name (%s), ignore it", r.name, latest.Name)
-			} else {
-				r.status = latest
-				r.checkAndUpdateTicker(latest.Spec.UpdateIntervalInSeconds)
-				// kick start node status update
-				runImmediately <- struct{}{}
+				r.logCtx.Errorf("node status reporter receive request with different name (%s), ignore it", latest.Name)
+				break
 			}
+			r.status = latest
+			r.checkAndUpdateTicker(latest.Spec.UpdateIntervalInSeconds)
+			// kick start node status update
+			runImmediately <- struct{}{}
+
 		case <-runImmediately:
 		case <-r.ticker.C:
-			if r.status == nil {
-				log.Warningf("No request found for node status reporter (%s)", r.name)
-			} else {
-				r.reportStatus()
-			}
+			// Todo check resource and update condition.
+			r.reportStatus()
+
 		case <-r.done:
 			r.cleanup()
 			r.term <- struct{}{}
@@ -146,64 +174,57 @@ func (r reporter) run() {
 }
 
 // reportStatus queries Bird or other components and update node status resource.
-func (r reporter) reportStatus() {
-	var err error
+func (r reporter) reportStatus() error {
 	// The idea here is that we either update everything successfully or we update nothing.
 
 	// Make a local copy first.
 	status := *r.status
 
-	needUpdate := false
-	for _, ipv := range []BirdConnType{BirdConnTypeV4, BirdConnTypeV6} {
-		failed := false
+	for _, ipv := range []populator.IPFamily{populator.IPFamilyV4, populator.IPFamilyV6} {
 		// Populate status from registered populators.
 		for _, class := range r.status.Spec.Classes {
-			if p, ok := r.populators[ipv][class]; ok {
-				err := p.Populate(&status)
-				if err != nil {
-					// If we hit error on one BirdConnType, continue with other BirdConnTypes.
-					log.WithError(err).Errorf("failed to populate status for ipv%s class %s", string(ipv), string(class))
-					failed = true
-					break
-				}
-			} else {
-				log.Warningf("Wrong class (%s) requested for node status reporter (%s)", class, r.name)
+			p, ok := r.populators[ipv][class]
+			if !ok {
+				r.logCtx.Warningf("Wrong class (%s) requested for node status reporter", class)
+				continue
+			}
+			err := p.Populate(&status)
+			if err != nil {
+				// If we hit any error, stop the entire update process.
+				r.logCtx.WithError(err).Errorf("failed to populate status for ipv%s class %s", string(ipv), string(class))
+				return err
 			}
 		}
-
-		if !failed {
-			needUpdate = true
-		}
-	}
-
-	if !needUpdate {
-		// Failed for all BirdConnTypes.
-		return
 	}
 
 	if reflect.DeepEqual(status, *r.status) {
 		// Nothing has changes since last time we updated.
-		return
+		return nil
 	}
 
+	var err error
+	var updatedResource *apiv3.CalicoNodeStatus
 	// Update resource
-	timeout := time.After(3 * time.Second)
-	for {
-		select {
-		case <-timeout:
-			err = fmt.Errorf("timed out patching node status, last error was: %s", err.Error())
-			log.WithError(err).Warn("failed to report node status")
-			return
-		default:
-			status.Status.LastUpdated = metav1.Time{Time: time.Now()}
-			_, err = r.client.CalicoNodeStatus().Update(context.Background(), &status, options.SetOptions{})
-			if err != nil {
-				log.WithError(err).Warnf("Failed to update node status resource; will retry")
-			} else {
-				// Success!
-				r.status = &status
-				return
+	for i := 0; i < 3; i++ {
+		ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+		status.Status.LastUpdated = metav1.Time{Time: time.Now()}
+		updatedResource, err = r.client.CalicoNodeStatus().Update(ctx, &status, options.SetOptions{})
+		if err != nil {
+			if _, ok := err.(cerrors.ErrorResourceUpdateConflict); ok {
+				r.logCtx.Warn("Node status resource update conflict - we are behind syner update")
+
+				// Just return and wait for syncer update to go through.
+				return nil
 			}
+			log.WithError(err).Warnf("Failed to update node status resource; will retry")
+			time.Sleep(1 * time.Second)
+			continue
 		}
+
+		// Success!
+		r.status = updatedResource
+		return nil
 	}
+
+	return err
 }

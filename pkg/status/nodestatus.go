@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	populator "github.com/projectcalico/node/pkg/status/populators"
+
 	"github.com/projectcalico/libcalico-go/lib/backend/model"
 
 	apiv3 "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
@@ -92,16 +94,21 @@ func Run() {
 	r.run()
 }
 
-// getPopulators maps BirdConnType to a map from classType to statusPopulator.
-func GetPopulators() map[BirdConnType]map[apiv3.NodeStatusClassType]statusPopulator {
-	// Get all the statusPopulators
-	populators := make(map[BirdConnType]map[apiv3.NodeStatusClassType]statusPopulator)
+// Map IPFamily to a map from each class to a populator.
+// Currently all the reporters would have the same populator for each class but
+// it can be extended in the future.
+type populatorRegistry map[populator.IPFamily]map[apiv3.NodeStatusClassType]populator.Interface
 
-	for _, ipv := range []BirdConnType{BirdConnTypeV4, BirdConnTypeV6} {
-		populators[ipv] = make(map[apiv3.NodeStatusClassType]statusPopulator)
-		populators[ipv][apiv3.NodeStatusClassTypeAgent] = BirdInfo{ipv: ipv}
-		populators[ipv][apiv3.NodeStatusClassTypeBGP] = BirdBGPPeers{ipv: ipv}
-		populators[ipv][apiv3.NodeStatusClassTypeRoute] = BirdRoutes{ipv: ipv}
+// getPopulators get current populatorRegistry.
+func GetPopulators() populatorRegistry {
+	// Get all the populator.Interface
+	populators := make(map[populator.IPFamily]map[apiv3.NodeStatusClassType]populator.Interface)
+
+	for _, ipv := range []populator.IPFamily{populator.IPFamilyV4, populator.IPFamilyV6} {
+		populators[ipv] = make(map[apiv3.NodeStatusClassType]populator.Interface)
+		populators[ipv][apiv3.NodeStatusClassTypeAgent] = populator.NewBirdInfo(ipv)
+		populators[ipv][apiv3.NodeStatusClassTypeBGP] = populator.NewBirdBGPPeers(ipv)
+		populators[ipv][apiv3.NodeStatusClassTypeRoutes] = populator.NewBirdRoutes(ipv)
 	}
 
 	return populators
@@ -109,11 +116,11 @@ func GetPopulators() map[BirdConnType]map[apiv3.NodeStatusClassType]statusPopula
 
 // Show prints status information from all populators.
 func Show() {
-	for _, ipv := range []BirdConnType{BirdConnTypeV4, BirdConnTypeV6} {
+	for _, ipv := range []populator.IPFamily{populator.IPFamilyV4, populator.IPFamilyV6} {
 		for _, class := range []apiv3.NodeStatusClassType{
 			apiv3.NodeStatusClassTypeAgent,
 			apiv3.NodeStatusClassTypeBGP,
-			apiv3.NodeStatusClassTypeRoute,
+			apiv3.NodeStatusClassTypeRoutes,
 		} {
 			if p, ok := GetPopulators()[ipv][class]; ok {
 				p.Show()
@@ -144,10 +151,8 @@ type nodeStatusReporter struct {
 	// Cache to map the name of node status object to the reporter.
 	reporter map[string]*reporter
 
-	// Map BirdConnType to a map from each class to a populator.
-	// Currently all the reporters would have the same populator for each class but
-	// it can be extended in the future.
-	populators map[BirdConnType]map[apiv3.NodeStatusClassType]statusPopulator
+	// Map IPFamily to a map from each class to a populator.
+	populators populatorRegistry
 
 	// Channel to indicate node status reporter routine is not needed anymore.
 	done chan struct{}
@@ -218,6 +223,11 @@ func (r *nodeStatusReporter) onUpdates(updates []bapi.Update) {
 			// Resource is deleted. Set nil pointer for pending updates.
 			r.pendingUpdates[name] = nil
 		case bapi.UpdateTypeKVNew, bapi.UpdateTypeKVUpdated:
+			if u.Value == nil {
+				// Value could be nil if typha failed to validate the resource.
+				log.Debugf("Nil value on new or updated KV: %s", u.Key)
+				continue
+			}
 			// Resource is created or updated. Cache latest value to pending updates.
 			switch v := u.Value.(type) {
 			case *apiv3.CalicoNodeStatus:
@@ -249,7 +259,7 @@ func (r *nodeStatusReporter) processPendingUpdates() {
 			// We have a new or updated resource.
 			if _, ok := r.reporter[name]; !ok {
 				// new resource.
-				reporter := newReporter(name, r.client, DefaultIntervalInSeconds, r.populators)
+				reporter := newReporter(name, r.client, r.populators, data)
 				r.reporter[name] = reporter
 			}
 			// Send updated data to reporter.

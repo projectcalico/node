@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package populator
 
 import (
 	"bufio"
@@ -68,7 +68,7 @@ func (b *bgpPeer) toNodeStatusAPI() apiv3.CalicoNodePeer {
 		Type:   bgpTypeMap[b.peerType],
 		State:  b.state,
 		Since:  b.since,
-		Reason: info,
+		Info:   info,
 	}
 }
 
@@ -82,13 +82,14 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 	//
 	// Peer names will be of the format described by bgpPeerRegex.
 	log.Debugf("Parsing line: %s", line)
+
 	columns := strings.Fields(line)
 	if len(columns) < 6 {
-		log.Debugf("Not a valid line: fewer than 6 columns")
+		log.Debug("Not a valid line: fewer than 6 columns.")
 		return false
 	}
 	if columns[1] != "BGP" {
-		log.Debugf("Not a valid line: protocol is not BGP")
+		log.Debug("Not a valid line(%s): protocol is not BGP")
 		return false
 	}
 
@@ -98,13 +99,13 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 	// -  An IP address (with _ separating the octets)
 	sm := bgpPeerRegex.FindStringSubmatch(columns[0])
 	if len(sm) != 3 {
-		log.Debugf("Not a valid line: peer name '%s' is not correct format", columns[0])
+		log.Warnf("Not a valid line(%s): peer name '%s' is not correct format", line, columns[0])
 		return false
 	}
 	var ok bool
 	b.peerIP = strings.Replace(sm[2], "_", ipSep, -1)
 	if _, ok = bgpTypeMap[sm[1]]; !ok {
-		log.Debugf("Not a valid line: peer type '%s' is not recognized", sm[1])
+		log.Warnf("Not a valid line(%s): peer type '%s' is not recognized", line, sm[1])
 		return false
 	}
 	b.peerType = sm[1]
@@ -157,7 +158,7 @@ func readBIRDPeers(bc *birdConn) ([]bgpPeer, error) {
 //
 // We split this out from the main printBIRDPeers() function to allow us to
 // test this processing in isolation.
-func scanBIRDPeers(ipv BirdConnType, conn net.Conn) ([]bgpPeer, error) {
+func scanBIRDPeers(ipv IPFamily, conn net.Conn) ([]bgpPeer, error) {
 	// Determine the separator to use for an IP address, based on the
 	// IP version.
 	ipSep := ipv.Separator()
@@ -224,7 +225,7 @@ func scanBIRDPeers(ipv BirdConnType, conn net.Conn) ([]bgpPeer, error) {
 	return peers, scanner.Err()
 }
 
-func getBGPPeers(ipv BirdConnType) ([]bgpPeer, error) {
+func getBGPPeers(ipv IPFamily) ([]bgpPeer, error) {
 	bc, err := getBirdConn(ipv)
 	if err != nil {
 		return nil, err
@@ -233,26 +234,33 @@ func getBGPPeers(ipv BirdConnType) ([]bgpPeer, error) {
 
 	peers, err := readBIRDPeers(bc)
 	if err != nil {
+		log.WithError(err).Errorf("failed to get bird BGP peers")
 		return nil, err
 	}
 
 	return peers, nil
 }
 
-// BirdBGPPeers implement statusPopulator interface.
+// BirdBGPPeers implement populator interface.
 type BirdBGPPeers struct {
-	ipv BirdConnType
+	ipv IPFamily
+}
+
+func NewBirdBGPPeers(ipv IPFamily) BirdBGPPeers {
+	return BirdBGPPeers{ipv: ipv}
 }
 
 func (b BirdBGPPeers) Populate(status *apiv3.CalicoNodeStatus) error {
 	peers, err := getBGPPeers(b.ipv)
 	if err != nil {
+		log.WithError(err).Errorf("failed to get bird BGP peers")
 		return err
 	}
-	numEstablished := 0
-	numNonEstablished := 0
 
-	convert := func(peers []bgpPeer) []apiv3.CalicoNodePeer {
+	convert := func(peers []bgpPeer) ([]apiv3.CalicoNodePeer, int, int) {
+		numEstablished := 0
+		numNonEstablished := 0
+
 		result := []apiv3.CalicoNodePeer{}
 		for _, p := range peers {
 			if p.state == "up" {
@@ -262,16 +270,15 @@ func (b BirdBGPPeers) Populate(status *apiv3.CalicoNodeStatus) error {
 			}
 			result = append(result, p.toNodeStatusAPI())
 		}
-		return result
+		return result, numEstablished, numNonEstablished
 	}
 
-	if b.ipv == BirdConnTypeV4 {
-		status.Status.BGP.V4Peers = convert(peers)
+	bgp := &status.Status.BGP
+	if b.ipv == IPFamilyV4 {
+		bgp.V4Peers, bgp.V4NumEstablished, bgp.V4NumNotEstablished = convert(peers)
 	} else {
-		status.Status.BGP.V6Peers = convert(peers)
+		bgp.V6Peers, bgp.V6NumEstablished, bgp.V6NumNotEstablished = convert(peers)
 	}
-	status.Status.BGP.NumEstablished = numEstablished
-	status.Status.BGP.NumNotEstablished = numNonEstablished
 
 	return nil
 }

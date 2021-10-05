@@ -19,7 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.7.0
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/vishvananda/netlink v1.1.1-0.20210703095558-21f2c55a7727
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
 	k8s.io/api v0.21.0-rc.0
 	k8s.io/apimachinery v0.21.0-rc.0
@@ -30,9 +30,10 @@ require (
 replace (
 	github.com/Microsoft/hcsshim => github.com/projectcalico/hcsshim v0.8.9-calico
 	github.com/kelseyhightower/confd => github.com/projectcalico/confd v1.0.1-0.20210924174325-837ffa270322
-	github.com/projectcalico/api => github.com/song-jiang/api v0.1.2-0.20210927153948-3474c0f6c406
-	github.com/projectcalico/libcalico-go => github.com/song-jiang/libcalico-go v1.6.1-0.20210928140900-83bbfc28e5cb
-	github.com/projectcalico/typha => github.com/song-jiang/typha v0.4.1-0.20210928153947-44e4a6bcf873
+	github.com/kelseyhightower/confd => github.com/projectcalico/confd v1.0.1-0.20210909211152-d596dded3f07
+	github.com/projectcalico/api => github.com/song-jiang/api v0.1.2-0.20211007150501-e4a33a0c518a
+	github.com/projectcalico/libcalico-go => github.com/song-jiang/libcalico-go v1.6.1-0.20211007161226-9d4746290884
+	github.com/projectcalico/typha => github.com/song-jiang/typha v0.4.1-0.20211007183231-35bcd915b23c
 
 	github.com/sirupsen/logrus => github.com/projectcalico/logrus v1.0.4-calico
 

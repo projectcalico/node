@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package populator
 
 import (
 	"bufio"
@@ -44,15 +44,15 @@ func (b *birdStatus) toNodeStatusAPI() apiv3.CalicoNodeBirdStatus {
 	return apiv3.CalicoNodeBirdStatus{
 		Ready:            b.ready,
 		Version:          b.version,
-		RouteID:          b.routeID,
+		RouterID:         b.routeID,
 		ServerTime:       b.serverTime,
 		LastBootTime:     b.lastBootTime,
 		LastReconfigTime: b.lastReconfigTime,
 	}
 }
 
-// Unmarshal from a line in the BIRD protocol output.  Returns true if
-// successful, false otherwise.
+// Unmarshal from a line in the BIRD protocol output.
+// Returns true if successful, false otherwise.
 func (b *birdStatus) unmarshalBIRD(line string) bool {
 	// Peer names will be of the format described by bgpPeerRegex.
 	log.Debugf("Parsing line: %s", line)
@@ -155,7 +155,7 @@ func scanBIRDStatus(conn net.Conn) (*birdStatus, error) {
 	return status, scanner.Err()
 }
 
-func getBirdStatus(ipv BirdConnType) (*birdStatus, error) {
+func getBirdStatus(ipv IPFamily) (*birdStatus, error) {
 	bc, err := getBirdConn(ipv)
 	if err != nil {
 		return nil, err
@@ -170,21 +170,26 @@ func getBirdStatus(ipv BirdConnType) (*birdStatus, error) {
 	return status, nil
 }
 
-// BirdInfo implement statusPopulator interface.
+// BirdInfo implement populator interface.
 type BirdInfo struct {
-	ipv BirdConnType
+	ipv IPFamily
+}
+
+func NewBirdInfo(ipv IPFamily) BirdInfo {
+	return BirdInfo{ipv: ipv}
 }
 
 func (b BirdInfo) Populate(status *apiv3.CalicoNodeStatus) error {
 	birdStatus, err := getBirdStatus(b.ipv)
 	if err != nil {
+		log.WithError(err).Errorf("failed to get bird status")
 		return err
 	}
 
-	if b.ipv == BirdConnTypeV4 {
-		status.Status.Agent.Bird4 = birdStatus.toNodeStatusAPI()
+	if b.ipv == IPFamilyV4 {
+		status.Status.Agent.Birdv4 = birdStatus.toNodeStatusAPI()
 	} else {
-		status.Status.Agent.Bird6 = birdStatus.toNodeStatusAPI()
+		status.Status.Agent.Birdv6 = birdStatus.toNodeStatusAPI()
 	}
 
 	return nil
