@@ -21,7 +21,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"strings"
+	"regexp"
 	"syscall"
 	"time"
 
@@ -38,15 +38,16 @@ import (
 )
 
 const (
-	// TODO: address private registry use case too and remove hard-coded
-	// registry.
-	TigeraImagePrefix        = "quay.io/tigera/calico-windows-upgrade:"
 	CalicoKubeConfigFile     = "calico-kube-config"
 	CalicoUpdateDir          = "c:\\CalicoUpdate"
 	CalicoBaseDir            = "c:\\CalicoWindows"
 	EnterpriseBaseDir        = "c:\\TigeraCalico"
 	CalicoUpgradeScriptLabel = "projectcalico.org/CalicoWindowsUpgradeScript"
 	CalicoVersionAnnotation  = "projectcalico.org/CalicoWindowsVersion"
+)
+
+var (
+	calicoUpgradeImageRegex = regexp.MustCompile("[a-zA-Z0-9.-]+(?::[0-9]+)?/calico/windows-upgrade(:[a-zA-Z0-9.-]+|@sha256:[a-zA-Z0-9]+)")
 )
 
 func getVersionString() string {
@@ -58,13 +59,13 @@ func getVersionString() string {
 
 // This file contains the upgrade processing for the calico/node.  This
 // includes:
-// -  Monitoring node labels and get Calico upgrade script file from the label.
-// -  Uninstall current Calico/Enterprise running on the node.
-//    Install new version of Calico/Enteprise.
+// - Monitoring node labels and getting the Calico Windows upgrade script file from the label.
+// - Uninstalling current Calico Windows (OSS or Enterprise) running on the node.
+// - Install new version of Calico Windows.
 func Run() {
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()
-	log.Infof("Starting Calico monitor service on node %s ", nodeName)
+	log.Infof("Starting Calico upgrade service on node %s ", nodeName)
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
@@ -75,7 +76,7 @@ func Run() {
 		log.WithError(err).Fatal("Failed to create Kubernetes client")
 	}
 
-	stdout, stderr, err := Powershell("Get-ComputerInfo | select WindowsVersion, OsBuildNumber, OsHardwareAbstractionLayer")
+	stdout, stderr, err := powershell("Get-ComputerInfo | select WindowsVersion, OsBuildNumber, OsHardwareAbstractionLayer")
 	fmt.Println(stdout, stderr)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to interact with powershell")
@@ -93,7 +94,7 @@ func Run() {
 	if err != nil {
 		log.WithError(err).Fatal("Failed to configure node labels")
 	}
-	log.Infof("Calico upgrade service setting version annotation on node %s", version)
+	log.Infof("Service setting version annotation on node %s", version)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -110,7 +111,7 @@ func Run() {
 
 	<-sigCh
 	cancel()
-	log.Info("Received system signal...Done.")
+	log.Info("Received system signal to exit")
 }
 
 func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
@@ -152,10 +153,10 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 				ticker = time.NewTicker(3 * time.Second)
 			} else {
 				if len(script) > 0 {
-					// Before execute the script, verify host path volume mount.
-					_, err := VerifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpdateDir, TigeraImagePrefix)
+					// Before executing the script, verify host path volume mount.
+					_, err := verifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpdateDir, calicoUpgradeImageRegex)
 					if err != nil {
-						log.WithError(err).Fatal("Failed to verify calico-windows-upgrade pod image")
+						log.WithError(err).Fatal("Failed to verify windows-upgrade pod image")
 					}
 
 					err = uninstall()
@@ -187,7 +188,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 func baseDir() string {
 	dir := filepath.Dir(os.Args[0])
 	parent := "c:\\" + filepath.Base(dir)
-	log.Infof("Calico monitor service base directory: %s", parent)
+	log.Infof("Calico upgrade service base directory: %s", parent)
 
 	return parent
 }
@@ -205,7 +206,7 @@ func kubeConfigFile() string {
 func uninstall() error {
 	path := filepath.Join(baseDir(), "uninstall-calico.ps1")
 	log.Infof("Start uninstall script %s\n", path)
-	stdout, stderr, err := Powershell(path)
+	stdout, stderr, err := powershell(path)
 	fmt.Println(stdout, stderr)
 	if err != nil {
 		return err
@@ -215,7 +216,7 @@ func uninstall() error {
 
 func execScript(script string) error {
 	log.Infof("Start script %s\n", script)
-	stdout, stderr, err := Powershell(script)
+	stdout, stderr, err := powershell(script)
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func execScript(script string) error {
 	return nil
 }
 
-func VerifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, hostPath string, imagePrefix string) (string, error) {
+func verifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, hostPath string, imageRegex *regexp.Regexp) (string, error) {
 	// Get pod list for all pods on this node.
 	list, err := cs.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + nodeName,
@@ -258,17 +259,17 @@ func VerifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, 
 		container := pod.Spec.Containers[0]
 		log.Infof("container image is %v\n", container.Image)
 
-		if !strings.HasPrefix(container.Image, imagePrefix) {
-			return "", fmt.Errorf("Pod with hostpath volume has invalid image %s, prefix %s", container.Image, imagePrefix)
+		if !imageRegex.MatchString(container.Image) {
+			return "", fmt.Errorf("Pod with hostpath volume has invalid image %s, prefix %s", container.Image, imageRegex)
 		}
 
 		return container.Image, nil
 	}
 
-	return "", fmt.Errorf("Failed to find CalicoExecPod")
+	return "", fmt.Errorf("Failed to find windows-upgrade pod")
 }
 
-func Powershell(args ...string) (string, string, error) {
+func powershell(args ...string) (string, string, error) {
 	ps, err := exec.LookPath("powershell.exe")
 	if err != nil {
 		return "", "", err
