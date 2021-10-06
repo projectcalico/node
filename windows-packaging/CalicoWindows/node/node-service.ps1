@@ -125,12 +125,12 @@ Set-StoredLastBootTime $lastBootTime
 $Stored = Get-StoredLastBootTime
 Write-Host "Stored new lastBootTime $Stored"
 
-# The old version of CalicoExec may still running.
-while (Get-ExecService)
+# The old version of Calico upgrade service may still be running.
+while (Get-UpgradeService)
 {
-    $result = Remove-ExecService
+    $result = Remove-UpgradeService
     if ($result.Error -OR (!$result.Success)) {
-        Write-Host "Failed to clean up old CalicoExec service, retrying..."
+        Write-Host "Failed to clean up old CalicoUpgrade service, retrying..."
         Start-Sleep 10
     } else {
         break
@@ -157,10 +157,10 @@ while ($True)
                 {
                     Write-Host "Calico node initialisation succeeded; monitoring kubelet for restarts..."
 
-                    # At this point, we can run new CalicoExec service if it is not running already.
-                    if (!(Get-ExecService)) {
-                        Install-ExecService
-                        Start-Service CalicoExec
+                    # At this point, we can run the new CalicoUprade service if it is not running already.
+                    if (!(Get-UpgradeService)) {
+                        Install-UpgradeService
+                        Start-Service CalicoUpgrade
                     }
                     break
                 }

@@ -292,28 +292,28 @@ function Remove-ConfdService() {
     & $NSSMPath remove CalicoConfd confirm
 }
 
-function Install-ExecService()
+function Install-UpgradeService()
 {
-    Write-Host "Installing exec startup service..."
+    Write-Host "Installing Calico Upgrade startup service..."
 
     ensureRegistryKey
 
     # Ensure our service file can run.
-    Unblock-File $baseDir\exec\exec-service.ps1
+    Unblock-File $baseDir\upgrade\upgrade-service.ps1
 
-    & $NSSMPath install CalicoExec $powerShellPath
-    & $NSSMPath set CalicoExec AppParameters $baseDir\exec\exec-service.ps1
-    & $NSSMPath set CalicoExec AppDirectory $baseDir
-    & $NSSMPath set CalicoExec DisplayName "Calico Windows Exec"
-    & $NSSMPath set CalicoExec Description "Calico Windows Exec, configures Calico datamodel resources for this exec."
+    & $NSSMPath install CalicoUpgrade $powerShellPath
+    & $NSSMPath set CalicoUpgrade AppParameters $baseDir\upgrade\upgrade-service.ps1
+    & $NSSMPath set CalicoUpgrade AppDirectory $baseDir
+    & $NSSMPath set CalicoUpgrade DisplayName "Calico Windows Upgrade"
+    & $NSSMPath set CalicoUpgrade Description "Calico Windows Upgrade monitors and manages upgrades"
 
     # Configure it to auto-start by default.
-    & $NSSMPath set CalicoExec Start SERVICE_AUTO_START
-    & $NSSMPath set CalicoExec ObjectName LocalSystem
-    & $NSSMPath set CalicoExec Type SERVICE_WIN32_OWN_PROCESS
+    & $NSSMPath set CalicoUpgrade Start SERVICE_AUTO_START
+    & $NSSMPath set CalicoUpgrade ObjectName LocalSystem
+    & $NSSMPath set CalicoUpgrade Type SERVICE_WIN32_OWN_PROCESS
 
     # Throttle process restarts if Felix restarts in under 1500ms.
-    & $NSSMPath set CalicoExec AppThrottle 1500
+    & $NSSMPath set CalicoUpgrade AppThrottle 1500
 
     # Create the log directory if needed.
     if (-Not(Test-Path "$env:CALICO_LOG_DIR"))
@@ -321,24 +321,24 @@ function Install-ExecService()
         write "Creating log directory."
         md -Path "$env:CALICO_LOG_DIR"
     }
-    & $NSSMPath set CalicoExec AppStdout $env:CALICO_LOG_DIR\calico-exec.log
-    & $NSSMPath set CalicoExec AppStderr $env:CALICO_LOG_DIR\calico-exec.err.log
+    & $NSSMPath set CalicoUpgrade AppStdout $env:CALICO_LOG_DIR\calico-upgrade.log
+    & $NSSMPath set CalicoUpgrade AppStderr $env:CALICO_LOG_DIR\calico-upgrade.err.log
 
     # Configure online file rotation.
-    & $NSSMPath set CalicoExec AppRotateFiles 1
-    & $NSSMPath set CalicoExec AppRotateOnline 1
+    & $NSSMPath set CalicoUpgrade AppRotateFiles 1
+    & $NSSMPath set CalicoUpgrade AppRotateOnline 1
     # Rotate once per day.
-    & $NSSMPath set CalicoExec AppRotateSeconds 86400
+    & $NSSMPath set CalicoUpgrade AppRotateSeconds 86400
     # Rotate after 10MB.
-    & $NSSMPath set CalicoExec AppRotateBytes 10485760
+    & $NSSMPath set CalicoUpgrade AppRotateBytes 10485760
 
-    Write-Host "Done installing exec service."
+    Write-Host "Done installing upgrade service."
 }
 
-function Remove-ExecService()
+function Remove-UpgradeService()
 {
-    & $NSSMPath stop CalicoExec confirm
-    & $NSSMPath remove CalicoExec confirm
+    & $NSSMPath stop CalicoUpgrade confirm
+    & $NSSMPath remove CalicoUpgrade confirm
 }
 
 function Wait-ForManagementIP($NetworkName)
@@ -470,10 +470,10 @@ function Set-MetaDataServerRoute($mgmtIP)
     }
 }
 
-function Get-ExecService()
+function Get-UpgradeService()
 {
     # Don't use get-wmiobject since that is not available in Powershell 7.
-    return Get-CimInstance -Query "SELECT * from Win32_Service WHERE name = 'CalicoExec'"
+    return Get-CimInstance -Query "SELECT * from Win32_Service WHERE name = 'CalicoUpgrade'"
 }
 
 # Assume same relative path for containerd CNI bin/conf dir

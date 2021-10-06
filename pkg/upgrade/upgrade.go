@@ -184,7 +184,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 	}
 }
 
-// Return the base directory for CalicoExec service.
+// Return the base directory for Calico upgrade service.
 func baseDir() string {
 	dir := filepath.Dir(os.Args[0])
 	parent := "c:\\" + filepath.Base(dir)
