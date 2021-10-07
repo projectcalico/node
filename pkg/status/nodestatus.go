@@ -231,6 +231,10 @@ func (r *nodeStatusReporter) onUpdates(updates []bapi.Update) {
 			// Resource is created or updated. Cache latest value to pending updates.
 			switch v := u.Value.(type) {
 			case *apiv3.CalicoNodeStatus:
+				if v.Spec.UpdatePeriodSeconds == nil {
+					log.Errorf("UpdatePeriodSeconds not set for node status resource: %s", u.Key)
+					continue
+				}
 				log.Infof("Updated node status resource: %s", u.Key)
 				r.pendingUpdates[name] = v
 			default:

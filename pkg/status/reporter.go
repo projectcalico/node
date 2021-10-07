@@ -50,7 +50,7 @@ type reporter struct {
 	status *apiv3.CalicoNodeStatus
 
 	// Interval and Time ticker that node status should be reported.
-	interval int
+	interval uint32
 	ticker   *time.Ticker
 
 	// populators
@@ -87,7 +87,7 @@ func newReporter(name string,
 		logCtx:     log.WithField("object", name),
 	}
 
-	r.checkAndUpdateTicker(request.Spec.UpdateIntervalInSeconds)
+	r.checkAndUpdateTicker(request.Spec.UpdatePeriodSeconds)
 
 	go r.run()
 	return r
@@ -95,13 +95,13 @@ func newReporter(name string,
 
 // Check and set new ticker for the reporter.
 // Make sure stop the old one first to GC old ticker.
-func (r reporter) checkAndUpdateTicker(pInterval *int) {
-	var interval int
+func (r reporter) checkAndUpdateTicker(pInterval *uint32) {
+	var interval uint32
 	if pInterval == nil {
-		interval = DefaultIntervalInSeconds
-	} else {
-		interval = *pInterval
+		// Should not happen. Do nothing.
+		return
 	}
+	interval = *pInterval
 
 	if r.interval == interval {
 		// no update needed.
@@ -117,7 +117,7 @@ func (r reporter) checkAndUpdateTicker(pInterval *int) {
 
 	if interval == 0 {
 		// Disable further updates.
-		r.logCtx.Info("Node status periodical update disabled")
+		r.logCtx.Debug("Node status periodical update disabled")
 	} else {
 		r.logCtx.Infof("Node status update interval updated")
 		r.ticker = time.NewTicker(time.Duration(interval) * time.Second)
@@ -156,7 +156,7 @@ func (r reporter) run() {
 				break
 			}
 			r.status = latest
-			r.checkAndUpdateTicker(latest.Spec.UpdateIntervalInSeconds)
+			r.checkAndUpdateTicker(latest.Spec.UpdatePeriodSeconds)
 			// kick start node status update
 			runImmediately <- struct{}{}
 
@@ -211,7 +211,7 @@ func (r reporter) reportStatus() error {
 		updatedResource, err = r.client.CalicoNodeStatus().Update(ctx, &status, options.SetOptions{})
 		if err != nil {
 			if _, ok := err.(cerrors.ErrorResourceUpdateConflict); ok {
-				r.logCtx.Warn("Node status resource update conflict - we are behind syner update")
+				r.logCtx.Warn("Node status resource update conflict - we are behind syncer update")
 
 				// Just return and wait for syncer update to go through.
 				return nil

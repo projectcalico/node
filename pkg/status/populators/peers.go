@@ -57,18 +57,22 @@ type bgpPeer struct {
 	info     string
 }
 
-func (b *bgpPeer) toNodeStatusAPI() apiv3.CalicoNodePeer {
-	info := b.bgpState
-	if b.info != "" {
-		info += " " + b.info
-	}
+var birdStateToBGPState map[string]apiv3.BGPSessionState = map[string]apiv3.BGPSessionState{
+	"Idle":        apiv3.BGPSessionStateIdle,
+	"Connect":     apiv3.BGPSessionStateConnect,
+	"Active":      apiv3.BGPSessionStateActive,
+	"OpenSent":    apiv3.BGPSessionStateOpenSent,
+	"OpenConfirm": apiv3.BGPSessionStateOpenConfirm,
+	"Established": apiv3.BGPSessionStateEstablished,
+	"Close":       apiv3.BGPSessionStateClose,
+}
 
+func (b *bgpPeer) toNodeStatusAPI() apiv3.CalicoNodePeer {
 	return apiv3.CalicoNodePeer{
 		PeerIP: b.peerIP,
 		Type:   bgpTypeMap[b.peerType],
-		State:  b.state,
+		State:  birdStateToBGPState[b.bgpState],
 		Since:  b.since,
-		Info:   info,
 	}
 }
 
@@ -275,9 +279,9 @@ func (b BirdBGPPeers) Populate(status *apiv3.CalicoNodeStatus) error {
 
 	bgp := &status.Status.BGP
 	if b.ipv == IPFamilyV4 {
-		bgp.V4Peers, bgp.V4NumEstablished, bgp.V4NumNotEstablished = convert(peers)
+		bgp.PeersV4, bgp.NumberEstablishedV4, bgp.NumberNotEstablishedV4 = convert(peers)
 	} else {
-		bgp.V6Peers, bgp.V6NumEstablished, bgp.V6NumNotEstablished = convert(peers)
+		bgp.PeersV6, bgp.NumberEstablishedV6, bgp.NumberNotEstablishedV6 = convert(peers)
 	}
 
 	return nil

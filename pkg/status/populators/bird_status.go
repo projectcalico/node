@@ -40,14 +40,21 @@ type birdStatus struct {
 	lastReconfigTime string
 }
 
-func (b *birdStatus) toNodeStatusAPI() apiv3.CalicoNodeBirdStatus {
-	return apiv3.CalicoNodeBirdStatus{
-		Ready:            b.ready,
-		Version:          b.version,
-		RouterID:         b.routeID,
-		ServerTime:       b.serverTime,
-		LastBootTime:     b.lastBootTime,
-		LastReconfigTime: b.lastReconfigTime,
+func (b *birdStatus) toNodeStatusAPI() apiv3.BGPDaemonStatus {
+	var state apiv3.BGPDaemonState
+	if b.ready {
+		state = apiv3.BGPDaemonStateReady
+	} else {
+		state = apiv3.BGPDaemonStateNotReady
+	}
+
+	return apiv3.BGPDaemonStatus{
+		State:                   state,
+		Version:                 b.version,
+		RouterID:                b.routeID,
+		ServerTime:              b.serverTime,
+		LastBootTime:            b.lastBootTime,
+		LastReconfigurationTime: b.lastReconfigTime,
 	}
 }
 
@@ -187,9 +194,9 @@ func (b BirdInfo) Populate(status *apiv3.CalicoNodeStatus) error {
 	}
 
 	if b.ipv == IPFamilyV4 {
-		status.Status.Agent.Birdv4 = birdStatus.toNodeStatusAPI()
+		status.Status.Agent.BIRDV4 = birdStatus.toNodeStatusAPI()
 	} else {
-		status.Status.Agent.Birdv6 = birdStatus.toNodeStatusAPI()
+		status.Status.Agent.BIRDV6 = birdStatus.toNodeStatusAPI()
 	}
 
 	return nil

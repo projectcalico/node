@@ -306,9 +306,9 @@ func (b BirdRoutes) Populate(status *apiv3.CalicoNodeStatus) error {
 	}
 
 	if b.ipv == IPFamilyV4 {
-		status.Status.Routes.V4Routes = convert(routes)
+		status.Status.Routes.RoutesV4 = convert(routes)
 	} else {
-		status.Status.Routes.V6Routes = convert(routes)
+		status.Status.Routes.RoutesV6 = convert(routes)
 	}
 
 	return nil
