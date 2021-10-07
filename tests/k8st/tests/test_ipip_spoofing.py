@@ -48,16 +48,16 @@ class TestSpoof(TestBase):
         # Calico routing and policy to be set up correctly for a newly
         # created pod.
         nodes, _, _ = node_info()
-        kubectl("run --generator=run-pod/v1 "
+        kubectl("run "
                 "access "
                 "-n %s "
                 "--image busybox "
                 "--overrides='{\"spec\": {\"nodeName\":\"%s\"}}' "
                 "--command /bin/sh -- -c \"nc -l -u -p 5000 &> /root/snoop.txt\"" % (self.ns_name, nodes[1]))
-        kubectl("run --generator=run-pod/v1 "
+        kubectl("run "
                 "scapy "
                 "-n %s "
-                "--image ehlers/scapy "
+                "--image calico/scapy:v2.4.0 "
                 "--overrides='{\"spec\": {\"nodeName\":\"%s\"}}' "
                 "--command /bin/sleep -- 3600" % (self.ns_name, nodes[2]))
 
@@ -106,7 +106,7 @@ class TestSpoof(TestBase):
 
             def send_and_check_ipip_spoof():
                 self.send_spoofed_ipip_packet(self.ns_name, "scapy", "10.192.0.3", remote_pod_ip, "ipip-spoofed")
-                kubectl("exec -t -n %s access grep -- ipip-spoofed /root/snoop.txt" % self.ns_name)
+                kubectl("exec -t -n %s access -- grep ipip-spoofed /root/snoop.txt" % self.ns_name)
 
             def assert_cannot_spoof_ipip():
                 failed = True
@@ -147,7 +147,7 @@ class TestSpoof(TestBase):
 
             def send_and_check_vxlan_spoof():
                 self.send_spoofed_vxlan_packet(self.ns_name, "scapy", "10.192.0.3", remote_pod_ip, "vxlan-spoofed")
-                kubectl("exec -t -n %s access grep -- vxlan-spoofed /root/snoop.txt" % self.ns_name)
+                kubectl("exec -t -n %s access -- grep vxlan-spoofed /root/snoop.txt" % self.ns_name)
 
             def assert_cannot_spoof_vxlan():
                 failed = True
@@ -164,7 +164,7 @@ class TestSpoof(TestBase):
 
     def send_and_check(self, payload, remote_pod_ip):
         self.send_packet(self.ns_name, "scapy", remote_pod_ip, payload)
-        kubectl("exec -t -n %s access grep -- %s /root/snoop.txt" % (self.ns_name, payload))
+        kubectl("exec -t -n %s access -- grep %s /root/snoop.txt" % (self.ns_name, payload))
 
     @staticmethod
     def clear_conntrack():
@@ -175,13 +175,13 @@ class TestSpoof(TestBase):
         # Flush conntrack in every calico-node pod
         for entry in node_dict["items"]:
             node = entry["metadata"]["name"]
-            kubectl("exec -n kube-system %s conntrack -- -F" % node)
+            kubectl("exec -n kube-system %s -- conntrack -F" % node)
 
     @staticmethod
     def send_packet(ns_name, name, remote_pod_ip, message):
         try:
             kubectl("exec " + name + " -ti -n %s -- "
-                                     "scapy3 << EOF\n"
+                                     "scapy << EOF\n"
                                      "send("
                                      "IP(dst='%s')/"
                                      "UDP(dport=5000, sport=5000)/"
@@ -196,7 +196,7 @@ class TestSpoof(TestBase):
     def send_spoofed_ipip_packet(ns_name, name, remote_node_ip, remote_pod_ip, message):
         try:
             kubectl("exec " + name + " -ti -n %s -- "
-                                     "scapy3 << EOF\n"
+                                     "scapy << EOF\n"
                                      "send("
                                      "IP(dst='%s')/"
                                      "IP(dst='%s')/"
@@ -212,7 +212,7 @@ class TestSpoof(TestBase):
     def send_spoofed_vxlan_packet(ns_name, name, remote_node_ip, remote_pod_ip, message):
         try:
             kubectl("exec " + name + " -ti -n %s -- "
-                                     "scapy3 << EOF\n"
+                                     "scapy << EOF\n"
                                      "send("
                                      "IP(dst='%s')/"
                                      "UDP(dport=4789)/"
