@@ -200,6 +200,7 @@ remote-deps: register mod-download
 	rm -rf config
 	rm -rf bin/bpf
 	mkdir -p bin/bpf
+	rm -rf bin/third-party
 	rm -rf filesystem/usr/lib/calico/bpf/
 	mkdir -p filesystem/usr/lib/calico/bpf/
 	$(DOCKER_RUN) $(CALICO_BUILD) sh -ec ' \
@@ -220,7 +221,6 @@ remote-deps: register mod-download
 
 $(LIBBPF_PATH)/libbpf.a: go.mod
 	$(MAKE) mod-download
-	rm -rf bin/third-party
 	mkdir -p bin/third-party
 	$(DOCKER_RUN) $(CALICO_BUILD) sh -ec ' \
 		$(GIT_CONFIG_SSH) \
