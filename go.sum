@@ -71,6 +71,7 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 h1:Hs82Z41s6SdL1CELW+XaDYmOH4hkBN4/N9og/AsOv7E=
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
+github.com/alessio/shellescape v1.4.1 h1:V7yhSDDn8LP4lc4jS8pFkt0zCnzVJlG5JXy9BVKJUX0=
 github.com/alessio/shellescape v1.4.1/go.mod h1:PZAiSCk0LJaZkiCSkPv8qIobYglO3FPpyFjDCtHLS30=
 github.com/alexflint/go-filemutex v0.0.0-20171022225611-72bdc8eae2ae h1:AMzIhMUqU3jMrZiTuW0zkYeKlKDAFD+DG20IoO421/Y=
 github.com/alexflint/go-filemutex v0.0.0-20171022225611-72bdc8eae2ae/go.mod h1:CgnQgUtFrFz9mxFNtED3jI5tLDjKlOM+oUF/sTk6ps0=
@@ -217,6 +218,7 @@ github.com/euank/go-kmsg-parser v2.0.0+incompatible/go.mod h1:MhmAMZ8V4CYH4ybgdR
 github.com/evanphx/json-patch v4.5.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/evanphx/json-patch v4.9.0+incompatible h1:kLcOMZeuLAJvL2BPWLMIj5oaZQobrkAqrL+WFZwQses=
 github.com/evanphx/json-patch v4.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
+github.com/evanphx/json-patch/v5 v5.2.0 h1:8ozOH5xxoMYDt5/u+yMTsVXydVCbTORFnOOoq2lumco=
 github.com/evanphx/json-patch/v5 v5.2.0/go.mod h1:G79N1coSVB93tBe7j6PhzjmR3/2VvlbKOFpnXhI9Bw4=
 github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d/go.mod h1:ZZMPRZwes7CROmyNKgQzC3XPs6L/G2EJLHddWejkmf4=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
@@ -531,6 +533,7 @@ github.com/marten-seemann/qtls v0.2.3/go.mod h1:xzjG7avBwGGbdZ8dTGxlBnLArsVKLvwm
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-isatty v0.0.3/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
+github.com/mattn/go-isatty v0.0.12 h1:wuysRhFDzyxgEmMf5xjvJ2M9dZoWAXNNr5LSBS7uHXY=
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/mattn/go-runewidth v0.0.2/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
 github.com/mattn/go-runewidth v0.0.7/go.mod h1:H031xJmbD/WCDINGzjvQ9THkh0rPKHF+m2gUSrubnMI=
@@ -640,8 +643,8 @@ github.com/projectcalico/api v0.0.0-20211006181607-6c171671b99a h1:8JxFi3UUBmXdS
 github.com/projectcalico/api v0.0.0-20211006181607-6c171671b99a/go.mod h1:Pa/OeKK5YozAqBVt/pVm5XAAW5/uUSEw6YibgHmcKIM=
 github.com/projectcalico/cni-plugin v1.11.1-0.20211005140845-210477e44941 h1:2kzI+2aeNzdZLYhUYsq+e7gXVwDXZiqElslCEkfQ5WY=
 github.com/projectcalico/cni-plugin v1.11.1-0.20211005140845-210477e44941/go.mod h1:nb0jmrDCKPh/A5xhMZOlo4zgwGT0b4Y1pA08vblInJk=
-github.com/projectcalico/confd v1.0.1-0.20211005132052-3661b446f06c h1:qI+m4ZjOnQ9VeOvYoaKC99H9kZ8+FbdVhTk8NM+GoXA=
-github.com/projectcalico/confd v1.0.1-0.20211005132052-3661b446f06c/go.mod h1:768LAoNrPqSn/BRe0W7Jv30fDxe+CE8Jn+1LYytol+A=
+github.com/projectcalico/confd v1.0.1-0.20211008154454-16ae5d51f22f h1:sNOn11YzWLcfjbExRO0iMoHSrqwFd2TULXMPfRCtsOI=
+github.com/projectcalico/confd v1.0.1-0.20211008154454-16ae5d51f22f/go.mod h1:768LAoNrPqSn/BRe0W7Jv30fDxe+CE8Jn+1LYytol+A=
 github.com/projectcalico/felix v0.0.0-20211007135718-64f16d9ab9f0 h1:rhMVDPH3UvEK7ZxqR0ckPhTZpCuaraZ7D4rere9EnQA=
 github.com/projectcalico/felix v0.0.0-20211007135718-64f16d9ab9f0/go.mod h1:J9CkW5BitgUENzZuqRzrzoj/4bWsESReLjDDPnX+iT0=
 github.com/projectcalico/go-json v0.0.0-20161128004156-6219dc7339ba h1:aaF2byUCZhzszHsfPEr2M3qcU4ibtD/yk/il2R7T1PU=
@@ -651,8 +654,8 @@ github.com/projectcalico/go-yaml-wrapper v0.0.0-20191112210931-090425220c54/go.m
 github.com/projectcalico/hcsshim v0.8.9-calico h1:aRrOWouDTzKwaIoRGMV/I1QikR+ikwj1G9T9h3wD090=
 github.com/projectcalico/hcsshim v0.8.9-calico/go.mod h1:5692vkUqntj1idxauYlpoINNKeqCiG6Sg38RRsjT5y8=
 github.com/projectcalico/libcalico-go v1.7.2-0.20211005125516-43b35ddc2f4a/go.mod h1:nN209sU68CK0+IEGCsd+zCBBIp17Y7Z7sJ86J0mrBc0=
-github.com/projectcalico/libcalico-go v1.7.2-0.20211006193733-972f2b1cc5e9 h1:XVqjOyvs0iBqmtPHNpYE4i37CIyxnBqGPLjVY/2+RAQ=
-github.com/projectcalico/libcalico-go v1.7.2-0.20211006193733-972f2b1cc5e9/go.mod h1:X4qSd/8P0AlAMBB7YeOmCqWjrJSAyFeDuM/H9dNfllw=
+github.com/projectcalico/libcalico-go v1.7.2-0.20211008173546-0e588d709b40 h1:Gk/90Nj8V9Jp04A0Vfl4JWlnM1TPZ9ZTKeTJDTWyQ9c=
+github.com/projectcalico/libcalico-go v1.7.2-0.20211008173546-0e588d709b40/go.mod h1:X4qSd/8P0AlAMBB7YeOmCqWjrJSAyFeDuM/H9dNfllw=
 github.com/projectcalico/logrus v1.0.4-calico h1:bHJ2KLGTFzoWpRISe13CO7HVxxrKunDjyUz/wFiBY8c=
 github.com/projectcalico/logrus v1.0.4-calico/go.mod h1:DfgrchabbtEO9wjOz5lVae+XRvjFKKWEA9GTMme6A8g=
 github.com/projectcalico/pod2daemon v0.0.0-20210818162850-fa9ba6fd57c4 h1:uRGzd86c2V1mpRiwcWuWuGRDjnjhtKLY0lBm71BJAEM=
