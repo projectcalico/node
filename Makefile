@@ -18,7 +18,8 @@ DEV_REGISTRIES ?=quay.io docker.io
 endif
 
 BUILD_IMAGES ?=$(NODE_IMAGE)
-LIBBPF_PATH=/go/src/github.com/projectcalico/node/bin/third-party/libbpf/src
+LIBBPF_DOCKER_PATH=/go/src/github.com/projectcalico/node/bin/third-party/libbpf/src
+LIBBPF_PATH=./bin/third-party/libbpf/src
 
 # Build mounts for running in "local build" mode. This allows an easy build using local development code,
 # assuming that there is a local checkout of libcalico in the same directory as this repo.
@@ -231,10 +232,11 @@ $(LIBBPF_PATH)/libbpf.a: go.mod
 # Currently CGO can be enbaled in ARM64 and AMD64 builds.
 ifeq ($(ARCH), $(filter $(ARCH),amd64 arm64))
 CGO_ENABLED=1
-CGO_LDFLAGS="-L$(LIBBPF_PATH) -lbpf -lelf -lz"
-CGO_CFLAGS="-I$(LIBBPF_PATH)"
+CGO_LDFLAGS="-L$(LIBBPF_DOCKER_PATH) -lbpf -lelf -lz"
+CGO_CFLAGS="-I$(LIBBPF_DOCKER_PATH)"
 else
 CGO_ENABLED=0
+CGO_LDFLAGS=""
 CGO_CFLAGS=""
 endif
 
