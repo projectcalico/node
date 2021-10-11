@@ -193,7 +193,7 @@ update-pins: update-api-pin update-libcalico-pin update-felix-pin update-confd-p
 ###############################################################################
 build:  $(NODE_CONTAINER_BINARY)
 
-remote-deps: mod-download
+remote-deps: register mod-download
 	# Recreate the directory so that we are sure to clean up any old files.
 	rm -rf filesystem/etc/calico/confd
 	mkdir -p filesystem/etc/calico/confd
@@ -243,7 +243,7 @@ endif
 DOCKER_GO_BUILD_CGO=$(DOCKER_RUN) -e CGO_ENABLED=$(CGO_ENABLED) -e CGO_LDFLAGS=$(CGO_LDFLAGS) -e CGO_CFLAGS=$(CGO_CFLAGS) $(CALICO_BUILD)
 DOCKER_GO_BUILD_CGO_WINDOWS=$(DOCKER_RUN) -e CGO_ENABLED=$(CGO_ENABLED) $(CALICO_BUILD)
 
-$(NODE_CONTAINER_BINARY): $(LIBBPF_PATH)/libbpf.a $(LOCAL_BUILD_DEP) $(SRC_FILES) go.mod
+$(NODE_CONTAINER_BINARY): register $(LIBBPF_PATH)/libbpf.a $(LOCAL_BUILD_DEP) $(SRC_FILES) go.mod
 	$(DOCKER_GO_BUILD_CGO) sh -c '$(GIT_CONFIG_SSH) go build -v -o $@ $(BUILD_FLAGS) $(LDFLAGS) ./cmd/calico-node/main.go'
 
 $(WINDOWS_BINARY):
