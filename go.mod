@@ -3,6 +3,7 @@ module github.com/projectcalico/node
 go 1.15
 
 require (
+	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/ginkgo v1.14.1
@@ -13,7 +14,9 @@ require (
 	github.com/projectcalico/felix v0.0.0-20210930220743-36fd109dafc4
 	github.com/projectcalico/libcalico-go v1.7.2-0.20211012083820-1857ae4ea0eb
 	github.com/projectcalico/typha v0.7.3-0.20211005131105-524c8635da7f
+	github.com/shirou/gopsutil v3.21.9+incompatible
 	github.com/sirupsen/logrus v1.7.0
+	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/vishvananda/netlink v1.1.1-0.20210703095558-21f2c55a7727
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7

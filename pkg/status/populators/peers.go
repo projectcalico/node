@@ -77,6 +77,26 @@ func (b *bgpPeer) toNodeStatusAPI() apiv3.CalicoNodePeer {
 	}
 }
 
+// Get BGP peer type and peer IP from session name.
+func sessionNameToTypeAndPeerIP(ipSep, name string) (string, string, error) {
+	// Check the name of the peer is of the correct format.  This regex
+	// returns two components:
+	// -  A type (Global|Node|Mesh) which we can map to a display type
+	// -  An IP address (with _ separating the octets)
+	sm := bgpPeerRegex.FindStringSubmatch(name)
+	if len(sm) != 3 {
+		log.Debugf("Not a valid line: peer name '%s' is not correct format", name)
+		return "", "", fmt.Errorf("not a valid line: session name '%s' is not a correct format", name)
+	}
+
+	if _, ok := bgpTypeMap[sm[1]]; !ok {
+		return "", "", fmt.Errorf("peer type '%s' is not recognized", sm[1])
+	}
+
+	ip := strings.Replace(sm[2], "_", ipSep, -1)
+	return sm[1], ip, nil
+}
+
 // Unmarshal a peer from a line in the BIRD protocol output.  Returns true if
 // successful, false otherwise.
 func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
@@ -98,25 +118,15 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 		return false
 	}
 
-	// Check the name of the peer is of the correct format.  This regex
-	// returns two components:
-	// -  A type (Global|Node|Mesh) which we can map to a display type
-	// -  An IP address (with _ separating the octets)
-	sm := bgpPeerRegex.FindStringSubmatch(columns[0])
-	if len(sm) != 3 {
-		log.Warnf("Not a valid line(%s): peer name '%s' is not correct format", line, columns[0])
-		return false
-	}
-
-	var ok bool
-	if _, ok = bgpTypeMap[sm[1]]; !ok {
-		log.Warnf("Not a valid line(%s): peer type '%s' is not recognized", line, sm[1])
+	peerType, _, err := sessionNameToTypeAndPeerIP(ipSep, columns[0])
+	if err != nil {
+		log.WithError(err).Warnf("Not a valid line(%s)", line)
 		return false
 	}
 
 	// All good, set the session name
 	b.session = columns[0]
-	b.peerType = sm[1]
+	b.peerType = peerType
 
 	// Store remaining columns (piecing back together the info string)
 	b.state = columns[3]

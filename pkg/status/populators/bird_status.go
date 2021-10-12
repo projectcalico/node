@@ -52,7 +52,6 @@ func (b *birdStatus) toNodeStatusAPI() apiv3.BGPDaemonStatus {
 		State:                   state,
 		Version:                 b.version,
 		RouterID:                b.routeID,
-		ServerTime:              b.serverTime,
 		LastBootTime:            b.lastBootTime,
 		LastReconfigurationTime: b.lastReconfigTime,
 	}
