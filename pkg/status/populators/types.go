@@ -30,7 +30,7 @@ type IPFamily string
 
 const (
 	IPFamilyV4 IPFamily = "4"
-	IPFamilyV6          = "6"
+	IPFamilyV6 IPFamily = "6"
 )
 
 func (c IPFamily) String() string {
