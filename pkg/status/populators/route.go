@@ -46,7 +46,17 @@ type route struct {
 	primary     bool
 }
 
-func (r *route) toNodeStatusAPI() apiv3.CalicoNodeRoute {
+func (r *route) IPFamily() IPFamily {
+	if len(r.dest) == 0 {
+		log.Fatal("Unknown destination for route")
+	}
+	if strings.Contains(r.dest, ":") {
+		return IPFamilyV6
+	}
+	return IPFamilyV4
+}
+
+func (r *route) toNodeStatusAPI() (*apiv3.CalicoNodeRoute, error) {
 	learnedFrom := apiv3.CalicoNodeRouteLearnedFrom{}
 
 	var routeType apiv3.CalicoNodeRouteType
@@ -64,17 +74,28 @@ func (r *route) toNodeStatusAPI() apiv3.CalicoNodeRoute {
 		learnedFrom.SourceType = apiv3.RouteSourceTypeDirect
 	} else {
 		// TODO get information from Confd
-		learnedFrom.SourceType = apiv3.RouteSourceTypeNodeMesh
-		learnedFrom.Node = r.learnedFrom
+		// Currently we just parse BGP session name and set type and peer IP.
+		peerType, ip, err := sessionNameToTypeAndPeerIP(r.IPFamily().Separator(), r.learnedFrom)
+		if err != nil {
+			return nil, err
+		}
+
+		if bgpTypeMap[peerType] == apiv3.BGPPeerTypeNodeMesh {
+			learnedFrom.SourceType = apiv3.RouteSourceTypeNodeMesh
+		} else {
+			learnedFrom.SourceType = apiv3.RouteSourceTypeBGPPeer
+		}
+
+		learnedFrom.PeerIP = ip
 	}
 
-	return apiv3.CalicoNodeRoute{
+	return &apiv3.CalicoNodeRoute{
 		Type:        routeType,
 		Destination: r.dest,
 		Gateway:     r.gateway,
 		Interface:   r.iface,
 		LearnedFrom: learnedFrom,
-	}
+	}, nil
 }
 
 // Unmarshal a peer from a line in the BIRD protocol output.
@@ -297,18 +318,27 @@ func (b BirdRoutes) Populate(status *apiv3.CalicoNodeStatus) error {
 		return err
 	}
 
-	convert := func(routes []route) []apiv3.CalicoNodeRoute {
+	convert := func(routes []route) ([]apiv3.CalicoNodeRoute, error) {
 		result := []apiv3.CalicoNodeRoute{}
 		for _, r := range routes {
-			result = append(result, r.toNodeStatusAPI())
+			apiRoute, err := r.toNodeStatusAPI()
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, *apiRoute)
 		}
-		return result
+		return result, nil
+	}
+
+	apiRoutes, err := convert(routes)
+	if err != nil {
+		return err
 	}
 
 	if b.ipv == IPFamilyV4 {
-		status.Status.Routes.RoutesV4 = convert(routes)
+		status.Status.Routes.RoutesV4 = apiRoutes
 	} else {
-		status.Status.Routes.RoutesV6 = convert(routes)
+		status.Status.Routes.RoutesV6 = apiRoutes
 	}
 
 	return nil
