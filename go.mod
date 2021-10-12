@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000
+	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.9.1
@@ -25,6 +26,8 @@ require (
 replace (
 	github.com/Microsoft/hcsshim => github.com/projectcalico/hcsshim v0.8.9-calico
 	github.com/kelseyhightower/confd => github.com/projectcalico/confd v1.0.1-0.20211008154454-16ae5d51f22f
+
+	github.com/projectcalico/typha => github.com/song-jiang/typha v0.4.1-0.20211012102830-b587ceb81359
 
 	github.com/sirupsen/logrus => github.com/projectcalico/logrus v1.0.4-calico
 
