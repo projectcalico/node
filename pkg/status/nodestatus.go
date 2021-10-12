@@ -131,7 +131,7 @@ func Show() {
 				p.Show()
 			}
 		}
-		fmt.Println("\n\n")
+		fmt.Print("\n\n")
 	}
 }
 

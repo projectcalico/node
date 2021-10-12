@@ -206,7 +206,7 @@ func (b BirdInfo) Populate(status *apiv3.CalicoNodeStatus) error {
 func (b BirdInfo) Show() {
 	birdStatus, err := getBirdStatus(b.ipv)
 	if err != nil {
-		fmt.Println("Error getting birdStatus: %v", err)
+		fmt.Printf("Error getting birdStatus: %v\n", err)
 		return
 	}
 

@@ -77,6 +77,10 @@ func newReporter(name string,
 		// Should not happen.
 		log.Fatal("Trying to create a new reporter on a nil object")
 	}
+	if request.Spec.UpdatePeriodSeconds == nil {
+		// Should not happen.
+		log.Fatal("Trying to create a new reporter on a nil UpdatePeriodSeconds")
+	}
 	r := &reporter{
 		name:       name,
 		client:     client,
@@ -149,6 +153,12 @@ func (r *reporter) HasSameSpec(status *apiv3.CalicoNodeStatus) bool {
 	return reflect.DeepEqual(r.status.Spec, status.Spec)
 }
 
+// ReportStatus call reportStatus function.
+// ToDo error handling and update conditions.
+func (r *reporter) ReportStatus() {
+	_ = r.reportStatus()
+}
+
 // run is the main reporting loop, it loops until done.
 func (r *reporter) run() {
 	r.logCtx.Debug("Start new goroutine to report node status")
@@ -165,11 +175,11 @@ func (r *reporter) run() {
 			r.status = latest
 			r.checkAndUpdateTicker(latest.Spec.UpdatePeriodSeconds)
 			// kick start node status update
-			r.reportStatus()
+			r.ReportStatus()
 
 		case <-r.ticker.C:
 			// Todo check resource and update condition.
-			r.reportStatus()
+			r.ReportStatus()
 
 		case <-r.done:
 			r.cleanup()
@@ -214,7 +224,8 @@ func (r *reporter) reportStatus() error {
 	var updatedResource *apiv3.CalicoNodeStatus
 	// Update resource
 	for i := 0; i < 3; i++ {
-		ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
 		status.Status.LastUpdated = metav1.Time{Time: time.Now()}
 		updatedResource, err = r.client.CalicoNodeStatus().Update(ctx, &status, options.SetOptions{})
 		if err != nil {

@@ -114,7 +114,7 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 		return false
 	}
 	if columns[1] != "BGP" {
-		log.Debug("Not a valid line(%s): protocol is not BGP")
+		log.Debugf("Not a valid line(%s): protocol is not BGP")
 		return false
 	}
 
@@ -245,7 +245,10 @@ func readBIRDPeers(bc *birdConn) ([]*bgpPeer, error) {
 
 	log.Debugln("Reading output for BGP peer details")
 	for _, peer := range peers {
-		peer.complete(bc)
+		err = peer.complete(bc)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return peers, nil
@@ -385,7 +388,7 @@ func (b BirdBGPPeers) Populate(status *apiv3.CalicoNodeStatus) error {
 func (b BirdBGPPeers) Show() {
 	peers, err := getBGPPeers(b.ipv)
 	if err != nil {
-		fmt.Println("Error getting bird BGP peers: %v", err)
+		fmt.Printf("Error getting bird BGP peers: %v\n", err)
 		return
 	}
 

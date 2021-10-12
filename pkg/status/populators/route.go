@@ -348,7 +348,7 @@ func (b BirdRoutes) Populate(status *apiv3.CalicoNodeStatus) error {
 func (b BirdRoutes) Show() {
 	routes, err := getRoutes(b.ipv)
 	if err != nil {
-		fmt.Println("Error getting birdRoutes: %v", err)
+		fmt.Printf("Error getting birdRoutes: %v\n", err)
 		return
 	}
 
