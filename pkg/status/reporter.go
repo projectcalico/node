@@ -76,11 +76,9 @@ func newReporter(name string,
 	if request == nil {
 		// Should not happen.
 		log.Fatal("Trying to create a new reporter on a nil object")
+		return nil
 	}
-	if request.Spec.UpdatePeriodSeconds == nil {
-		// Should not happen.
-		log.Fatal("Trying to create a new reporter on a nil UpdatePeriodSeconds")
-	}
+
 	r := &reporter{
 		name:       name,
 		client:     client,

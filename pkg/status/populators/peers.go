@@ -114,7 +114,7 @@ func (b *bgpPeer) unmarshalBIRD(line, ipSep string) bool {
 		return false
 	}
 	if columns[1] != "BGP" {
-		log.Debugf("Not a valid line(%s): protocol is not BGP")
+		log.Debugf("Not a valid line(%s): protocol is not BGP", line)
 		return false
 	}
 
