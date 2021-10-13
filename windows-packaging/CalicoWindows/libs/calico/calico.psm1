@@ -337,8 +337,17 @@ function Install-UpgradeService()
 
 function Remove-UpgradeService()
 {
-    & $NSSMPath stop CalicoUpgrade confirm
-    & $NSSMPath remove CalicoUpgrade confirm
+    $svc = Get-Service | where Name -EQ 'CalicoUpgrade'
+    if ($svc -NE $null)
+    {
+        if ($svc.Status -EQ 'Running')
+        {
+            Write-Host "CalicoUpgrade service is running, stopping it..."
+            & $NSSMPath stop CalicoUpgrade confirm
+        }
+        Write-Host "Removing CalicoUpgrade service..."
+        & $NSSMPath remove CalicoUpgrade confirm
+    }
 }
 
 function Wait-ForManagementIP($NetworkName)
