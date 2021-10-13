@@ -260,10 +260,6 @@ func (r *nodeStatusReporter) onUpdates(updates []bapi.Update) {
 // processPendingUpdates processes pending updates in main loop.
 // It is called when we are in-sync.
 func (r *nodeStatusReporter) processPendingUpdates() {
-	if len(r.pendingUpdates) == 0 {
-		return
-	}
-
 	for name, data := range r.pendingUpdates {
 		if data == nil {
 			// we have a deletion of the resource.
