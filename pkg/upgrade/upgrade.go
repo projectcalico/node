@@ -212,6 +212,15 @@ func uninstall() error {
 	if err != nil {
 		return err
 	}
+	// After the uninstall completes, move the existing calico-node.exe to
+	// a temporary file. The calico-upgrade service is still running so not
+	// doing this means we cannot replace calico-node.exe with the upgrade.
+	stdout, stderr, err = powershell(fmt.Sprintf(`mv %v\calico-node.exe %v\calico-node.exe.calico-upgraded`, baseDir(), baseDir()))
+	fmt.Println(stdout, stderr)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
