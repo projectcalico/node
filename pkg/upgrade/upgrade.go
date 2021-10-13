@@ -172,9 +172,6 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 					}
 
 					log.Info("All done.")
-					if err := os.Remove(script); err != nil {
-						log.WithError(err).Error("failed to remove " + script)
-					}
 					return
 				}
 				// No upgrade script label yet, continue
