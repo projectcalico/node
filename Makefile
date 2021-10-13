@@ -10,13 +10,19 @@ DEV_TAG_SUFFIX        ?=0.dev
 
 # If this is a release, also tag and push additional images.
 ifeq ($(RELEASE),true)
-NODE_IMAGE     ?=node
-DEV_REGISTRIES ?=quay.io/calico calico $(RELEASE_REGISTRIES)
+NODE_IMAGE            ?=node
+WINDOWS_UPGRADE_IMAGE ?=windows-upgrade
+DEV_REGISTRIES        ?=quay.io/calico calico $(RELEASE_REGISTRIES)
 else
-NODE_IMAGE     ?=calico/node
-DEV_REGISTRIES ?=quay.io docker.io
+NODE_IMAGE            ?=calico/node
+WINDOWS_UPGRADE_IMAGE ?=calico/windows-upgrade
+DEV_REGISTRIES        ?=quay.io docker.io
 endif
 
+# Don't forget to update the windows image manifest file in windows-upgrade/ if
+# WINDOWS_VERSIONS is updated.
+WINDOWS_VERSIONS?=1809 2004
+#WINDOWS_VERSIONS?=1809 2004 20H2 ltsc2022
 BUILD_IMAGES ?=$(NODE_IMAGE)
 LIBBPF_DOCKER_PATH=/go/src/github.com/projectcalico/node/bin/third-party/libbpf/src
 BPF_GPL_DOCKER_PATH=/go/src/github.com/projectcalico/node/bin/bpf/bpf-gpl
@@ -142,6 +148,12 @@ WINDOWS_ARCHIVE_FILES := \
 MICROSOFT_SDN_VERSION := 0d7593e5c8d4c2347079a7a6dbd9eb034ae19a44
 MICROSOFT_SDN_GITHUB_RAW_URL := https://raw.githubusercontent.com/microsoft/SDN/$(MICROSOFT_SDN_VERSION)
 
+WINDOWS_UPGRADE_ROOT ?= windows-upgrade
+WINDOWS_UPGRADE_BIN ?= $(WINDOWS_UPGRADE_ROOT)/bin
+WINDOWS_UPGRADE_INSTALL_FILE ?= $(WINDOWS_UPGRADE_BIN)/install-calico-windows.ps1
+WINDOWS_UPGRADE_INSTALL_ZIP ?= $(WINDOWS_UPGRADE_BIN)/calico-windows-$(WINDOWS_ARCHIVE_TAG).zip
+WINDOWS_UPGRADE_DIST=dist/windows-upgrade
+
 # Variables used by the tests
 LOCAL_IP_ENV?=$(shell ip route get 8.8.8.8 | head -1 | awk '{print $$7}')
 ST_TO_RUN?=tests/st/
@@ -167,7 +179,7 @@ SRC_FILES=$(shell find ./pkg -name '*.go')
 BINDIR?=bin
 
 ## Clean enough that a new release build will be clean
-clean:
+clean: clean-windows-upgrade
 	find . -name '*.created' -exec rm -f {} +
 	find . -name '*.pyc' -exec rm -f {} +
 	rm -rf .go-pkg-cache
@@ -176,6 +188,8 @@ clean:
 	rm -f $(WINDOWS_ARCHIVE_ROOT)/libs/hns/hns.psm1
 	rm -f $(WINDOWS_ARCHIVE_ROOT)/libs/hns/License.txt
 	rm -f $(WINDOWS_ARCHIVE_ROOT)/cni/*.exe
+	rm -f $(WINDOWS_UPGRADE_INSTALL_FILE)
+	rm -f $(WINDOWS_UPGRADE_BIN)/*.zip
 	rm -rf filesystem/included-source
 	rm -rf dist
 	rm -rf filesystem/etc/calico/confd/conf.d filesystem/etc/calico/confd/config filesystem/etc/calico/confd/templates
@@ -186,6 +200,11 @@ clean:
 	# Delete images that we built in this repo
 	docker rmi $(NODE_IMAGE):latest-$(ARCH) || true
 	docker rmi $(TEST_CONTAINER_NAME) || true
+	docker rmi $(addprefix $(WINDOWS_UPGRADE_IMAGE):latest-,$(WINDOWS_VERSIONS)) || true
+
+clean-windows-upgrade:
+	rm -f $(WINDOWS_UPGRADE_INSTALL_FILE)
+	rm -f $(WINDOWS_UPGRADE_BIN)/*.zip
 
 ###############################################################################
 # Updating pins
@@ -564,7 +583,7 @@ st: image remote-deps dist/calicoctl busybox.tar calico-node.tar workload.tar ru
 ci: mod-download static-checks fv image-all build-windows-archive st
 
 ## Deploys images to registry
-cd: cd-common
+cd: cd-common cd-windows-upgrade
 
 
 check-boring-ssl: $(NODE_CONTAINER_BIN_DIR)/calico-node-amd64
@@ -730,6 +749,73 @@ build-windows-archive: $(WINDOWS_ARCHIVE_FILES) windows-packaging/nssm-$(WINDOWS
 $(WINDOWS_ARCHIVE_BINARY): $(WINDOWS_BINARY)
 	cp $< $@
 
+$(WINDOWS_UPGRADE_INSTALL_ZIP): build-windows-archive
+	cp $(WINDOWS_ARCHIVE) $@
+
+$(WINDOWS_UPGRADE_INSTALL_FILE):
+	# Truncate the git version to the vX.Y format our docs site uses.
+	$(eval ver := $(shell echo $(GIT_VERSION) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\).*/\1/p' ))
+	curl --fail https://docs.projectcalico.org/archive/$(ver)/scripts/install-calico-windows.ps1 -o $(WINDOWS_UPGRADE_INSTALL_FILE) 
+
+build-windows-upgrade-image: clean-windows-upgrade build-windows-archive $(WINDOWS_UPGRADE_INSTALL_ZIP) $(WINDOWS_UPGRADE_INSTALL_FILE)
+	$(MAKE) setup-windows-builder
+	$(MAKE) image-windows-all
+
+setup-windows-builder:
+	-docker buildx rm calico-windows-upgrade-builder
+	docker buildx create --name=calico-windows-upgrade-builder --use --platform windows/amd64
+
+image-windows-all: setup-windows-builder $(addprefix sub-image-windows-,$(WINDOWS_VERSIONS))
+
+CRANE_BINDMOUNT_CMD := \
+	docker run --rm \
+		--net=host \
+		--init \
+		--entrypoint /bin/sh \
+		-e LOCAL_USER_ID=$(LOCAL_USER_ID) \
+		-v $(CURDIR):/go/src/$(PACKAGE_NAME):rw \
+		-v $(DOCKER_CONFIG):/root/.docker/config.json \
+		-w /go/src/$(PACKAGE_NAME) \
+		$(CALICO_BUILD) -c $(double_quote)crane
+
+ifdef CONFIRM
+CRANE_BINDMOUNT = $(CRANE_BINDMOUNT_CMD)
+else
+CRANE_BINDMOUNT = echo [DRY RUN] $(CRANE_BINDMOUNT_CMD)
+endif
+
+sub-image-windows-%:
+	-mkdir -p $(WINDOWS_UPGRADE_DIST)
+	cd $(WINDOWS_UPGRADE_ROOT) && \
+		docker buildx build \
+			--platform windows/amd64 \
+			--output=type=docker,dest=$(CURDIR)/$(WINDOWS_UPGRADE_DIST)/image-$(GIT_VERSION)-$*.tar \
+			--pull \
+			--no-cache \
+			--build-arg=WINDOWS_VERSION=$* . \
+			--tag $(WINDOWS_UPGRADE_IMAGE):latest-$*
+
+# The calico-windows-upgrade cd is different because we do not build docker images directly.
+# Since the build machine is linux, we output the images to a tarball. (We can
+# produce images but there will be no apparent output because docker images
+# built for Windows cannot be loaded on linux.)
+#
+# The resulting tarball is then pushed to registries during cd/release.
+# The image tarballs are located in dist/windows-upgrade and have files names
+# with the format 'image-v3.21.0-2-abcdef-20H2.tar'.
+cd-windows-upgrade:
+	for registry in $(DEV_REGISTRIES); do \
+		echo Pushing Windows images to $${registry}; \
+		for win_ver in $(WINDOWS_VERSIONS); do \
+			echo Pushing Windows $${win_ver} image to $${registry}; \
+			image_tar="$(WINDOWS_UPGRADE_DIST)/image-$(GIT_VERSION)-$${win_ver}.tar"; \
+			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-$${win_ver}"; \
+			$(CRANE_BINDMOUNT) push $${image_tar} $${image}$(double_quote); \
+		done; \
+	done ;
+
+push-windows-manifest: var-require-one-of-CONFIRM-DRYRUN var-require-all-BRANCH_NAME
+	$(MAKE) push-manifests IMAGETAG=$(GIT_VERSION) OUTPUT_DIR=/tmp/ MANIFEST_TOOL_SPEC_TEMPLATE=$(WINDOWS_UPGRADE_ROOT)/manifest-tool-spec.yaml.tpl.sh MANIFEST_TOOL_EXTRA_DOCKER_ARGS="-v /tmp:/tmp"
 
 ###############################################################################
 # Utilities
