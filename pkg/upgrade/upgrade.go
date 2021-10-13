@@ -63,9 +63,11 @@ func getVersionString() string {
 // - Uninstalling current Calico Windows (OSS or Enterprise) running on the node.
 // - Install new version of Calico Windows.
 func Run() {
+	version := getVersionString()
+
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()
-	log.Infof("Starting Calico upgrade service on node %s ", nodeName)
+	log.Infof("Starting Calico upgrade service on node: %s. Version: %s, baseDir: %s", nodeName, version, baseDir())
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
@@ -86,7 +88,6 @@ func Run() {
 
 	// Configure node labels.
 	// Set Version annotation to indicate what is running on this node.
-	version := getVersionString()
 	node := k8snode(nodeName)
 	err = node.addRemoveNodeAnnotations(clientSet,
 		map[string]string{CalicoVersionAnnotation: version},
@@ -188,10 +189,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 // Return the base directory for Calico upgrade service.
 func baseDir() string {
 	dir := filepath.Dir(os.Args[0])
-	parent := "c:\\" + filepath.Base(dir)
-	log.Infof("Calico upgrade service base directory: %s", parent)
-
-	return parent
+	return "c:\\" + filepath.Base(dir)
 }
 
 // Return if the monitor service is running as part of Enterprise installation.
