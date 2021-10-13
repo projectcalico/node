@@ -171,7 +171,11 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 						log.WithError(err).Fatal("Failed to upgrade to new version")
 					}
 
-					log.Info("All done.")
+					// Upgrade will run in another process. The running
+					// calico-upgrade service is done. The new calico-upgrade
+					// service will clean the old service up.
+					log.Info("Upgrade is in progress...")
+					time.Sleep(3 * time.Second)
 					return
 				}
 				// No upgrade script label yet, continue
@@ -213,7 +217,15 @@ func uninstall() error {
 
 func execScript(script string) error {
 	log.Infof("Start script %s\n", script)
-	stdout, stderr, err := powershell(script)
+
+	// This has to be done in a separate process because when the new calico services are started, the existing
+	// calico-upgrade service is removed so the new calico-upgrade service can be started.
+	// However, removing the existing calico-upgrade service means the powershell
+	// process running the upgrade script is killed and the installation is left
+	// incomplete.
+	cmd := fmt.Sprintf(`Start-Process powershell -argument %q -WindowStyle hidden`, script)
+	stdout, stderr, err := powershell(cmd)
+
 	if err != nil {
 		return err
 	}
