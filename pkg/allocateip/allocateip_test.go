@@ -975,8 +975,12 @@ type shimClient struct {
 	ic     ipam.Interface   // new ipam client
 }
 
+func (c shimClient) IPReservations() client.IPReservationInterface {
+	return c.client.IPReservations()
+}
+
 func newShimClientWithPoolAccessor(c client.Interface, be bapi.Client, pool ipam.PoolAccessorInterface) shimClient {
-	return shimClient{client: c, ic: ipam.NewIPAMClient(be, pool)}
+	return shimClient{client: c, ic: ipam.NewIPAMClient(be, pool, c.IPReservations())}
 }
 
 // Nodes returns an interface for managing node resources.
@@ -1056,4 +1060,8 @@ func (c shimClient) KubeControllersConfiguration() client.KubeControllersConfigu
 
 func (c shimClient) EnsureInitialized(ctx context.Context, calicoVersion, clusterType string) error {
 	return nil
+}
+
+func (c shimClient) CalicoNodeStatus() client.CalicoNodeStatusInterface {
+	return c.client.CalicoNodeStatus()
 }
