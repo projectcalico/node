@@ -1,4 +1,4 @@
-// Copyright (c) 2018,2021 Tigera, Inc. All rights reserved.
+// Copyright (c) 2021 Tigera, Inc. All rights reserved.
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,15 +19,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = DescribeTable("calicoUpgradeImageRegex",
-	func(containerImage string, expectMatch bool) {
-		Expect(calicoUpgradeImageRegex.Match([]byte(containerImage))).To(Equal(expectMatch))
+var _ = DescribeTable("verifyImagesShareRegistryPath",
+	func(upgradeImage string, nodeImage string, noError bool) {
+		err := verifyImagesShareRegistryPath(upgradeImage, nodeImage)
+		Expect(err == nil).To(Equal(noError))
 	},
-	Entry("standard image", "docker.io/calico/windows-upgrade:latest", true),
-	Entry("standard image", "quay.io/calico/windows-upgrade:v3.21.0", true),
-	Entry("standard image", "quay.io/calico/windows-upgrade:v3.21.0-test", true),
-	Entry("custom registry", "example-registry.com/calico/windows-upgrade:v3.21.0", true),
-	Entry("registry with port", "example.com:5555/calico/windows-upgrade:v3.21.0", true),
-	Entry("no tag", "docker.io/calico/windows-upgrade", false),
-	Entry("no registry", "calico/windows-upgrade:v3.21.0", false),
+	Entry("same prefix, tag", "docker.io/calico/windows-upgrade:v3.21.0", "docker.io/calico/node:v3.21.0", true),
+	Entry("same prefix, digest1", "docker.io/calico/windows-upgrade:v3.21.0", "docker.io/calico/node@sha256:xxxxxxxx", true),
+	Entry("same prefix, digest2", "docker.io/calico/windows-upgrade@sha256:aaaabbbb", "docker.io/calico/node@sha256:xxxxxxxx", true),
+	Entry("diff prefix, tag", "quay.io/calico/windows-upgrade:v3.21.0", "docker.io/calico/node:v3.21.0", false),
+	Entry("diff prefix, digest1", "docker.io/calico/windows-upgrade:v3.21.0", "quay.io/calico/node@sha256:xxxxxxxx", false),
+	Entry("diff prefix, digest2", "docker.io/calico/windows-upgrade@sha256:aaaabbbb", "quay.io/calico/node@sha256:xxxxxxxx", false),
 )

@@ -21,7 +21,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,10 +44,6 @@ const (
 	EnterpriseBaseDir        = "c:\\TigeraCalico"
 	CalicoUpgradeScriptLabel = "projectcalico.org/CalicoWindowsUpgradeScript"
 	CalicoVersionAnnotation  = "projectcalico.org/CalicoWindowsVersion"
-)
-
-var (
-	calicoUpgradeImageRegex = regexp.MustCompile("[a-zA-Z0-9.-]+(?::[0-9]+)?/calico/windows-upgrade(:[a-zA-Z0-9.-]+|@sha256:[a-zA-Z0-9]+)")
 )
 
 func getVersionString() string {
@@ -155,7 +151,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 			} else {
 				if len(script) > 0 {
 					// Before executing the script, verify host path volume mount.
-					_, err := verifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpdateDir, calicoUpgradeImageRegex)
+					err := verifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpdateDir)
 					if err != nil {
 						log.WithError(err).Fatal("Failed to verify windows-upgrade pod image")
 					}
@@ -175,7 +171,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 					// Upgrade will run in another process. The running
 					// calico-upgrade service is done. The new calico-upgrade
 					// service will clean the old service up.
-					log.Info("Upgrade is in progress...")
+					log.Info("Upgrade is in progress... upgrade log is in c:\\")
 					time.Sleep(3 * time.Second)
 					return
 				}
@@ -240,13 +236,38 @@ func execScript(script string) error {
 	return nil
 }
 
-func verifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, hostPath string, imageRegex *regexp.Regexp) (string, error) {
+func verifyImagesShareRegistryPath(first, second string) error {
+	// Split the image names on '/' and drop the last element.
+	// The last element will contain the component name plus the image tag/digest.
+	// If the image was "quay.io/tigera/cnx-node:v3.10.0", then we don't need
+	// "cnx-node:v3.10.0".
+	firstParts := strings.Split(first, "/")
+	secondParts := strings.Split(second, "/")
+
+	if len(firstParts) < 2 {
+		return fmt.Errorf("image %v is invalid", first)
+	}
+	if len(secondParts) < 2 {
+		return fmt.Errorf("image %v is invalid", second)
+	}
+	firstPrefix := firstParts[:len(firstParts)-1]
+	secondPrefix := secondParts[:len(secondParts)-1]
+
+	for i := range firstPrefix {
+		if firstPrefix[i] != secondPrefix[i] {
+			return fmt.Errorf("images %v and %v are not from the same registry and path", first, second)
+		}
+	}
+	return nil
+}
+
+func verifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, hostPath string) error {
 	// Get pod list for all pods on this node.
 	list, err := cs.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + nodeName,
 	})
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	hasHostPathVolume := func(pod v1.Pod, hostPath string) bool {
@@ -262,6 +283,14 @@ func verifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, 
 		return false
 	}
 
+	// Get the calico node image
+	nodeDs := daemonset("calico-node")
+	nodeImage, err := nodeDs.getContainerImage(cs, "calico-system", "calico-node")
+	if err != nil {
+		return err
+	}
+	log.Infof("Found node container image is %v\n", nodeImage)
+
 	// Walk through pods
 	for _, pod := range list.Items {
 		if !hasHostPathVolume(pod, hostPath) {
@@ -269,20 +298,21 @@ func verifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, 
 		}
 
 		if len(pod.Spec.Containers) != 1 {
-			return "", fmt.Errorf("Pod with hostpath volume has more than one container")
+			return fmt.Errorf("Pod with hostpath volume has more than one container")
 		}
 
-		container := pod.Spec.Containers[0]
-		log.Infof("container image is %v\n", container.Image)
+		upgradeImage := pod.Spec.Containers[0].Image
+		log.Infof("Found upgrade image: %v", upgradeImage)
 
-		if !imageRegex.MatchString(container.Image) {
-			return "", fmt.Errorf("Pod with hostpath volume has invalid image %s, prefix %s", container.Image, imageRegex)
+		err = verifyImagesShareRegistryPath(nodeImage, upgradeImage)
+		if err != nil {
+			return err
 		}
 
-		return container.Image, nil
+		return nil
 	}
 
-	return "", fmt.Errorf("Failed to find windows-upgrade pod")
+	return fmt.Errorf("Failed to find calico-windows-upgrade pod")
 }
 
 func powershell(args ...string) (string, string, error) {
