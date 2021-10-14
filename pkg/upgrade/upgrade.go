@@ -80,8 +80,6 @@ func Run() {
 		log.WithError(err).Fatal("Failed to interact with powershell")
 	}
 
-	fmt.Println(stdout, stderr)
-
 	// Configure node labels.
 	// Set Version annotation to indicate what is running on this node.
 	node := k8snode(nodeName)
