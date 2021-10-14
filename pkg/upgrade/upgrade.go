@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	image "github.com/distribution/distribution/reference"
 	"github.com/projectcalico/node/pkg/lifecycle/startup"
 
 	v1 "k8s.io/api/core/v1"
@@ -237,25 +238,29 @@ func execScript(script string) error {
 }
 
 func verifyImagesShareRegistryPath(first, second string) error {
-	// Split the image names on '/' and drop the last element.
-	// The last element will contain the component name plus the image tag/digest.
-	// If the image was "quay.io/tigera/cnx-node:v3.10.0", then we don't need
-	// "cnx-node:v3.10.0".
-	firstParts := strings.Split(first, "/")
-	secondParts := strings.Split(second, "/")
-
-	if len(firstParts) < 2 {
-		return fmt.Errorf("image %v is invalid", first)
+	n1, err := image.ParseNamed(first)
+	if err != nil {
+		return err
 	}
-	if len(secondParts) < 2 {
-		return fmt.Errorf("image %v is invalid", second)
+	n2, err := image.ParseNamed(second)
+	if err != nil {
+		return err
 	}
-	firstPrefix := firstParts[:len(firstParts)-1]
-	secondPrefix := secondParts[:len(secondParts)-1]
+	if image.Domain(n1) != image.Domain(n2) {
+		return fmt.Errorf("images %q and %q do not share the same domain", first, second)
+	}
 
-	for i := range firstPrefix {
-		if firstPrefix[i] != secondPrefix[i] {
-			return fmt.Errorf("images %v and %v are not from the same registry and path", first, second)
+	// Remove the last segment of the image path. The last segment will contain
+	// the component name.
+	n1PathParts := strings.Split(image.Path(n1), "/")
+	n2PathParts := strings.Split(image.Path(n2), "/")
+
+	n1PathPrefix := n1PathParts[:len(n1PathParts)-1]
+	n2PathPrefix := n2PathParts[:len(n2PathParts)-1]
+
+	for i := range n1PathPrefix {
+		if n1PathPrefix[i] != n2PathPrefix[i] {
+			return fmt.Errorf("images %q and %q are not from the same registry and path", first, second)
 		}
 	}
 	return nil
