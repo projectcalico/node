@@ -158,11 +158,9 @@ while ($True)
                 {
                     Write-Host "Calico node initialisation succeeded; monitoring kubelet for restarts..."
 
-                    # At this point, we can run the new CalicoUpgrade service if it is not running already.
-                    if (!(Get-UpgradeService)) {
-                        Install-UpgradeService
-                        Start-Service CalicoUpgrade
-                    }
+                    # At this point, we can run the (possibly new) CalicoUpgrade service.
+                    Install-UpgradeService
+                    Start-Service CalicoUpgrade
                     break
                 }
 

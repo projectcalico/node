@@ -34,7 +34,7 @@ func (n k8snode) addRemoveNodeAnnotations(k8sClientset *kubernetes.Clientset,
 	toAdd map[string]string,
 	toRemove []string) error {
 	nodeName := string(n)
-	return wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
+	return wait.PollImmediate(3*time.Second, 1*time.Minute, func() (bool, error) {
 		node, err := k8sClientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			return false, err

@@ -138,6 +138,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 	for {
 		select {
 		case <-ctx.Done():
+			ticker.Stop()
 			return
 		case <-ticker.C:
 			script, err := getScript()
@@ -208,7 +209,7 @@ func uninstall() error {
 	// After the uninstall completes, move the existing calico-node.exe to
 	// a temporary file. The calico-upgrade service is still running so not
 	// doing this means we cannot replace calico-node.exe with the upgrade.
-	stdout, stderr, err = powershell(fmt.Sprintf(`mv %v\calico-node.exe %v\calico-node.exe.calico-upgraded`, baseDir(), baseDir()))
+	stdout, stderr, err = powershell(fmt.Sprintf(`mv %v\calico-node.exe %v\calico-node.exe.to-be-replaced`, baseDir(), baseDir()))
 	fmt.Println(stdout, stderr)
 	if err != nil {
 		return err
