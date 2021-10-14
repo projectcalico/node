@@ -39,7 +39,7 @@ import (
 
 const (
 	CalicoKubeConfigFile     = "calico-kube-config"
-	CalicoUpdateDir          = "c:\\CalicoUpdate"
+	CalicoUpgradeDir         = "c:\\CalicoUpgrade"
 	CalicoBaseDir            = "c:\\CalicoWindows"
 	EnterpriseBaseDir        = "c:\\TigeraCalico"
 	CalicoUpgradeScriptLabel = "projectcalico.org/CalicoWindowsUpgradeScript"
@@ -128,7 +128,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 			return "", nil
 		}
 
-		script := filepath.Join(CalicoUpdateDir, fileName)
+		script := filepath.Join(CalicoUpgradeDir, fileName)
 
 		if _, err := os.Stat(script); err == nil || os.IsExist(err) {
 			return script, nil
@@ -151,7 +151,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 			} else {
 				if len(script) > 0 {
 					// Before executing the script, verify host path volume mount.
-					err := verifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpdateDir)
+					err := verifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpgradeDir)
 					if err != nil {
 						log.WithError(err).Fatal("Failed to verify windows-upgrade pod image")
 					}
