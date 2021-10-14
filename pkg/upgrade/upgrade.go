@@ -169,7 +169,8 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 					// Upgrade will run in another process. The running
 					// calico-upgrade service is done. The new calico-upgrade
 					// service will clean the old service up.
-					log.Info("Upgrade is in progress... upgrade log is in c:\\")
+					date := time.Now().Format("2006-01-02")
+					log.Info(fmt.Sprintf("Upgrade is in progress. Upgrade log is in c:\\calico-upgrade.%v.log", date))
 					time.Sleep(3 * time.Second)
 					return
 				}
