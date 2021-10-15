@@ -249,6 +249,7 @@ func verifyImagesSharePathPrefix(first, second string) error {
 		return err
 	}
 	// Compare the domain parts (e.g. docker.io) of the image references.
+	// Domain is always present, ParseNamed fails without a domain.
 	if image.Domain(n1) != image.Domain(n2) {
 		return fmt.Errorf("images %q and %q do not share the same domain", first, second)
 	}
@@ -257,6 +258,13 @@ func verifyImagesSharePathPrefix(first, second string) error {
 	// "docker.io/calico/node:v3.21.0" then the path is "calico/node".
 	n1PathParts := strings.Split(image.Path(n1), "/")
 	n2PathParts := strings.Split(image.Path(n2), "/")
+
+	// Special case: if the image references are both short image references
+	// like my-registry.org/node:v3.21.0 then the path will just be the image
+	// component itself. In this case, we can only compare the domain.
+	if len(n1PathParts) == 1 && len(n2PathParts) == 1 {
+		return nil
+	}
 
 	// Remove the last segment of the image path since it will contain the
 	// component name.

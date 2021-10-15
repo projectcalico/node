@@ -21,10 +21,13 @@ import (
 )
 
 const (
+	nodeShortImageTag     = "example.com/node:v3.21.0"
 	nodeDockerImageTag    = "docker.io/calico/node:v3.21.0"
 	nodeDockerImageDigest = "docker.io/calico/node@sha256:1a54e9ad69451473fde398ac63a5f5696712cf38ed00f0deadc4189927b93176"
 	nodeQuayImageDigest   = "quay.io/calico/node@sha256:bf87045cbb6c3f9ca39b9724350f728e8dab780b3e6185d413c7f232fb0452bf"
 
+	windowsShortImageTag     = "example.com/calico-windows-upgrade:v3.21.0"
+	windowsShortImageTag2    = "my-registry.org/calico-windows-upgrade:v3.21.0"
 	windowsDockerImageTag    = "docker.io/calico/windows-upgrade:v3.21.0"
 	windowsDockerImageDigest = "docker.io/calico/windows-upgrade@sha256:1aa17a74e3f084e94b0d1f93bdd745c8c88cbb292907ac4fa94d6f206a5e49db"
 	windowsQuayImageTag      = "quay.io/calico/windows-upgrade:v3.21.0"
@@ -41,7 +44,10 @@ var _ = DescribeTable("verifyImagesShareRegistryPath",
 	Entry("same prefix, tag", windowsDockerImageTag, nodeDockerImageTag, true),
 	Entry("same prefix, digest1", windowsDockerImageTag, nodeDockerImageDigest, true),
 	Entry("same prefix, digest2", windowsDockerImageDigest, nodeDockerImageDigest, true),
+	Entry("same prefix, short tags", nodeShortImageTag, windowsShortImageTag, true),
+
 	Entry("diff prefix, tag", windowsQuayImageTag, nodeDockerImageTag, false),
 	Entry("diff prefix, digest1", windowsDockerImageTag, nodeQuayImageDigest, false),
 	Entry("diff prefix, digest2", nodeDockerImageDigest, nodeQuayImageDigest, false),
+	Entry("diff prefix, short tags", nodeShortImageTag, windowsShortImageTag2, false),
 )
