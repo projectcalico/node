@@ -32,7 +32,7 @@ const (
 
 var _ = DescribeTable("verifyImagesShareRegistryPath",
 	func(upgradeImage string, nodeImage string, noError bool) {
-		err := verifyImagesShareRegistryPath(upgradeImage, nodeImage)
+		err := verifyImagesSharePathPrefix(upgradeImage, nodeImage)
 		if err != nil {
 			fmt.Println(err)
 		}

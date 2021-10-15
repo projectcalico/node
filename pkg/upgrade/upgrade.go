@@ -239,7 +239,7 @@ func execScript(script string) error {
 	return nil
 }
 
-func verifyImagesShareRegistryPath(first, second string) error {
+func verifyImagesSharePathPrefix(first, second string) error {
 	n1, err := image.ParseNamed(first)
 	if err != nil {
 		return err
@@ -248,18 +248,23 @@ func verifyImagesShareRegistryPath(first, second string) error {
 	if err != nil {
 		return err
 	}
+	// Compare the domain parts (e.g. docker.io) of the image references.
 	if image.Domain(n1) != image.Domain(n2) {
 		return fmt.Errorf("images %q and %q do not share the same domain", first, second)
 	}
 
-	// Remove the last segment of the image path. The last segment will contain
-	// the component name.
+	// Split the image path. E.g. if the image is
+	// "docker.io/calico/node:v3.21.0" then the path is "calico/node".
 	n1PathParts := strings.Split(image.Path(n1), "/")
 	n2PathParts := strings.Split(image.Path(n2), "/")
 
+	// Remove the last segment of the image path since it will contain the
+	// component name.
 	n1PathPrefix := n1PathParts[:len(n1PathParts)-1]
 	n2PathPrefix := n2PathParts[:len(n2PathParts)-1]
 
+	// Compare the image path prefix (e.g. "docker.io/calico", "quay.io/calico")
+	// of the two images
 	for i := range n1PathPrefix {
 		if n1PathPrefix[i] != n2PathPrefix[i] {
 			return fmt.Errorf("images %q and %q are not from the same registry and path", first, second)
@@ -311,7 +316,7 @@ func verifyPodImageWithHostPathVolume(cs kubernetes.Interface, nodeName string, 
 		upgradeImage := pod.Spec.Containers[0].Image
 		log.Infof("Found upgrade image: %v", upgradeImage)
 
-		err = verifyImagesShareRegistryPath(nodeImage, upgradeImage)
+		err = verifyImagesSharePathPrefix(nodeImage, upgradeImage)
 		if err != nil {
 			return err
 		}
