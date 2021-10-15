@@ -148,37 +148,39 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 				// Use fast ticker
 				ticker.Stop()
 				ticker = time.NewTicker(3 * time.Second)
-			} else {
-				if len(script) > 0 {
-					// Before executing the script, verify host path volume mount.
-					err := verifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpgradeDir)
-					if err != nil {
-						log.WithError(err).Fatal("Failed to verify windows-upgrade pod image")
-					}
-
-					err = uninstall()
-					if err != nil {
-						log.WithError(err).Error("Uninstall failed")
-						break
-					}
-
-					time.Sleep(3 * time.Second)
-					err = execScript(script)
-					if err != nil {
-						log.WithError(err).Fatal("Failed to upgrade to new version")
-					}
-
-					// Upgrade will run in another process. The running
-					// calico-upgrade service is done. The new calico-upgrade
-					// service will clean the old service up.
-					date := time.Now().Format("2006-01-02")
-					log.Info(fmt.Sprintf("Upgrade is in progress. Upgrade log is in c:\\calico-upgrade.%v.log", date))
-					time.Sleep(3 * time.Second)
-					return
-				}
+				break
+			}
+			if len(script) == 0 {
 				// No upgrade script label yet, continue
 				log.Info("Node's upgrade script label does not exist yet")
+				break
 			}
+
+			// Before executing the script, verify host path volume mount.
+			err = verifyPodImageWithHostPathVolume(cs, nodeName, CalicoUpgradeDir)
+			if err != nil {
+				log.WithError(err).Fatal("Failed to verify windows-upgrade pod image")
+			}
+
+			err = uninstall()
+			if err != nil {
+				log.WithError(err).Error("Uninstall failed, will retry")
+				break
+			}
+
+			time.Sleep(3 * time.Second)
+			err = execScript(script)
+			if err != nil {
+				log.WithError(err).Fatal("Failed to upgrade to new version")
+			}
+
+			// Upgrade will run in another process. The running
+			// calico-upgrade service is done. The new calico-upgrade
+			// service will clean the old service up.
+			date := time.Now().Format("2006-01-02")
+			log.Info(fmt.Sprintf("Upgrade is in progress. Upgrade log is in c:\\calico-upgrade.%v.log", date))
+			time.Sleep(3 * time.Second)
+			return
 		}
 	}
 }
