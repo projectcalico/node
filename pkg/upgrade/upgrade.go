@@ -266,6 +266,16 @@ func verifyImagesSharePathPrefix(first, second string) error {
 		return nil
 	}
 
+	// Validation should catch this but just in case.
+	if len(n1PathParts) == 0 || len(n2PathParts) == 0 {
+		return fmt.Errorf("images %q and/or %q do not contain a valid path", first, second)
+	}
+
+	// If image paths do not have equal # of segments then they don't match.
+	if len(n1PathParts) != len(n2PathParts) {
+		return fmt.Errorf("images %q and %q do not share the same path prefix", first, second)
+	}
+
 	// Remove the last segment of the image path since it will contain the
 	// component name.
 	n1PathPrefix := n1PathParts[:len(n1PathParts)-1]

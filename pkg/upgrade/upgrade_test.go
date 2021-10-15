@@ -31,6 +31,9 @@ const (
 	windowsDockerImageTag    = "docker.io/calico/windows-upgrade:v3.21.0"
 	windowsDockerImageDigest = "docker.io/calico/windows-upgrade@sha256:1aa17a74e3f084e94b0d1f93bdd745c8c88cbb292907ac4fa94d6f206a5e49db"
 	windowsQuayImageTag      = "quay.io/calico/windows-upgrade:v3.21.0"
+
+	nodeLongImageTag    = "example.com/tigera/calico/testing/node:v3.21.0"
+	windowsLongImageTag = "example.com/tigera/calico/windows-upgrade:v3.21.0"
 )
 
 var _ = DescribeTable("verifyImagesShareRegistryPath",
@@ -50,4 +53,5 @@ var _ = DescribeTable("verifyImagesShareRegistryPath",
 	Entry("diff prefix, digest1", windowsDockerImageTag, nodeQuayImageDigest, false),
 	Entry("diff prefix, digest2", nodeDockerImageDigest, nodeQuayImageDigest, false),
 	Entry("diff prefix, short tags", nodeShortImageTag, windowsShortImageTag2, false),
+	Entry("diff prefix, diff lengths", nodeLongImageTag, windowsLongImageTag, false),
 )
