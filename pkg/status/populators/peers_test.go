@@ -137,9 +137,12 @@ BGP state:          OpenSent
 		bgpPeers, err := readBIRDPeers(getMockBirdConn(IPFamilyV4, table))
 		Expect(bgpPeers).To(HaveLen(3))
 
-		bgpPeers[0].complete(getMockBirdConn(IPFamilyV4, mesh_172_17_8_102))
-		bgpPeers[1].complete(getMockBirdConn(IPFamilyV4, mesh_172_17_8_103))
-		bgpPeers[2].complete(getMockBirdConn(IPFamilyV4, mesh_172_17_8_104))
+		err = bgpPeers[0].complete(getMockBirdConn(IPFamilyV4, mesh_172_17_8_102))
+		Expect(err).NotTo(HaveOccurred())
+		err = bgpPeers[1].complete(getMockBirdConn(IPFamilyV4, mesh_172_17_8_103))
+		Expect(err).NotTo(HaveOccurred())
+		err = bgpPeers[2].complete(getMockBirdConn(IPFamilyV4, mesh_172_17_8_104))
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(bgpPeers).To(Equal(expectedPeers))
 		Expect(err).NotTo(HaveOccurred())
@@ -218,7 +221,8 @@ BGP state:          Established
 		bgpPeers, err := readBIRDPeers(getMockBirdConn(IPFamilyV6, table))
 		Expect(bgpPeers).To(HaveLen(1))
 
-		bgpPeers[0].complete(getMockBirdConn(IPFamilyV6, mesh_2001_20__8))
+		err = bgpPeers[0].complete(getMockBirdConn(IPFamilyV6, mesh_2001_20__8))
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(bgpPeers).To(Equal(expectedPeers))
 		Expect(err).NotTo(HaveOccurred())
