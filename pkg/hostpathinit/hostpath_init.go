@@ -15,8 +15,9 @@ package hostpathinit
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -62,10 +63,10 @@ func Run() {
 		log.Panic("Unable to chown /var/run/calico/")
 	}
 
-	// Create the calico directory in /var/log/
-	err = os.MkdirAll("/var/log/calico/", 0700)
+	// Create the calico directory in /var/log/ and the cni log directory in /var/log/calico/
+	err = os.MkdirAll("/var/log/calico/cni", 0700)
 	if err != nil {
-		log.Panic("Unable to create directory /var/log/calico/")
+		log.Panic("Unable to create directory /var/log/calico/cni")
 	}
 
 	// Change ownership of /var/log/calico/ to  our non-root user
@@ -74,30 +75,17 @@ func Run() {
 		log.Panic("Unable to chown /var/log/calico/")
 	}
 
-	// Create the cni log directory in /var/log/calico/
-	err = os.MkdirAll("/var/log/calico/cni", 0700)
-	if err != nil {
-		log.Panic("Unable to create directory /var/log/calico/cni")
-	}
-
-	// Change ownership of the cni log directory /var/log/calico/cni to  our non-root user
-	err = os.Chown("/var/log/calico/cni", uid, 0)
-	if err != nil {
-		log.Panic("Unable to chown /var/log/calico/cni")
-	}
-
-	// Change ownership of all files in the cni log directory.
+	// Change ownership of the cni log directory and all files in the cni log directory.
 	// There will likely be files here since logs might have been created
 	// separately by the CNI plugin.
-	files, err := ioutil.ReadDir("/var/log/calico/cni/")
-	if err != nil {
-		log.Panic("Unable to read files in /var/log/calico/cni/ to change ownership")
-	}
-
-	for _, file := range files {
-		err = os.Chown(fmt.Sprintf("/var/log/calico/cni/%s", file.Name()), uid, 0)
+	err = filepath.Walk("/var/log/calico/cni", func(path string, info fs.FileInfo, walkErr error) error {
+		err := os.Chown(path, uid, 0)
 		if err != nil {
-			log.Panicf("Unable to chown /var/log/calico/cni/%s", file.Name())
+			return fmt.Errorf("Unable to chown %s: %s", path, err)
 		}
+		return nil
+	})
+	if err != nil {
+		log.Panicf("Unable to chown cni log file: %s", err)
 	}
 }
