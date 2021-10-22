@@ -20,11 +20,9 @@ RUN mkdir /CalicoUpgrade /CalicoBin
 
 ADD bin/* /CalicoBin/
 
-FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION}
-
-ENV PATH="C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\system32;C:\Windows;"
+FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 
 COPY --from=base /CalicoUpgrade /CalicoUpgrade
 COPY --from=base /CalicoBin /CalicoBin
 
-ENTRYPOINT ["powershell", "-Command", "cp c:\\CalicoBin\\* c:\\CalicoUpgrade ; ls c:\\CalicoUpgrade ; ping -t localhost | out-null"]
+ENTRYPOINT ["cmd.exe", "/C", "xcopy /y c:\\CalicoBin c:\\CalicoUpgrade & ping -t localhost > NUL"]
