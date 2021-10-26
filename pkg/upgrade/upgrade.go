@@ -184,7 +184,7 @@ func upgradeTriggered(ctx context.Context, cs kubernetes.Interface, nodeName str
 	node, err := cs.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	// Return error getting node info.
 	if err != nil {
-		return false, fmt.Errorf("Could not get node resourse: %w", err)
+		return false, fmt.Errorf("Could not get node resource: %w", err)
 	}
 
 	upgradeStatus, ok := node.Labels[CalicoUpgradeLabel]
