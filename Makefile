@@ -805,8 +805,7 @@ sub-image-windows-%:
 			--output=type=docker,dest=$(CURDIR)/$(WINDOWS_UPGRADE_DIST)/image-$(GIT_VERSION)-$*.tar \
 			--pull \
 			--no-cache \
-			--build-arg=WINDOWS_VERSION=$* . \
-			--tag $(WINDOWS_UPGRADE_IMAGE):latest-$*
+			--build-arg=WINDOWS_VERSION=$* .
 
 # The calico-windows-upgrade cd is different because we do not build docker images directly.
 # Since the build machine is linux, we output the images to a tarball. (We can
@@ -822,7 +821,7 @@ cd-windows-upgrade:
 		for win_ver in $(WINDOWS_VERSIONS); do \
 			echo Pushing Windows $${win_ver} image to $${registry}; \
 			image_tar="$(WINDOWS_UPGRADE_DIST)/image-$(GIT_VERSION)-$${win_ver}.tar"; \
-			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-$${win_ver}"; \
+			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-windows-$${win_ver}"; \
 			$(CRANE_BINDMOUNT) push $${image_tar} $${image}$(double_quote); \
 		done; \
 	done ;
