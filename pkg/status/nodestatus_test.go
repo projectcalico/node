@@ -130,16 +130,15 @@ var _ = Describe("Node status FV tests", func() {
 		// Update lastBootTime so new status can be populated if required
 		mock.setLastBootTime(BootTimeSecond)
 
-		// Sleep 10 seconds.
-		time.Sleep(6 * time.Second)
-
-		// No update should take place.
-		latest := getCurrentStatus()
-		Expect(latest.ResourceVersion).To(Equal(saved.ResourceVersion))
+		// We should not see any update consistently for more than 10 seconds.
+		Consistently(func() string {
+			latest := getCurrentStatus()
+			return latest.ResourceVersion
+		}, 10*time.Second, 500*time.Millisecond).Should(Equal(saved.ResourceVersion))
 	})
 
 	It("should get updated status object at the correct interval", func() {
-		// Create a node status request with interval of 10 seconds.
+		// Create a node status request with interval of 5 seconds.
 		createCalicoNodeStatus(c, nodeName, name, 5)
 
 		// We should see an status update immediately.
@@ -166,15 +165,15 @@ var _ = Describe("Node status FV tests", func() {
 		Expect(new.Status.Agent.BIRDV6.LastBootTime).To(Equal(BootTimeSecond))
 		Expect((&saved.Status.LastUpdated).Before(&new.Status.LastUpdated)).To(BeTrue())
 
-		time.Sleep(10 * time.Second)
-
-		// No update should take place.
-		latest := getCurrentStatus()
-		Expect(latest.ResourceVersion).To(Equal(new.ResourceVersion))
+		// We should not see any update consistently for more than 10 seconds.
+		Consistently(func() string {
+			latest := getCurrentStatus()
+			return latest.ResourceVersion
+		}, 10*time.Second, 500*time.Millisecond).Should(Equal(new.ResourceVersion))
 	})
 
 	It("should not update status object if populator hitting an error", func() {
-		// Create a node status request with interval of 10 seconds.
+		// Create a node status request with interval of 5 seconds.
 		createCalicoNodeStatus(c, nodeName, name, 5)
 
 		// We should see an status update immediately.
@@ -192,12 +191,11 @@ var _ = Describe("Node status FV tests", func() {
 		testErr := errors.New("mock a test error")
 		mock.setError(&testErr)
 
-		// Sleep 6 seconds so status may be updated.
-		time.Sleep(6 * time.Second)
-
-		// No update should take place.
-		latest := getCurrentStatus()
-		Expect(latest.ResourceVersion).To(Equal(new.ResourceVersion))
+		// We should not see any update consistently for more than 10 seconds.
+		Consistently(func() string {
+			latest := getCurrentStatus()
+			return latest.ResourceVersion
+		}, 10*time.Second, 500*time.Millisecond).Should(Equal(new.ResourceVersion))
 	})
 
 	It("should create and release correct number of reporters", func() {
