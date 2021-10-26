@@ -760,8 +760,8 @@ cd-windows-upgrade:
 		done; \
 	done ;
 
-push-windows-manifest: var-require-one-of-CONFIRM-DRYRUN var-require-all-BRANCH_NAME
-	$(MAKE) push-manifests IMAGETAG=$(GIT_VERSION) OUTPUT_DIR=/tmp/ MANIFEST_TOOL_SPEC_TEMPLATE=$(WINDOWS_UPGRADE_ROOT)/manifest-tool-spec.yaml.tpl.sh MANIFEST_TOOL_EXTRA_DOCKER_ARGS="-v /tmp:/tmp"
+push-windows-manifest: var-require-one-of-CONFIRM-DRYRUN
+	$(MAKE) push-manifests BUILD_IMAGES=$(WINDOWS_UPGRADE_IMAGE) IMAGETAG=$(GIT_VERSION) OUTPUT_DIR=/tmp/ MANIFEST_TOOL_SPEC_TEMPLATE=$(WINDOWS_UPGRADE_ROOT)/manifest-tool-spec.yaml.tpl.sh MANIFEST_TOOL_EXTRA_DOCKER_ARGS="-v /tmp:/tmp"
 
 ###############################################################################
 # Utilities
