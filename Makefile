@@ -685,10 +685,23 @@ $(WINDOWS_ARCHIVE_BINARY): $(WINDOWS_BINARY)
 $(WINDOWS_UPGRADE_INSTALL_ZIP): build-windows-archive
 	cp $(WINDOWS_ARCHIVE) $@
 
+$(WINDOWS_UPGRADE_BIN):
+	mkdir -p $(WINDOWS_UPGRADE_BIN)
+
 $(WINDOWS_UPGRADE_INSTALL_FILE):
-	# Truncate the git version to the vX.Y format our docs site uses.
+	# Truncated git version in the vX.Y version string our docs site uses.
 	$(eval ver := $(shell echo $(GIT_VERSION) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\).*/\1/p' ))
-	curl --fail https://docs.projectcalico.org/archive/$(ver)/scripts/install-calico-windows.ps1 -o $(WINDOWS_UPGRADE_INSTALL_FILE) 
+	# The vX.Y.Z version string.
+	$(eval fullver := $(shell echo $(GIT_VERSION) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' ))
+	@echo vX.Y version is $(ver)
+	@echo vX.Y.Z version is $(fullver)
+	@if git show-ref --tags $(fullver) ; then \
+		echo "Tag $(fullver) exists, using released version of installation script" ; \
+		curl --fail https://docs.projectcalico.org/archive/$(ver)/scripts/install-calico-windows.ps1 -o $(WINDOWS_UPGRADE_INSTALL_FILE) ; \
+	else \
+		echo "Tag $(fullver) doesn't exist yet, using master version of installation script" ; \
+		curl --fail https://docs.projectcalico.org/master/scripts/install-calico-windows.ps1 -o $(WINDOWS_UPGRADE_INSTALL_FILE) ; \
+	fi
 
 build-windows-upgrade-image: clean-windows-upgrade build-windows-archive $(WINDOWS_UPGRADE_INSTALL_ZIP) $(WINDOWS_UPGRADE_INSTALL_FILE)
 	$(MAKE) setup-windows-builder
