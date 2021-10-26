@@ -21,8 +21,7 @@ endif
 
 # Don't forget to update the windows image manifest file in windows-upgrade/ if
 # WINDOWS_VERSIONS is updated.
-WINDOWS_VERSIONS?=1809 2004
-#WINDOWS_VERSIONS?=1809 2004 20H2 ltsc2022
+WINDOWS_VERSIONS?=1809 2004 20H2 ltsc2022
 BUILD_IMAGES ?=$(NODE_IMAGE)
 LIBBPF_DOCKER_PATH=/go/src/github.com/projectcalico/node/bin/third-party/libbpf/src
 BPF_GPL_DOCKER_PATH=/go/src/github.com/projectcalico/node/bin/bpf/bpf-gpl
@@ -819,11 +818,12 @@ cd-windows-upgrade:
 	for registry in $(DEV_REGISTRIES); do \
 		echo Pushing Windows images to $${registry}; \
 		for win_ver in $(WINDOWS_VERSIONS); do \
-			echo Pushing Windows $${win_ver} image to $${registry}; \
 			image_tar="$(WINDOWS_UPGRADE_DIST)/image-$(GIT_VERSION)-$${win_ver}.tar"; \
 			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-windows-$${win_ver}"; \
-			$(CRANE_BINDMOUNT) push $${image_tar} $${image}$(double_quote); \
+			echo Pushing image $${image} ...; \
+			$(CRANE_BINDMOUNT) push $${image_tar} $${image}$(double_quote) & \
 		done; \
+		wait; \
 	done ;
 
 push-windows-manifest: var-require-one-of-CONFIRM-DRYRUN
