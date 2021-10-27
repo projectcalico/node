@@ -19,8 +19,6 @@ WINDOWS_UPGRADE_IMAGE ?=calico/windows-upgrade
 DEV_REGISTRIES        ?=quay.io docker.io
 endif
 
-# Don't forget to update the windows image manifest file in windows-upgrade/ if
-# WINDOWS_VERSIONS is updated.
 WINDOWS_VERSIONS?=1809 2004 20H2 ltsc2022
 BUILD_IMAGES ?=$(NODE_IMAGE)
 
