@@ -790,10 +790,14 @@ CRANE_BINDMOUNT_CMD := \
 		-w /go/src/$(PACKAGE_NAME) \
 		$(CALICO_BUILD) -c $(double_quote)crane
 
+DOCKER_MANIFEST_CMD := docker manifest
+
 ifdef CONFIRM
 CRANE_BINDMOUNT = $(CRANE_BINDMOUNT_CMD)
+DOCKER_MANIFEST = $(DOCKER_MANIFEST_CMD)
 else
 CRANE_BINDMOUNT = echo [DRY RUN] $(CRANE_BINDMOUNT_CMD)
+DOCKER_MANIFEST = echo [DRY RUN] $(DOCKER_MANIFEST_CMD)
 endif
 
 sub-image-windows-%:
@@ -838,13 +842,13 @@ cd-windows-upgrade:
 			all_images="$${all_images} $${image}"; \
 		done; \
 		wait; \
-		docker manifest create --amend $${manifest_image} $${all_images}; \
+		$(DOCKER_MANIFEST) create --amend $${manifest_image} $${all_images}; \
 		for win_ver in $(WINDOWS_VERSIONS); do \
 			version=$$(docker manifest inspect mcr.microsoft.com/windows/nanoserver:$${win_ver} | grep "os.version" | head -n 1 | awk -F\" '{print $$4}'); \
 			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-windows-$${win_ver}"; \
-			docker manifest annotate --os windows --arch amd64 --os-version $${version} $${manifest_image} $${image}; \
+			$(DOCKER_MANIFEST) annotate --os windows --arch amd64 --os-version $${version} $${manifest_image} $${image}; \
 		done; \
-		docker manifest push --purge $${manifest_image}; \
+		$(DOCKER_MANIFEST) push --purge $${manifest_image}; \
 	done ;
 
 ###############################################################################
