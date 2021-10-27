@@ -741,26 +741,44 @@ sub-image-windows-%:
 
 # The calico-windows-upgrade cd is different because we do not build docker images directly.
 # Since the build machine is linux, we output the images to a tarball. (We can
-# produce images but there will be no apparent output because docker images
+# produce images but there will be no output because docker images
 # built for Windows cannot be loaded on linux.)
 #
-# The resulting tarball is then pushed to registries during cd/release.
+# The resulting image tarball is then pushed to registries during cd/release.
 # The image tarballs are located in dist/windows-upgrade and have files names
 # with the format 'image-v3.21.0-2-abcdef-20H2.tar'.
+#
+# In addition to pushing the individual images, we also create the manifest
+# directly using 'docker manifest'. This is possible because Semaphore is using
+# a recent enough docker CLI version (20.10.0)
+#
+# - Create the manifest with 'docker manifest create' using the list of all images.
+# - For each windows version, 'docker manifest annotate' its image with "os.image: <windows_version>".
+#   <windows_version> is the version string that looks like, e.g. 10.0.19041.1288.
+#   Setting os.image in the manifest is required for Windows hosts to load the
+#   correct image in manifest.
+# - Finally we push the manifest, "purging" the local manifest.
 cd-windows-upgrade:
 	for registry in $(DEV_REGISTRIES); do \
 		echo Pushing Windows images to $${registry}; \
+		all_images=""; \
+		manifest_image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)"; \
 		for win_ver in $(WINDOWS_VERSIONS); do \
 			image_tar="$(WINDOWS_UPGRADE_DIST)/image-$(GIT_VERSION)-$${win_ver}.tar"; \
 			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-windows-$${win_ver}"; \
 			echo Pushing image $${image} ...; \
 			$(CRANE_BINDMOUNT) push $${image_tar} $${image}$(double_quote) & \
+			all_images="$${all_images} $${image}"; \
 		done; \
 		wait; \
+		docker manifest create --amend $${manifest_image} $${all_images}; \
+		for win_ver in $(WINDOWS_VERSIONS); do \
+			version=$$(docker manifest inspect mcr.microsoft.com/windows/nanoserver:$${win_ver} | grep "os.version" | head -n 1 | awk -F\" '{print $$4}'); \
+			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-windows-$${win_ver}"; \
+			docker manifest annotate --os windows --arch amd64 --os-version $${version} $${manifest_image} $${image}; \
+		done; \
+		docker manifest push --purge $${manifest_image}; \
 	done ;
-
-push-windows-manifest: var-require-one-of-CONFIRM-DRYRUN
-	$(MAKE) push-manifests BUILD_IMAGES=$(WINDOWS_UPGRADE_IMAGE) IMAGETAG=$(GIT_VERSION) OUTPUT_DIR=/tmp/ MANIFEST_TOOL_SPEC_TEMPLATE=$(WINDOWS_UPGRADE_ROOT)/manifest-tool-spec.yaml.tpl.sh MANIFEST_TOOL_EXTRA_DOCKER_ARGS="-v /tmp:/tmp"
 
 ###############################################################################
 # Utilities
