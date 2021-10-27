@@ -145,11 +145,16 @@ WINDOWS_ARCHIVE_FILES := \
 MICROSOFT_SDN_VERSION := 0d7593e5c8d4c2347079a7a6dbd9eb034ae19a44
 MICROSOFT_SDN_GITHUB_RAW_URL := https://raw.githubusercontent.com/microsoft/SDN/$(MICROSOFT_SDN_VERSION)
 
-WINDOWS_UPGRADE_ROOT ?= windows-upgrade
-WINDOWS_UPGRADE_BIN ?= $(WINDOWS_UPGRADE_ROOT)/bin
-WINDOWS_UPGRADE_INSTALL_FILE ?= $(WINDOWS_UPGRADE_BIN)/install-calico-windows.ps1
-WINDOWS_UPGRADE_INSTALL_ZIP ?= $(WINDOWS_UPGRADE_BIN)/calico-windows-$(WINDOWS_ARCHIVE_TAG).zip
-WINDOWS_UPGRADE_DIST=dist/windows-upgrade
+WINDOWS_UPGRADE_ROOT         ?= windows-upgrade
+WINDOWS_UPGRADE_DIST          = dist/windows-upgrade
+WINDOWS_UPGRADE_DIST_STAGE    = $(WINDOWS_UPGRADE_DIST)/stage
+WINDOWS_UPGRADE_INSTALL_FILE ?= $(WINDOWS_UPGRADE_DIST_STAGE)/install-calico-windows.ps1
+WINDOWS_UPGRADE_INSTALL_ZIP  ?= $(WINDOWS_UPGRADE_DIST_STAGE)/calico-windows-$(WINDOWS_ARCHIVE_TAG).zip
+WINDOWS_UPGRADE_SCRIPT       ?= $(WINDOWS_UPGRADE_DIST_STAGE)/calico-upgrade.ps1
+
+WINDOWS_UPGRADE_BUILD        ?= $(WINDOWS_UPGRADE_ROOT)/build
+# The final zip archive.
+WINDOWS_UPGRADE_ARCHIVE      ?= $(WINDOWS_UPGRADE_BUILD)/calico-windows-upgrade.zip
 
 # Variables used by the tests
 LOCAL_IP_ENV?=$(shell ip route get 8.8.8.8 | head -1 | awk '{print $$7}')
@@ -186,7 +191,7 @@ clean: clean-windows-upgrade
 	rm -f $(WINDOWS_ARCHIVE_ROOT)/libs/hns/License.txt
 	rm -f $(WINDOWS_ARCHIVE_ROOT)/cni/*.exe
 	rm -f $(WINDOWS_UPGRADE_INSTALL_FILE)
-	rm -f $(WINDOWS_UPGRADE_BIN)/*.zip
+	rm -f $(WINDOWS_UPGRADE_BUILD)/*.zip
 	rm -rf filesystem/included-source
 	rm -rf dist
 	rm -rf filesystem/etc/calico/confd/conf.d filesystem/etc/calico/confd/config filesystem/etc/calico/confd/templates
@@ -200,8 +205,8 @@ clean: clean-windows-upgrade
 	docker rmi $(addprefix $(WINDOWS_UPGRADE_IMAGE):latest-,$(WINDOWS_VERSIONS)) || true
 
 clean-windows-upgrade:
-	rm -f $(WINDOWS_UPGRADE_INSTALL_FILE)
-	rm -f $(WINDOWS_UPGRADE_BIN)/*.zip
+	-rm -f "$(WINDOWS_UPGRADE_DIST_STAGE)"
+	-rm -rf "$(WINDOWS_UPGRADE_BUILD)"
 
 ###############################################################################
 # Updating pins
@@ -746,13 +751,19 @@ build-windows-archive: $(WINDOWS_ARCHIVE_FILES) windows-packaging/nssm-$(WINDOWS
 $(WINDOWS_ARCHIVE_BINARY): $(WINDOWS_BINARY)
 	cp $< $@
 
-$(WINDOWS_UPGRADE_INSTALL_ZIP): build-windows-archive
+$(WINDOWS_UPGRADE_BUILD):
+	-mkdir -p $(WINDOWS_UPGRADE_BUILD)
+
+$(WINDOWS_UPGRADE_DIST_STAGE):
+	-mkdir -p $(WINDOWS_UPGRADE_DIST_STAGE)
+
+$(WINDOWS_UPGRADE_SCRIPT): $(WINDOWS_UPGRADE_DIST_STAGE)
+	cp $(WINDOWS_UPGRADE_ROOT)/calico-upgrade.ps1 $@
+
+$(WINDOWS_UPGRADE_INSTALL_ZIP): build-windows-archive $(WINDOWS_UPGRADE_DIST_STAGE)
 	cp $(WINDOWS_ARCHIVE) $@
 
-$(WINDOWS_UPGRADE_BIN):
-	mkdir -p $(WINDOWS_UPGRADE_BIN)
-
-$(WINDOWS_UPGRADE_INSTALL_FILE):
+$(WINDOWS_UPGRADE_INSTALL_FILE): $(WINDOWS_UPGRADE_DIST_STAGE)
 	# Truncated git version in the vX.Y version string our docs site uses.
 	$(eval ver := $(shell echo $(GIT_VERSION) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\).*/\1/p' ))
 	# The vX.Y.Z version string.
@@ -767,7 +778,11 @@ $(WINDOWS_UPGRADE_INSTALL_FILE):
 		curl --fail https://docs.projectcalico.org/master/scripts/install-calico-windows.ps1 -o $(WINDOWS_UPGRADE_INSTALL_FILE) ; \
 	fi
 
-build-windows-upgrade-image: clean-windows-upgrade build-windows-archive $(WINDOWS_UPGRADE_INSTALL_ZIP) $(WINDOWS_UPGRADE_INSTALL_FILE)
+build-upgrade-windows-archive: $(WINDOWS_UPGRADE_INSTALL_ZIP) $(WINDOWS_UPGRADE_INSTALL_FILE) $(WINDOWS_UPGRADE_SCRIPT) $(WINDOWS_UPGRADE_BUILD)
+	rm $(WINDOWS_UPGRADE_ARCHIVE) || true
+	cd $(WINDOWS_UPGRADE_DIST_STAGE) && zip -r "$(CURDIR)/$(WINDOWS_UPGRADE_ARCHIVE)" *.zip *.ps1
+
+build-windows-upgrade-image: clean-windows-upgrade build-upgrade-windows-archive
 	$(MAKE) setup-windows-builder
 	$(MAKE) image-windows-all
 

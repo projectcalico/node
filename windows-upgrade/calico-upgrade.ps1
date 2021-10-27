@@ -13,7 +13,7 @@
 # limitations under the License.
 
 $rootDir = "c:\CalicoWindows"
-$zipFile = "c:\calico-windows.zip"
+$installZipFile = "c:\calico-windows.zip"
 
 $date = Get-Date -UFormat "%Y-%m-%d"
 $logFile = "c:\calico-upgrade.$date.log"
@@ -25,13 +25,16 @@ function Log {
 }
 
 Log "Starting calico upgrade"
+$zipFile = $Get-ChildItem -path . -filter calico-windows-upgrade*.zip | Select -expandproperty Name
+Expand-Archive -Path $zipFile -DestinationPath $PSScriptRoot
+Remove-Item -Path $zipFile
 
 Log "Files in c:\CalicoUpgrade:"
 $files = ls c:\CalicoUpgrade | Out-String
 Log $files
 
 Log "Copying installation zip file"
-cp $PSScriptRoot\*.zip $zipFile
+cp $PSScriptRoot\*.zip $installZipFile
 
 Log "Starting installation script..."
 & $PSScriptRoot\install-calico-windows.ps1 *>> $logFile
