@@ -162,8 +162,6 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 				log.WithError(err).Fatal("Failed to verify windows-upgrade pod image")
 			}
 
-			log.Info("Calico upgrade process is starting")
-
 			err = uninstall()
 			if err != nil {
 				log.WithError(err).Error("Uninstall failed, will retry")

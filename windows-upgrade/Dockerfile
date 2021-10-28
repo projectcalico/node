@@ -25,6 +25,7 @@ FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 COPY --from=base /CalicoUpgrade /CalicoUpgrade
 COPY --from=base /CalicoBin /CalicoBin
 
+# nanoserver defaults to ContainerUser however we need admin to run icacls
 USER ContainerAdministrator
 
 ENTRYPOINT cmd.exe \
