@@ -147,13 +147,18 @@ MICROSOFT_SDN_GITHUB_RAW_URL := https://raw.githubusercontent.com/microsoft/SDN/
 
 WINDOWS_UPGRADE_ROOT         ?= windows-upgrade
 WINDOWS_UPGRADE_DIST          = dist/windows-upgrade
+
+# The directory that holds temporary files used to build the windows upgrade zip
+# archive.
 WINDOWS_UPGRADE_DIST_STAGE    = $(WINDOWS_UPGRADE_DIST)/stage
 WINDOWS_UPGRADE_INSTALL_FILE ?= $(WINDOWS_UPGRADE_DIST_STAGE)/install-calico-windows.ps1
 WINDOWS_UPGRADE_INSTALL_ZIP  ?= $(WINDOWS_UPGRADE_DIST_STAGE)/calico-windows-$(WINDOWS_ARCHIVE_TAG).zip
 WINDOWS_UPGRADE_SCRIPT       ?= $(WINDOWS_UPGRADE_DIST_STAGE)/calico-upgrade.ps1
 
+# The directory used for the upgrade image docker build context.
 WINDOWS_UPGRADE_BUILD        ?= $(WINDOWS_UPGRADE_ROOT)/build
-# The final zip archive.
+
+# The final zip archive used in the upgrade image.
 WINDOWS_UPGRADE_ARCHIVE      ?= $(WINDOWS_UPGRADE_BUILD)/calico-windows-upgrade.zip
 
 # Variables used by the tests
@@ -627,11 +632,16 @@ ifneq ($(VERSION), $(GIT_VERSION))
 endif
 	$(MAKE) image-all RELEASE=true
 	$(MAKE) retag-build-images-with-registries RELEASE=true IMAGETAG=$(VERSION)
-	# Generate the `latest` images.
+	# Generate the `latest` node images.
 	$(MAKE) retag-build-images-with-registries RELEASE=true IMAGETAG=latest
+	# Generate the Windows zip archives.
 	$(MAKE) release-windows-archive
+	$(MAKE) release-windows-upgrade-archive
+	# Generate the Windows upgrade image tarballs (this must come after the
+	# upgrade archive)
+	$(MAKE) image-tar-windows-all
 
-## Produces the Windows ZIP archive for the release.
+## Produces the Windows installation ZIP archive for the release.
 release-windows-archive $(WINDOWS_ARCHIVE): release-prereqs
 	$(MAKE) build-windows-archive WINDOWS_ARCHIVE_TAG=$(VERSION)
 
@@ -655,8 +665,11 @@ endif
 	# Push the git tag.
 	git push origin $(VERSION)
 
-	# Push images.
+	# Push node images.
 	$(MAKE) push-images-to-registries push-manifests IMAGETAG=$(VERSION) RELEASE=true CONFIRM=true
+
+	# Push Windows upgrade images.
+	$(MAKE) cd-windows-upgrade RELEASE=true CONFIRM=true
 
 	# Push Windows artifacts to GitHub release.
 	# Requires ghr: https://github.com/tcnksm/ghr
@@ -751,23 +764,34 @@ build-windows-archive: $(WINDOWS_ARCHIVE_FILES) windows-packaging/nssm-$(WINDOWS
 $(WINDOWS_ARCHIVE_BINARY): $(WINDOWS_BINARY)
 	cp $< $@
 
+# Ensure the upgrade image docker build folder exists.
 $(WINDOWS_UPGRADE_BUILD):
 	-mkdir -p $(WINDOWS_UPGRADE_BUILD)
 
+# Ensure the directory for temporary files used to build the windows upgrade zip
+# archive exists.
 $(WINDOWS_UPGRADE_DIST_STAGE):
 	-mkdir -p $(WINDOWS_UPGRADE_DIST_STAGE)
 
+# Copy the upgrade script to the temporary directory where we build the windows
+# upgrade zip file.
 $(WINDOWS_UPGRADE_SCRIPT): $(WINDOWS_UPGRADE_DIST_STAGE)
 	cp $(WINDOWS_UPGRADE_ROOT)/calico-upgrade.ps1 $@
 
+# Copy the install zip archive to the temporary directory where we build the windows
+# upgrade zip file.
 $(WINDOWS_UPGRADE_INSTALL_ZIP): build-windows-archive $(WINDOWS_UPGRADE_DIST_STAGE)
 	cp $(WINDOWS_ARCHIVE) $@
 
+# Get the install script into the temporary directory where we build the windows
+# upgrade zip file. The version of the install script depends on whether there
+# is a released version for the branch; otherwise the master version of the
+# script is used.
 $(WINDOWS_UPGRADE_INSTALL_FILE): $(WINDOWS_UPGRADE_DIST_STAGE)
 	# Truncated git version in the vX.Y version string our docs site uses.
-	$(eval ver := $(shell echo $(GIT_VERSION) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\).*/\1/p' ))
+	$(eval ver := $(shell echo $(WINDOWS_ARCHIVE_TAG) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\).*/\1/p' ))
 	# The vX.Y.Z version string.
-	$(eval fullver := $(shell echo $(GIT_VERSION) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' ))
+	$(eval fullver := $(shell echo $(WINDOWS_ARCHIVE_TAG) | sed -ne 's/\(v[0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' ))
 	@echo vX.Y version is $(ver)
 	@echo vX.Y.Z version is $(fullver)
 	@if git show-ref --tags $(fullver) ; then \
@@ -778,19 +802,22 @@ $(WINDOWS_UPGRADE_INSTALL_FILE): $(WINDOWS_UPGRADE_DIST_STAGE)
 		curl --fail https://docs.projectcalico.org/master/scripts/install-calico-windows.ps1 -o $(WINDOWS_UPGRADE_INSTALL_FILE) ; \
 	fi
 
-build-upgrade-windows-archive: $(WINDOWS_UPGRADE_INSTALL_ZIP) $(WINDOWS_UPGRADE_INSTALL_FILE) $(WINDOWS_UPGRADE_SCRIPT) $(WINDOWS_UPGRADE_BUILD)
+# Produces the Windows upgrade ZIP archive for the release.
+release-windows-upgrade-archive: release-prereqs
+	$(MAKE) build-windows-upgrade-archive WINDOWS_ARCHIVE_TAG=$(VERSION)
+
+# Build the Windows upgrade zip archive.
+build-windows-upgrade-archive: clean-windows-upgrade $(WINDOWS_UPGRADE_INSTALL_ZIP) $(WINDOWS_UPGRADE_INSTALL_FILE) $(WINDOWS_UPGRADE_SCRIPT) $(WINDOWS_UPGRADE_BUILD)
 	rm $(WINDOWS_UPGRADE_ARCHIVE) || true
 	cd $(WINDOWS_UPGRADE_DIST_STAGE) && zip -r "$(CURDIR)/$(WINDOWS_UPGRADE_ARCHIVE)" *.zip *.ps1
 
-build-windows-upgrade-image: clean-windows-upgrade build-upgrade-windows-archive
-	$(MAKE) setup-windows-builder
-	$(MAKE) image-windows-all
-
+# Sets up the docker builder used to create Windows image tarballs.
 setup-windows-builder:
 	-docker buildx rm calico-windows-upgrade-builder
 	docker buildx create --name=calico-windows-upgrade-builder --use --platform windows/amd64
 
-image-windows-all: setup-windows-builder $(addprefix sub-image-windows-,$(WINDOWS_VERSIONS))
+# Builds all the Windows image tarballs for each version in WINDOWS_VERSIONS
+image-tar-windows-all: setup-windows-builder $(addprefix sub-image-tar-windows-,$(WINDOWS_VERSIONS))
 
 CRANE_BINDMOUNT_CMD := \
 	docker run --rm \
@@ -813,7 +840,9 @@ CRANE_BINDMOUNT = echo [DRY RUN] $(CRANE_BINDMOUNT_CMD)
 DOCKER_MANIFEST = echo [DRY RUN] $(DOCKER_MANIFEST_CMD)
 endif
 
-sub-image-windows-%:
+# Uses the docker builder to create a Windows image tarball for a single Windows
+# version.
+sub-image-tar-windows-%:
 	-mkdir -p $(WINDOWS_UPGRADE_DIST)
 	cd $(WINDOWS_UPGRADE_ROOT) && \
 		docker buildx build \
