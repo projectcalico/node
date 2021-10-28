@@ -136,7 +136,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 		case <-ticker.C:
 			upgrade, err := upgradeTriggered(ctx, cs, nodeName)
 			if err != nil {
-				log.WithError(err).Fatal("Failed to check node upgrade status")
+				log.WithError(err).Error("Failed to check node upgrade status, will retry")
 				break
 			}
 			// If upgrade not triggered yet just silently continue.
@@ -145,7 +145,7 @@ func loop(ctx context.Context, cs kubernetes.Interface, nodeName string) {
 			}
 
 			if !pathExists(upgradeScript) {
-				log.Info("Upgrade triggered but upgrade artifacts not ready yet")
+				log.Info("Upgrade triggered but upgrade artifacts not ready yet, will retry")
 				break
 			}
 
