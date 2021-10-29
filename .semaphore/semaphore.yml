@@ -145,7 +145,7 @@ blocks:
     dependencies: ["General Tests", "System Tests", "Specialized Tests"]
     task:
       jobs:
-      - name: "Build windows archives"
+      - name: "Build windows installation and upgrade archives"
         execution_time_limit:
           minutes: 120
         commands:
