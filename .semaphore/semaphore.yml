@@ -32,11 +32,15 @@ blocks:
     dependencies: []
     task:
       jobs:
-        - name: "Build All Images"
+        - name: "Build all node images"
           execution_time_limit:
             minutes: 120
           commands:
             - TEST_IMAGE_BUILD=true make image-all
+        - name: "Build Windows images"
+          execution_time_limit:
+            minutes: 120
+          commands:
             - make build-windows-upgrade-archive image-tar-windows-all
 
   - name: "General Tests"
