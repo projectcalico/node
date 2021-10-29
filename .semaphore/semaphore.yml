@@ -141,11 +141,11 @@ blocks:
               make build-windows-upgrade-archive image-tar-windows-all cd-windows-upgrade CONFIRM=true
           fi
 
-  - name: "Build windows archives"
+  - name: "build windows archive"
     dependencies: ["General Tests", "System Tests", "Specialized Tests"]
     task:
       jobs:
-      - name: "Build windows archives"
+      - name: "build windows archive"
         execution_time_limit:
           minutes: 120
         commands:
