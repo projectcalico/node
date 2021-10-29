@@ -11,13 +11,12 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectcalico/api v0.0.0-20211027233830-6b11a0f525e1
 	github.com/projectcalico/cni-plugin v1.11.1-0.20211021004151-1e4e077b9bce
-	github.com/projectcalico/felix v0.0.0-20211028203433-0229d725ca8d
+	github.com/projectcalico/felix v0.0.0-20211029112910-248ab3522442
 	github.com/projectcalico/libcalico-go v1.7.2-0.20211028190301-9b43eae22410
 	github.com/projectcalico/typha v0.7.3-0.20211028192208-eae8120e135a
 	github.com/sirupsen/logrus v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20210703095558-21f2c55a7727
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210816074244-15123e1e1f71 // indirect
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
 	k8s.io/api v0.22.0
 	k8s.io/apimachinery v0.22.0
