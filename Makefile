@@ -880,10 +880,9 @@ cd-windows-upgrade:
 			image_tar="$(WINDOWS_UPGRADE_DIST)/image-$(GIT_VERSION)-$${win_ver}.tar"; \
 			image="$${registry}/$(WINDOWS_UPGRADE_IMAGE):$(GIT_VERSION)-windows-$${win_ver}"; \
 			echo Pushing image $${image} ...; \
-			$(CRANE_BINDMOUNT) push $${image_tar} $${image}$(double_quote) & \
+			$(CRANE_BINDMOUNT) push $${image_tar} $${image}$(double_quote); \
 			all_images="$${all_images} $${image}"; \
 		done; \
-		wait; \
 		$(DOCKER_MANIFEST) create --amend $${manifest_image} $${all_images}; \
 		for win_ver in $(WINDOWS_VERSIONS); do \
 			version=$$(docker manifest inspect mcr.microsoft.com/windows/nanoserver:$${win_ver} | grep "os.version" | head -n 1 | awk -F\" '{print $$4}'); \
