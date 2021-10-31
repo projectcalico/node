@@ -119,9 +119,9 @@ blocks:
   # If tests passed, then build and push images.
   # We'll only do this on non-PR builds, where we have credentials to do so.
   - name: "Push images (non-PR builds only)"
-    skip:
-      # Only run on branches, not PRs.
-      when: "branch !~ '.+'"
+    #skip:
+    #  # Only run on branches, not PRs.
+    #  when: "branch !~ '.+'"
     dependencies: ["General Tests", "System Tests", "Specialized Tests"]
     task:
       secrets:
@@ -139,7 +139,7 @@ blocks:
         commands:
         - >-
           if [ -z "${SEMAPHORE_GIT_PR_NUMBER}" ]; then
-              make image-all cd CONFIRM=true
+          #make image-all cd CONFIRM=true
           fi
       - name: "make cd-windows-upgrade"
         execution_time_limit:
