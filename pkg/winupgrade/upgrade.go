@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package upgrade
+package winupgrade
 
 import (
 	"bytes"
@@ -87,24 +87,6 @@ func Run() {
 	fmt.Println(stdout, stderr)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to interact with powershell")
-	}
-
-	// Update annotations for running variant and version.
-	node := k8snode(nodeName)
-	log.Infof("Setting version annotation on node %s", version)
-	err = node.addRemoveNodeAnnotations(clientSet,
-		map[string]string{CalicoVersionAnnotation: version},
-		[]string{})
-	if err != nil {
-		log.WithError(err).Fatal("Failed to set version annotation")
-	}
-
-	log.Infof("Setting variant annotation on node %s", variant)
-	err = node.addRemoveNodeAnnotations(clientSet,
-		map[string]string{CalicoVariantAnnotation: variant},
-		[]string{})
-	if err != nil {
-		log.WithError(err).Fatal("Failed to set variant annotation")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

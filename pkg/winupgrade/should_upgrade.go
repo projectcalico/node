@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package upgrade
+package winupgrade
 
 import (
 	"context"
@@ -27,8 +27,12 @@ import (
 
 // Exit with code zero if Windows upgrade service should be installed.
 func ShouldInstallUpgradeService() {
+	version := getVersion()
+	variant := getVariant()
+
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()
+	log.Debugf("Check if Calico upgrade service should be installed on node: %s. Version: %s, Variant: %s, baseDir: %s", nodeName, version, variant, baseDir())
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
@@ -38,6 +42,24 @@ func ShouldInstallUpgradeService() {
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to create Kubernetes client")
+		os.Exit(2)
+	}
+
+	// Update annotations for running variant and version.
+	node := k8snode(nodeName)
+	err = node.addRemoveNodeAnnotations(clientSet,
+		map[string]string{CalicoVersionAnnotation: version},
+		[]string{})
+	if err != nil {
+		log.WithError(err).Fatal("Failed to set version annotation")
+		os.Exit(2)
+	}
+
+	err = node.addRemoveNodeAnnotations(clientSet,
+		map[string]string{CalicoVariantAnnotation: variant},
+		[]string{})
+	if err != nil {
+		log.WithError(err).Fatal("Failed to set variant annotation")
 		os.Exit(2)
 	}
 
