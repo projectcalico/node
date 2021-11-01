@@ -48,18 +48,13 @@ func ShouldInstallUpgradeService() {
 	// Update annotations for running variant and version.
 	node := k8snode(nodeName)
 	err = node.addRemoveNodeAnnotations(clientSet,
-		map[string]string{CalicoVersionAnnotation: version},
+		map[string]string{
+			CalicoVersionAnnotation: version,
+			CalicoVariantAnnotation: variant,
+		},
 		[]string{})
 	if err != nil {
-		log.WithError(err).Fatal("Failed to set version annotation")
-		os.Exit(2)
-	}
-
-	err = node.addRemoveNodeAnnotations(clientSet,
-		map[string]string{CalicoVariantAnnotation: variant},
-		[]string{})
-	if err != nil {
-		log.WithError(err).Fatal("Failed to set variant annotation")
+		log.WithError(err).Fatal("Failed to set version/variant annotations")
 		os.Exit(2)
 	}
 
