@@ -673,6 +673,7 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=
 github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021/go.mod h1:prYjPmNq4d1NPVmpShWobRqXY3q7Vp+80DqgxxUrUIA=
+<<<<<<< HEAD
 github.com/projectcalico/api v0.0.0-20211102223522-996da60fc572 h1:2AUX8YpJ4TBJ93I40QPCryUjz8FM0KNkYjRzQMCZ6rA=
 github.com/projectcalico/api v0.0.0-20211102223522-996da60fc572/go.mod h1:QUvycRdtbC3tSCzePX7+gxA0ZebEeHcW8ojpVwEdQVk=
 github.com/projectcalico/cni-plugin v1.11.1-0.20211103191859-fa7ec8d204d4 h1:OnmDZb86TI/xU69Ahh8PPYKwwATCWqfEQYlImfssQnY=
@@ -681,6 +682,18 @@ github.com/projectcalico/confd v1.0.1-0.20211104203810-93bd9de2b370 h1:cUEfCDWcf
 github.com/projectcalico/confd v1.0.1-0.20211104203810-93bd9de2b370/go.mod h1:Bsf6g20T5MZMelrKQThhc/N5dAuACB6ZFIHqrsPM30M=
 github.com/projectcalico/felix v0.0.0-20211103170853-4b1633af321f h1:20qDLe2sjTg3OPA1WMrHa+1Abdp4E9cG80ubcx9U9ws=
 github.com/projectcalico/felix v0.0.0-20211103170853-4b1633af321f/go.mod h1:pXFUWEx/gdfsUNSYx49oVk3jNhrxWChxwA4S7qKVgHg=
+=======
+github.com/projectcalico/api v0.0.0-20211020225912-9166b4743bb9/go.mod h1:QUvycRdtbC3tSCzePX7+gxA0ZebEeHcW8ojpVwEdQVk=
+github.com/projectcalico/api v0.0.0-20211027233830-6b11a0f525e1/go.mod h1:QUvycRdtbC3tSCzePX7+gxA0ZebEeHcW8ojpVwEdQVk=
+github.com/projectcalico/api v0.0.0-20211102181812-edfaf495a5c8 h1:tf883nciQPUZut8Br0Cdkw/JTakiizX+eq2XTNHzJS0=
+github.com/projectcalico/api v0.0.0-20211102181812-edfaf495a5c8/go.mod h1:QUvycRdtbC3tSCzePX7+gxA0ZebEeHcW8ojpVwEdQVk=
+github.com/projectcalico/cni-plugin v1.11.1-0.20211021004151-1e4e077b9bce h1:U5L8ci7slyugrg+O23CJgca7RfnlfJZ4cxOMJ/7IL4c=
+github.com/projectcalico/cni-plugin v1.11.1-0.20211021004151-1e4e077b9bce/go.mod h1:W4Z2atZEGRcOf7u+q1VcH00YAUQIcT3PohFXGrH+yG0=
+github.com/projectcalico/confd v1.0.1-0.20211104202015-896cce92594b h1:PboEgySJ+fyNS+vsPJJCfsunaFv7mOg2Wqu/J06Toak=
+github.com/projectcalico/confd v1.0.1-0.20211104202015-896cce92594b/go.mod h1:4bEQUTZuPbRtFzzAvOf3+N9Vy09cvkojo1F2PFv4oa8=
+github.com/projectcalico/felix v0.0.0-20211028203433-0229d725ca8d h1:NPHgJn5wEv9/P9AFy50maQEyhxtdzV5nNb+aH5wZwOE=
+github.com/projectcalico/felix v0.0.0-20211028203433-0229d725ca8d/go.mod h1:4webAfW/QVEylkRV3xfRwJ4ZgDI+gctjwvoVtqprWZI=
+>>>>>>> Update confd pin for disableBGPExport fix
 github.com/projectcalico/go-json v0.0.0-20161128004156-6219dc7339ba h1:aaF2byUCZhzszHsfPEr2M3qcU4ibtD/yk/il2R7T1PU=
 github.com/projectcalico/go-json v0.0.0-20161128004156-6219dc7339ba/go.mod h1:q8EdCgBdMQzgiX/uk4GXLWLk+gIHd1a7mWUAamJKDb4=
 github.com/projectcalico/go-yaml-wrapper v0.0.0-20191112210931-090425220c54 h1:Jt2Pic9dxgJisekm8q2WV9FaWxUJhhRfwHSP640drww=
