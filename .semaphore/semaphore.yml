@@ -74,9 +74,9 @@ blocks:
             minutes: 120
           commands:
             - make image ARCH=$ARCH
-      matrix:
-      - env_var: ARCH
-        values: ["amd64", "arm64","armv7", "ppc64le"]
+          matrix:
+          - env_var: ARCH
+            values: ["amd64", "arm64","armv7", "ppc64le"]
 
   - name: "System Tests"
     dependencies: ["Build Images"]
