@@ -76,7 +76,7 @@ blocks:
             - make image ARCH=$ARCH
           matrix:
           - env_var: ARCH
-            values: ["amd64", "arm64","armv7", "ppc64le"]
+            values: ["amd64", "arm64","armv7", "ppc64le","s390x"]
 
   - name: "System Tests"
     dependencies: ["Build Images"]
