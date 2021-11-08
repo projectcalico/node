@@ -38,6 +38,7 @@ const (
 	defaultShutdownTimestampFileWindows = `c:\CalicoWindows\shutdownTS`
 	defaultNodenameFileLinux            = `/var/lib/calico/nodename`
 	defaultNodenameFileWindows          = `c:\CalicoWindows\nodename`
+	NodePatchTimeout                    = 30 * time.Second
 )
 
 // For testing purposes we define an exit function that we can override.
