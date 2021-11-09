@@ -55,31 +55,31 @@ blocks:
             - make ut
             - make fv
 
-  # - name: "Build amd64 Image"
-  #   dependencies: []
-  #   task:
-  #     jobs:
-  #       - name: "Build amd64 Image"
-  #         execution_time_limit:
-  #           minutes: 120
-  #         commands:
-  #           - make image
-
-  - name: "Build Images"
+  - name: "Build amd64 Image"
     dependencies: []
     task:
       jobs:
-        - name: "Build Images"
+        - name: "Build amd64 Image"
+          execution_time_limit:
+            minutes: 120
+          commands:
+            - make image
+
+  - name: "Build All Other Images"
+    dependencies: []
+    task:
+      jobs:
+        - name: "Build Community Supported Images"
           execution_time_limit:
             minutes: 120
           commands:
             - make image ARCH=$ARCH
           matrix:
           - env_var: ARCH
-            values: ["amd64", "arm64","armv7", "ppc64le","s390x"]
+            values: ["arm64","armv7", "ppc64le"]
 
   - name: "System Tests"
-    dependencies: ["Build Images"]
+    dependencies: ["Build amd64 Image"]
     task:
       prologue:
         commands:
@@ -135,7 +135,7 @@ blocks:
     skip:
       # Only run on branches, not PRs.
       when: "branch !~ '.+'"
-    dependencies: ["General Tests", "System Tests", "Specialized Tests"]
+    dependencies: ["General Tests", "System Tests", "Specialized Tests", "Build All Other Images"]
     task:
       secrets:
       - name: quay-robot-calico+semaphoreci
