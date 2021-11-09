@@ -515,10 +515,6 @@ st-checks:
 	# Check that we're running as root.
 	test `id -u` -eq '0' || { echo "STs must be run as root to allow writes to /proc"; false; }
 
-	# Insert an iptables rule to allow access from our test containers to etcd
-	# running on the host.
-	iptables-save | grep -q 'calico-st-allow-etcd' || iptables $(IPT_ALLOW_ETCD)
-
 .PHONY: k8s-test
 ## Run the k8s tests
 k8s-test:
@@ -567,7 +563,7 @@ st: image remote-deps dist/calicoctl busybox.tar calico-node.tar workload.tar ru
 	# HOST_CHECKOUT_DIR is used for volume mounts on containers started by this one.
 	# All of code under test is mounted into the container.
 	#   - This also provides access to calicoctl and the docker client
-	# $(MAKE) st-checks
+	$(MAKE) st-checks
 	docker run --uts=host \
 		   --pid=host \
 		   --net=host \
