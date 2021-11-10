@@ -603,14 +603,14 @@ func parseBlockSizeEnvironment(envValue string) int {
 
 // validateBlockSize check if blockSize is valid
 func validateBlockSize(version int, blockSize int) {
-	// 20 to 32 (inclusive) for IPv4 and 116 to 128 (inclusive) for IPv6
+	// 20 to 32 (inclusive) for IPv4 and 64 to 128 (inclusive) for IPv6
 	if version == 4 {
 		if blockSize < 20 || blockSize > 32 {
 			log.Errorf("Invalid blocksize %d for version %d", blockSize, version)
 			utils.Terminate()
 		}
 	} else if version == 6 {
-		if blockSize < 116 || blockSize > 128 {
+		if blockSize < 64 || blockSize > 128 {
 			log.Errorf("Invalid blocksize %d for version %d", blockSize, version)
 			utils.Terminate()
 		}
