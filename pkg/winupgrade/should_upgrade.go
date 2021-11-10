@@ -25,13 +25,34 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func GetLoggingLevel() log.Level {
+	rawLogLevel := os.Getenv("CALICO_STARTUP_LOGLEVEL")
+	if rawLogLevel != "" {
+		parsedLevel, err := log.ParseLevel(rawLogLevel)
+		if err == nil {
+			return parsedLevel
+		} else {
+			log.WithError(err).Error("Failed to parse log level, defaulting to info.")
+		}
+	}
+
+	return log.InfoLevel
+}
+
 // Exit with code zero if Windows upgrade service should be installed.
 func ShouldInstallUpgradeService() {
+	// Don't log anything with INFO level because
+	// this function is called every 10 seconds.
+	if GetLoggingLevel() == log.InfoLevel {
+		log.SetLevel(log.ErrorLevel)
+	}
+
 	version := getVersion()
 	variant := getVariant()
 
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()
+
 	log.Debugf("Check if Calico upgrade service should be installed on node: %s. Version: %s, Variant: %s, baseDir: %s", nodeName, version, variant, baseDir())
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
