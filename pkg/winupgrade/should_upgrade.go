@@ -41,9 +41,11 @@ func GetLoggingLevel() log.Level {
 
 // Exit with code zero if Windows upgrade service should be installed.
 func ShouldInstallUpgradeService() {
-	// Don't print anything with INFO level because
+	// Don't log anything with INFO level because
 	// this function is called every 10 seconds.
-	log.SetLevel(log.ErrorLevel)
+	if GetLoggingLevel() == log.InfoLevel {
+		log.SetLevel(log.ErrorLevel)
+	}
 
 	version := getVersion()
 	variant := getVariant()
@@ -51,9 +53,7 @@ func ShouldInstallUpgradeService() {
 	// Determine the name for this node.
 	nodeName := utils.DetermineNodeName()
 
-	if GetLoggingLevel() == log.DebugLevel {
-		log.Debugf("Check if Calico upgrade service should be installed on node: %s. Version: %s, Variant: %s, baseDir: %s", nodeName, version, variant, baseDir())
-	}
+	log.Debugf("Check if Calico upgrade service should be installed on node: %s. Version: %s, Variant: %s, baseDir: %s", nodeName, version, variant, baseDir())
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
