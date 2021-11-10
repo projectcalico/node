@@ -1123,7 +1123,7 @@ var _ = Describe("UT for IP and IP6", func() {
 			return []autodetection.Interface{
 				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1.2.3.4/24")}}}, nil
 		}
-		ipv4CIDROrIP, _ := getLocalCIDR(ipv4Env, version, ipv4MockInterfaces)
+		ipv4CIDROrIP, _ := autodetection.GetLocalCIDR(ipv4Env, version, ipv4MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
 	},
 		Entry("get the local cidr", "1.2.3.4", 4, "1.2.3.4/24"),
@@ -1136,7 +1136,7 @@ var _ = Describe("UT for IP and IP6", func() {
 			return []autodetection.Interface{
 				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1:2:3:4::5/120")}}}, nil
 		}
-		ipv4CIDROrIP, _ := getLocalCIDR(ipv6Env, version, ipv6MockInterfaces)
+		ipv4CIDROrIP, _ := autodetection.GetLocalCIDR(ipv6Env, version, ipv6MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
 	},
 		Entry("get the local cidr", "1:2:3:4::5", 6, "1:2:3:4::5/120"),
