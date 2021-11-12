@@ -548,7 +548,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := utils.DetermineNodeName()
+			nodeName, _ := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			err = ensureDefaultConfig(ctx, cfg, c, node, OSTypeLinux, nil, nil)
@@ -588,7 +588,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := utils.DetermineNodeName()
+			nodeName, _ := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			os.Setenv("CLUSTER_TYPE", "theType")
@@ -630,7 +630,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := utils.DetermineNodeName()
+			nodeName, _ := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -689,7 +689,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := utils.DetermineNodeName()
+			nodeName, _ := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -751,7 +751,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := utils.DetermineNodeName()
+			nodeName, _ := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -798,7 +798,7 @@ var _ = Describe("FV tests against a real etcd", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			nodeName := utils.DetermineNodeName()
+			nodeName, _ := utils.DetermineNodeName()
 			node := getNode(ctx, c, nodeName)
 
 			clusterInfo := api.NewClusterInformation()
@@ -995,7 +995,7 @@ var _ = Describe("UT for node name determination", func() {
 			} else {
 				os.Unsetenv("HOSTNAME")
 			}
-			nodeName := utils.DetermineNodeName()
+			nodeName, _ := utils.DetermineNodeName()
 			os.Unsetenv("NODENAME")
 			os.Unsetenv("HOSTNAME")
 			Expect(nodeName).To(Equal(expectedNodeName))

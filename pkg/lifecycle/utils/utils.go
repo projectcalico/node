@@ -110,11 +110,29 @@ func SaveShutdownTimestamp() error {
 	return nil
 }
 
+// NodeNameSource identifies the source by which node name is determined.
+type NodeNameSource string
+
+const (
+	NodeNameSourceEnvNodeName NodeNameSource = "NODENAME env"
+	NodeNameSourceFile                       = "file"
+	NodeNameSourceEnvHostName                = "HOSTNAME env"
+	NodeNameSourceOSHostName                 = "OS HostName"
+)
+
+func (n NodeNameSource) String() string {
+	if n == NodeNameSourceFile {
+		return fmt.Sprintf("file: %s", nodenameFileName())
+	}
+	return string(n)
+}
+
 // DetermineNodeName is called to determine the node name to use for this instance
 // of calico/node.
-func DetermineNodeName() string {
+func DetermineNodeName() (string, NodeNameSource) {
 	var nodeName string
 	var err error
+	var source NodeNameSource
 
 	// Determine the name of this node.  Precedence is:
 	// -  NODENAME
@@ -123,21 +141,24 @@ func DetermineNodeName() string {
 	// -  os.Hostname (lowercase).
 	// We use the names.Hostname which lowercases and trims the name.
 	if nodeName = strings.TrimSpace(os.Getenv("NODENAME")); nodeName != "" {
-		log.Infof("Using NODENAME environment for node name %s", nodeName)
+		log.Debugf("Using NODENAME environment for node name %s", nodeName)
+		source = NodeNameSourceEnvNodeName
 	} else if nodeName = nodenameFromFile(); nodeName != "" {
-		log.Infof("Using stored node name %s from %s", nodeName, nodenameFileName())
+		log.Debugf("Using stored node name %s from %s", nodeName, nodenameFileName())
+		source = NodeNameSourceFile
 	} else if nodeName = strings.ToLower(strings.TrimSpace(os.Getenv("HOSTNAME"))); nodeName != "" {
-		log.Infof("Using HOSTNAME environment (lowercase) for node name %s", nodeName)
+		log.Debugf("Using HOSTNAME environment (lowercase) for node name %s", nodeName)
+		source = NodeNameSourceEnvHostName
 	} else if nodeName, err = names.Hostname(); err != nil {
 		log.WithError(err).Error("Unable to determine hostname")
 		Terminate()
 	} else {
 		log.Warn("Using auto-detected node name. It is recommended that an explicit value is supplied using " +
 			"the NODENAME environment variable.")
+		source = NodeNameSourceOSHostName
 	}
-	log.Infof("Determined node name: %s", nodeName)
 
-	return nodeName
+	return nodeName, source
 }
 
 func nodenameFileName() string {

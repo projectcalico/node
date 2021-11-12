@@ -63,7 +63,7 @@ var _ = Describe("Node status FV tests", func() {
 	be, err := backend.NewClient(*cfg)
 	Expect(err).NotTo(HaveOccurred())
 
-	nodeName := utils.DetermineNodeName()
+	nodeName, _ := utils.DetermineNodeName()
 	name := "mynodestatus"
 
 	v4Status := &apiv3.BGPDaemonStatus{

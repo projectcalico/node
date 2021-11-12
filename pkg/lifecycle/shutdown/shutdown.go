@@ -37,8 +37,8 @@ func Run() {
 	}
 
 	// Determine the name for this node.
-	nodeName := utils.DetermineNodeName()
-	log.Infof("Shutting down node %s", nodeName)
+	nodeName, source := utils.DetermineNodeName()
+	log.Infof("Shutting down node %s by %s", nodeName, source)
 
 	var clientset *kubernetes.Clientset
 

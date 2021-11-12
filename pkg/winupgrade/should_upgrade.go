@@ -17,22 +17,22 @@ import (
 	"context"
 	"os"
 
+	"github.com/projectcalico/node/pkg/lifecycle/utils"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/projectcalico/node/pkg/lifecycle/utils"
 
 	log "github.com/sirupsen/logrus"
 )
 
 // Exit with code zero if Windows upgrade service should be installed.
-func ShouldInstallUpgradeService() {
+func ShouldInstallUpgradeService(nodeName string) {
 	version := getVersion()
 	variant := getVariant()
 
 	// Determine the name for this node.
-	nodeName := utils.DetermineNodeName()
-	log.Debugf("Check if Calico upgrade service should be installed on node: %s. Version: %s, Variant: %s, baseDir: %s", nodeName, version, variant, baseDir())
+	nodeName, source := utils.DetermineNodeName()
+	log.Debugf("Check if Calico upgrade service should be installed on node: %s by %s. Version: %s, Variant: %s, baseDir: %s", nodeName, source, version, variant, baseDir())
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
