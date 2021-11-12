@@ -70,8 +70,8 @@ func Run() {
 	variant := getVariant()
 
 	// Determine the name for this node.
-	nodeName := utils.DetermineNodeName()
-	log.Infof("Starting Calico upgrade service on node: %s. Version: %s, Variant: %s, baseDir: %s", nodeName, version, variant, baseDir())
+	nodeName, source := utils.DetermineNodeName()
+	log.Infof("Starting Calico upgrade service on node: %s by %s. Version: %s, Variant: %s, baseDir: %s", nodeName, source, version, variant, baseDir())
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
