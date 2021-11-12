@@ -26,7 +26,7 @@ import (
 )
 
 // Exit with code zero if Windows upgrade service should be installed.
-func ShouldInstallUpgradeService(nodeName string) {
+func ShouldInstallUpgradeService() {
 	version := getVersion()
 	variant := getVariant()
 
