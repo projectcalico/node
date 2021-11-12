@@ -70,8 +70,8 @@ func Run() {
 	variant := getVariant()
 
 	// Determine the name for this node.
-	nodeName := utils.DetermineNodeName()
-	log.Infof("Starting Calico upgrade service on node: %s. Version: %s, Variant: %s, baseDir: %s", nodeName, version, variant, baseDir())
+	nodeName, source := utils.DetermineNodeName()
+	log.Infof("Starting Calico upgrade service on node: %s by %s. Version: %s, Variant: %s, baseDir: %s", nodeName, source, version, variant, baseDir())
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile())
 	if err != nil {
@@ -207,7 +207,7 @@ func kubeConfigFile() string {
 func uninstall() error {
 	path := filepath.Join(baseDir(), "uninstall-calico.ps1")
 	log.Infof("Start uninstall script %s\n", path)
-	stdout, stderr, err := powershell(path)
+	stdout, stderr, err := powershell(path + "-ExceptUpgradeService $true")
 	fmt.Println(stdout, stderr)
 	if err != nil {
 		return err

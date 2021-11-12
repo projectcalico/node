@@ -94,8 +94,8 @@ func Run() {
 	ConfigureLogging()
 
 	// Determine the name for this node.
-	nodeName := utils.DetermineNodeName()
-	log.Infof("Starting node %s with version %s", nodeName, VERSION)
+	nodeName, source := utils.DetermineNodeName()
+	log.Infof("Starting node %s by %s with version %s", nodeName, source, VERSION)
 
 	// Create the Calico API cli.
 	cfg, cli := calicoclient.CreateClient()
@@ -307,7 +307,7 @@ func configureAndCheckIPAddressSubnets(ctx context.Context, cli client.Interface
 func MonitorIPAddressSubnets() {
 	ctx := context.Background()
 	_, cli := calicoclient.CreateClient()
-	nodeName := utils.DetermineNodeName()
+	nodeName, _ := utils.DetermineNodeName()
 	node := getNode(ctx, cli, nodeName)
 
 	pollInterval := getMonitorPollInterval()
