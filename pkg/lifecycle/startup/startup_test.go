@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,27 @@ func fakeExitFunction(ec int) {
 	exitCode = ec
 }
 
+func getDefaultInterfacesToExclude() []string {
+	if runtime.GOOS == "windows" {
+		return []string{
+			".*cbr.*",
+			".*[Dd]ocker.*",
+			".*\\(nat\\).*",
+			".*Calico.*_ep", // Exclude our management endpoint.
+			"Loopback.*",
+		}
+	}
+
+	if runtime.GOOS == "linux" {
+		return []string{
+			"docker.*", "cbr.*", "dummy.*",
+			"virbr.*", "lxcbr.*", "veth.*", "lo",
+			"cali.*", "tunl.*", "flannel.*", "kube-ipvs.*", "cni.*",
+		}
+	}
+	return nil
+}
+
 // makeNode creates an libapi.Node with some BGPSpec info populated.
 func makeNode(ipv4 string, ipv6 string) *libapi.Node {
 	ip4, ip4net, _ := net.ParseCIDR(ipv4)
@@ -78,6 +100,32 @@ func makeNode(ipv4 string, ipv6 string) *libapi.Node {
 	return n
 }
 
+// makeK8sNode creates an v1.Node with some Addresses populated.
+func makeK8sNode(ipv4 string, ipv6 string) *v1.Node {
+	ip4, ip4net, _ := net.ParseCIDR(ipv4)
+	ip4net.IP = ip4.IP
+
+	ip6Addr := ""
+	if ipv6 != "" {
+		ip6, ip6net, _ := net.ParseCIDR(ipv6)
+		// Guard against nil here in case we pass in an empty string for IPv6.
+		if ip6 != nil {
+			ip6net.IP = ip6.IP
+		}
+		ip6Addr = ip6net.String()
+	}
+
+	node := &v1.Node{
+		Status: v1.NodeStatus{
+			Addresses: []v1.NodeAddress{
+				{v1.NodeInternalIP, ip4net.String()},
+				{v1.NodeInternalIP, ip6Addr},
+			},
+		},
+	}
+	return node
+}
+
 var _ = DescribeTable("Node IP detection failure cases",
 	func(networkingBackend string, expectedExitCode int, rrCId string) {
 		os.Setenv("CALICO_NETWORKING_BACKEND", networkingBackend)
@@ -100,7 +148,10 @@ var _ = DescribeTable("Node IP detection failure cases",
 		if rrCId != "" {
 			node.Spec.BGP = &libapi.NodeBGPSpec{RouteReflectorClusterID: rrCId}
 		}
-		_ = configureAndCheckIPAddressSubnets(context.Background(), c, &node)
+
+		k8sNode := v1.Node{}
+
+		_ = configureAndCheckIPAddressSubnets(context.Background(), c, &node, &k8sNode, getDefaultInterfacesToExclude())
 		Expect(my_ec).To(Equal(expectedExitCode))
 		if rrCId != "" {
 			Expect(node.Spec.BGP).NotTo(BeNil())
@@ -873,26 +924,45 @@ var _ = Describe("FV tests against a real etcd", func() {
 var _ = Describe("UT for Node IP assignment and conflict checking.", func() {
 
 	DescribeTable("Test variations on how IPs are detected.",
-		func(node *libapi.Node, items []EnvItem, expected bool) {
+		func(node *libapi.Node, k8sNode *v1.Node, items []EnvItem, expected bool) {
 
 			for _, item := range items {
 				os.Setenv(item.key, item.value)
 			}
 
-			check, err := configureIPsAndSubnets(node)
+			check, err := configureIPsAndSubnets(node, k8sNode, getDefaultInterfacesToExclude())
 
 			Expect(check).To(Equal(expected))
 			Expect(err).NotTo(HaveOccurred())
 		},
 
-		Entry("Test with no \"IP\" env var set", &libapi.Node{}, []EnvItem{{"IP", ""}}, true),
-		Entry("Test with \"IP\" env var set to IP", &libapi.Node{}, []EnvItem{{"IP", "192.168.1.10/24"}}, true),
-		Entry("Test with \"IP\" env var set to IP and BGP spec populated with same IP", makeNode("192.168.1.10/24", ""), []EnvItem{{"IP", "192.168.1.10/24"}}, false),
-		Entry("Test with \"IP\" env var set to IP and BGP spec populated with different IP", makeNode("192.168.1.10/24", ""), []EnvItem{{"IP", "192.168.1.11/24"}}, true),
-		Entry("Test with no \"IP6\" env var set", &libapi.Node{}, []EnvItem{{"IP6", ""}}, true),
-		Entry("Test with \"IP6\" env var set to IP", &libapi.Node{}, []EnvItem{{"IP6", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"}}, true),
-		Entry("Test with \"IP6\" env var set to IP and BGP spec populated with same IP", makeNode("192.168.1.10/24", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"), []EnvItem{{"IP", "192.168.1.10/24"}, {"IP6", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"}}, false),
-		Entry("Test with \"IP6\" env var set to IP and BGP spec populated with different IP", makeNode("192.168.1.10/24", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"), []EnvItem{{"IP", "192.168.1.10/24"}, {"IP6", "2001:db8:85a3:8d3:1319:8a2e:370:7349/32"}}, true),
+		Entry("Test with no \"IP\" env var set", &libapi.Node{}, &v1.Node{}, []EnvItem{{"IP", ""}}, true),
+		Entry("Test with \"IP\" env var set to IP", &libapi.Node{}, &v1.Node{}, []EnvItem{{"IP", "192.168.1.10/24"}}, true),
+		Entry("Test with \"IP\" env var set to IP and BGP spec populated with same IP", makeNode("192.168.1.10/24", ""), &v1.Node{}, []EnvItem{{"IP", "192.168.1.10/24"}}, false),
+		Entry("Test with \"IP\" env var set to IP and BGP spec populated with different IP", makeNode("192.168.1.10/24", ""), &v1.Node{}, []EnvItem{{"IP", "192.168.1.11/24"}}, true),
+		Entry("Test with no \"IP6\" env var set", &libapi.Node{}, &v1.Node{}, []EnvItem{{"IP6", ""}}, true),
+		Entry("Test with \"IP6\" env var set to IP", &libapi.Node{}, &v1.Node{}, []EnvItem{{"IP6", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"}}, true),
+		Entry("Test with \"IP6\" env var set to IP and BGP spec populated with same IP", makeNode("192.168.1.10/24", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"), &v1.Node{}, []EnvItem{{"IP", "192.168.1.10/24"}, {"IP6", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"}}, false),
+		Entry("Test with \"IP6\" env var set to IP and BGP spec populated with different IP", makeNode("192.168.1.10/24", "2001:db8:85a3:8d3:1319:8a2e:370:7348/32"), &v1.Node{}, []EnvItem{{"IP", "192.168.1.10/24"}, {"IP6", "2001:db8:85a3:8d3:1319:8a2e:370:7349/32"}}, true),
+	)
+})
+
+var _ = Describe("UT for autodetection method k8s-internal-ip", func() {
+
+	DescribeTable("Test variations on k8s-internal-ip",
+		func(node *libapi.Node, k8sNode *v1.Node, items []EnvItem, expected bool) {
+
+			for _, item := range items {
+				os.Setenv(item.key, item.value)
+			}
+
+			check, _ := configureIPsAndSubnets(node, k8sNode, getDefaultInterfacesToExclude())
+
+			Expect(check).To(Equal(expected))
+		},
+
+		Entry("Test with \"IP\" env = autodetect ,IP_AUTODETECTION_METHOD = k8s-internal-ip. k8snode = nil", &libapi.Node{}, nil, []EnvItem{{"IP", "autodetect"}, {"IP_AUTODETECTION_METHOD", "kubernetes-internal-ip"}}, false),
+		Entry("Test with \"IP\" env = autodetect ,IP_AUTODETECTION_METHOD = k8s-internal-ip. k8snode = valid addr", &libapi.Node{}, makeK8sNode("192.168.1.10", ""), []EnvItem{{"IP", "autodetect"}, {"IP_AUTODETECTION_METHOD", "k8s-internal-ip"}}, false),
 	)
 })
 
@@ -1123,7 +1193,7 @@ var _ = Describe("UT for IP and IP6", func() {
 			return []autodetection.Interface{
 				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1.2.3.4/24")}}}, nil
 		}
-		ipv4CIDROrIP, _ := getLocalCIDR(ipv4Env, version, ipv4MockInterfaces)
+		ipv4CIDROrIP, _ := autodetection.GetLocalCIDR(ipv4Env, version, ipv4MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
 	},
 		Entry("get the local cidr", "1.2.3.4", 4, "1.2.3.4/24"),
@@ -1136,7 +1206,7 @@ var _ = Describe("UT for IP and IP6", func() {
 			return []autodetection.Interface{
 				{Name: "eth1", Cidrs: []net.IPNet{net.MustParseCIDR("1:2:3:4::5/120")}}}, nil
 		}
-		ipv4CIDROrIP, _ := getLocalCIDR(ipv6Env, version, ipv6MockInterfaces)
+		ipv4CIDROrIP, _ := autodetection.GetLocalCIDR(ipv6Env, version, ipv6MockInterfaces)
 		Expect(ipv4CIDROrIP).To(Equal(exceptValue))
 	},
 		Entry("get the local cidr", "1:2:3:4::5", 6, "1:2:3:4::5/120"),
