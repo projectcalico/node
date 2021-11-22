@@ -113,7 +113,6 @@ ${kubectl} patch apiservice v3.projectcalico.org -p \
 time ${kubectl} wait pod -l k8s-app=calico-apiserver --for=condition=Ready -n calico-apiserver --timeout=30s
 echo "Calico apiserver is running."
 
-k8s-app: calico-apiserver
 ${kubectl} get po --all-namespaces -o wide
 ${kubectl} get svc
 
