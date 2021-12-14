@@ -6,12 +6,12 @@ require (
 	github.com/distribution/distribution v2.7.1+incompatible
 	github.com/kelseyhightower/confd v0.0.0-00010101000000-000000000000
 	github.com/olekukonko/tablewriter v0.0.4
-	github.com/onsi/ginkgo v1.14.1
-	github.com/onsi/gomega v1.10.1
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.15.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectcalico/api v0.0.0-20211102223522-996da60fc572
 	github.com/projectcalico/cni-plugin v1.11.1-0.20211203210749-5608d2e70664
-	github.com/projectcalico/felix v0.0.0-20211203211657-ea53c8654697
+	github.com/projectcalico/felix v0.0.0-20211214141941-166ce800138f
 	github.com/projectcalico/libcalico-go v1.7.2-0.20211201231514-3402eca9d274
 	github.com/projectcalico/typha v0.7.3-0.20211201233050-b60351824ade
 	github.com/sirupsen/logrus v1.7.0
