@@ -21,6 +21,7 @@ import (
 
 	confdConfig "github.com/kelseyhightower/confd/pkg/config"
 	confd "github.com/kelseyhightower/confd/pkg/run"
+
 	"github.com/projectcalico/node/pkg/nodeinit"
 
 	"github.com/sirupsen/logrus"
