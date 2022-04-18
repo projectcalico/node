@@ -1,5 +1,5 @@
 PACKAGE_NAME?=github.com/projectcalico/node
-GO_BUILD_VER?=v0.54
+GO_BUILD_VER?=v0.65.1
 
 ORGANIZATION=projectcalico
 SEMAPHORE_PROJECT_ID?=$(SEMAPHORE_NODE_PROJECT_ID)
@@ -53,6 +53,9 @@ Makefile.common.$(MAKE_BRANCH):
 	curl --fail $(MAKE_REPO)/Makefile.common -o "$@"
 
 include Makefile.common
+
+# Override K8S_VERSION to last available hyperkube.
+K8S_VERSION = v1.18.6
 
 ###############################################################################
 

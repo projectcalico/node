@@ -24,8 +24,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/projectcalico/node/pkg/lifecycle/startup"
 	"github.com/sirupsen/logrus"
+
+	"github.com/projectcalico/node/pkg/lifecycle/startup"
 )
 
 const bpfFSMountPoint = "/sys/fs/bpf"
