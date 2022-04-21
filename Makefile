@@ -1,5 +1,5 @@
 PACKAGE_NAME?=github.com/projectcalico/node
-GO_BUILD_VER?=v0.51
+GO_BUILD_VER?=v0.65.1
 
 # These need to be defined before the common makefile is included due to the way
 # the common makefile expands certain variables. (If they are not pre-defined then
