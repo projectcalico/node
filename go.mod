@@ -13,7 +13,7 @@ require (
 	github.com/projectcalico/libcalico-go v1.7.2-0.20220412173036-e9d17133c15c
 	github.com/projectcalico/typha v0.7.3-0.20220418162914-e75cb03c4684
 	github.com/sirupsen/logrus v1.7.0
-	github.com/vishvananda/netlink v1.1.0
+	github.com/vishvananda/netlink v1.2.1-beta.2.0.20220630165224-c591ada0fb2b
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
 	k8s.io/api v0.21.0-rc.0
